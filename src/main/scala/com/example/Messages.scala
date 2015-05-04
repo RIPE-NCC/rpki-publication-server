@@ -1,8 +1,11 @@
 package com.example
 
+import java.io.StringReader
+import javax.xml.stream.{XMLInputFactory, XMLStreamConstants}
+
+import org.codehaus.stax2.{XMLInputFactory2, XMLStreamReader2}
+
 import scala.annotation.tailrec
-import scala.io.Source
-import scala.xml.pull._
 
 case class MsgError(code: String, message: String)
 
@@ -33,30 +36,73 @@ object MsgType extends Enumeration {
   type ReplyMsg = Msg[ReplyPdu]
 }
 
+trait StaxEvent {
+}
+
+object StaxEvent {
+  def read(reader: XMLStreamReader2): StaxEvent = {
+    reader.next() match {
+      case XMLStreamConstants.START_ELEMENT => {
+        val label = reader.getName.toString
+        val nrAttrs = reader.getAttributeCount
+        val attrs = (0 until nrAttrs).map(i => {
+          val attrName = reader.getAttributeLocalName(i)
+          val value = reader.getAttributeValue(i)
+          attrName -> value
+        }).toMap
+        new ElementStart(label, attrs)
+      }
+      case XMLStreamConstants.END_ELEMENT => {
+        val label = reader.getName.toString
+        new ElementEnd(label)
+      }
+      case XMLStreamConstants.CHARACTERS => {
+        val text = reader.getText()
+        new ElementText(text)
+      }
+    }
+  }
+}
+
+case class ElementStart(label: String, attrs: Map[String, String]) extends StaxEvent {
+}
+
+case class ElementEnd(label: String) extends StaxEvent {
+}
+
+case class ElementText(text: String) extends StaxEvent {
+}
 
 object MsgXml {
 
   import MsgType.QueryMsg
 
   def parseStream(xmlString: String): QueryMsg = {
-    // TODO Replace it with a stream
-    val xml = new XMLEventReader(Source.fromString(xmlString))
+    val xmlif: XMLInputFactory2 = XMLInputFactory.newInstance() match {
+      case x: XMLInputFactory2 => x
+      case _ => throw new ClassCastException
+    }
+    val reader: XMLStreamReader2 = xmlif.createXMLStreamReader(new StringReader(xmlString)) match {
+      case x: XMLStreamReader2 => x
+      case _ => throw new ClassCastException
+    }
 
-    def parse(xml: XMLEventReader) {
+    def parse(reader: XMLStreamReader2) {
       @tailrec
       def loop(currNode: List[String]) {
-        if (xml.hasNext) {
-          xml.next() match {
-            case EvElemStart(_, label, attrs, _) =>
+        if (reader.hasNext) {
+
+          StaxEvent.read(reader) match {
+            case ElementStart(label, attrs) =>
               println("Start element: " + label)
               label match {
-                case "msg" => attrs.get("type")
+                case "msg" => attrs("type")
                 case "publish" =>
                 case "withdraw" =>
               }
 
               loop(label :: currNode)
-            case EvElemEnd(_, label) =>
+            case ElementEnd(label) =>
               println("End element: " + label)
               label match {
                 case "msg" =>
@@ -64,7 +110,7 @@ object MsgXml {
                 case "withdraw" =>
               }
               loop(currNode.tail)
-            case EvText(text) =>
+            case ElementText(text) =>
               println("Text: " + text)
               loop(currNode)
             case _ => loop(currNode)
@@ -74,7 +120,7 @@ object MsgXml {
       loop(List.empty)
     }
 
-    parse(xml)
+    parse(reader)
 
     Msg(MsgType.query, Seq())
   }
