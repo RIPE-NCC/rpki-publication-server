@@ -46,7 +46,7 @@ object StaxEvent {
   def read(reader: XMLStreamReader2): StaxEvent = {
     reader.next() match {
       case XMLStreamConstants.START_ELEMENT => {
-        val label = reader.getName.toString
+        val label = reader.getLocalName
         val nrAttrs = reader.getAttributeCount
         val attrs = (0 until nrAttrs).map(i => {
           val attrName = reader.getAttributeLocalName(i)
@@ -56,12 +56,16 @@ object StaxEvent {
         new ElementStart(label, attrs)
       }
       case XMLStreamConstants.END_ELEMENT => {
-        val label = reader.getName.toString
+        val label = reader.getLocalName
         new ElementEnd(label)
       }
       case XMLStreamConstants.CHARACTERS => {
         val text = reader.getText()
         new ElementText(text)
+      }
+      case x => {
+        println("Unknown event type: " + x)
+        null
       }
     }
   }
