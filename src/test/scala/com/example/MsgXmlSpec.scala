@@ -2,22 +2,27 @@ package com.example
 
 import org.specs2.mutable.Specification
 
-class MsgXmlSpec extends Specification {
+class MsgXmlSpec extends Specification with TestFiles {
 
-  "Xml parser should" should {
+  "Xml parser" should {
 
-    "Parse a message" in {
-      val xml =
-        """
-          |<msg type="query" version="3" xmlns="http://www.hactrn.net/uris/rpki/publication-spec/">
-          |  <publish uri="rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer">BLABLA</publish>
-          |</msg>
-        """.stripMargin
-
-      val msg: Msg = MsgXml.parse(xml)
+    "parse publish message" in {
+      val publishXml = getFile("/publish.xml")
+      val msg = MsgXml.parse(publishXml.mkString).right.get
 
       msg.msgType should be(MsgType.query)
-      msg.pdus should be(Seq(Publish("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer", Base64("BLABLA"))))
+      val publishQ = msg.pdus.head.asInstanceOf[PublishQ]
+      publishQ.uri must be_==("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer")
+      publishQ.base64.s.trim must startWith("MIIE+jCCA+KgAwIBAgIBDTANBgkqhkiG9w0BAQsFADAzMTEwLwYDVQQDEyhE")
+    }
+
+    "parse withdraw message" in {
+      val withdrawXml = getFile("/withdraw.xml")
+      val msg = MsgXml.parse(withdrawXml.mkString).right.get
+
+      msg.msgType should be(MsgType.query)
+      val withdrawQ = msg.pdus.head.asInstanceOf[WithdrawQ]
+      withdrawQ.uri must be_==("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer")
     }
 
   }
