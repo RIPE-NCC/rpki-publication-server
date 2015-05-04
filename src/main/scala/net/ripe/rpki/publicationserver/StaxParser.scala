@@ -1,4 +1,4 @@
-package com.example
+package net.ripe.rpki.publicationserver
 
 import java.io.StringReader
 import javax.xml.stream.{XMLInputFactory, XMLStreamConstants, XMLStreamReader}

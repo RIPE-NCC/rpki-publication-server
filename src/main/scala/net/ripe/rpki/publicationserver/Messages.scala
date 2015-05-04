@@ -1,4 +1,4 @@
-package com.example
+package net.ripe.rpki.publicationserver
 
 import scala.annotation.tailrec
 import scala.xml._

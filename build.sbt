@@ -1,4 +1,4 @@
-organization  := "com.example"
+organization  := "net.ripe"
 
 version       := "0.1"
 

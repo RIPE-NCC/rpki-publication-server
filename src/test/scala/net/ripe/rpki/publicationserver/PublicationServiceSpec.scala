@@ -1,18 +1,16 @@
-package com.example
+package net.ripe.rpki.publicationserver
 
-import scala.xml.Utility._
 import org.specs2.mutable.Specification
+import spray.http.StatusCodes._
 import spray.testkit.Specs2RouteTest
-import spray.http._
-import StatusCodes._
 
-class MyServiceSpec extends Specification with Specs2RouteTest with MyService with TestFiles {
+class PublicationServiceSpec extends Specification with Specs2RouteTest with PublicationService with TestFiles {
   def actorRefFactory = system
 
   // TODO Add some implmentation here
   def repository = new Repository
 
-  "MyService" should {
+  "PublicationService" should {
 
     "return an ok response for a valid publish request" in {
       val publishXml = getFile("/publish.xml")

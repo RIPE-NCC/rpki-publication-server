@@ -1,5 +1,4 @@
-package com.example
-
+package net.ripe.rpki.publicationserver
 
 class Repository {
 
