@@ -25,8 +25,8 @@ trait MyService extends HttpService {
 
   val myRoute =
     path("") {
-      get {
-        respondWithMediaType(`text/html`) { // XML is marshalled to `text/xml` by default, so we simply override here
+      post {
+        respondWithMediaType(`application/xml`) { // TODO protocol should be application/rpki-publication
           complete {
             <html>
               <body>

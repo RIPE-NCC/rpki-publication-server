@@ -11,13 +11,13 @@ class MyServiceSpec extends Specification with Specs2RouteTest with MyService {
   "MyService" should {
 
     "return a greeting for GET requests to the root path" in {
-      Get() ~> myRoute ~> check {
+      Post() ~> myRoute ~> check {
         responseAs[String] must contain("Say hello")
       }
     }
 
-    "leave GET requests to other paths unhandled" in {
-      Get("/kermit") ~> myRoute ~> check {
+    "leave POST requests to other paths unhandled" in {
+      Post("/kermit") ~> myRoute ~> check {
         handled must beFalse
       }
     }
@@ -25,7 +25,7 @@ class MyServiceSpec extends Specification with Specs2RouteTest with MyService {
     "return a MethodNotAllowed error for PUT requests to the root path" in {
       Put() ~> sealRoute(myRoute) ~> check {
         status === MethodNotAllowed
-        responseAs[String] === "HTTP method not allowed, supported methods: GET"
+        responseAs[String] === "HTTP method not allowed, supported methods: POST"
       }
     }
   }
