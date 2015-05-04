@@ -1,0 +1,62 @@
+# $Id: rpki-publication.rnc 2698 2013-12-13 23:33:07Z sra $
+# RelaxNG schema for RPKI publication protocol.
+
+default namespace = "http://www.hactrn.net/uris/rpki/publication-spec/"
+
+# This is version 3 of the protocol.
+
+version = "3"
+
+# Top level PDU is either a query or a reply.
+
+start = element msg {
+  attribute version { version } ,
+  ( ( attribute type { "query" }, query_elt* ) |
+  ( attribute type { "reply" }, reply_elt* ) )
+}
+
+# PDUs allowed in  queries and replies.
+
+query_elt = publish_query | withdraw_query
+reply_elt = publish_reply | withdraw_reply | report_error_reply
+
+# Tag attributes for bulk operations.
+
+tag = attribute tag { xsd:token { maxLength="1024" } }
+
+# Base64 encoded DER stuff.
+
+base64 = xsd:base64Binary
+
+# Publication URIs.
+
+uri = attribute uri { xsd:anyURI { maxLength="4096" } }
+
+# Handles on remote objects (replaces passing raw SQL IDs).
+
+object_handle = xsd:string {
+  maxLength = "255"
+  pattern="[\-_A-Za-z0-9/]*"
+}
+
+# Error codes.
+
+error = xsd:token { maxLength="1024" }
+
+# <publish/> element
+
+publish_query |= element publish { tag?, uri, base64 }
+publish_reply |= element publish { tag?, uri }
+
+# <withdraw/> element
+
+withdraw_query |= element withdraw { tag?, uri }
+withdraw_reply |= element withdraw { tag?, uri }
+
+# <report_error/> element
+
+report_error_reply = element report_error {
+  tag?,
+  attribute error_code { error },
+  xsd:string { maxLength="512000" }?
+}

@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  $Id: rpki-publication.rnc 2698 2013-12-13 23:33:07Z sra $
+  RelaxNG schema for RPKI publication protocol.
+-->
+<grammar ns="http://www.hactrn.net/uris/rpki/publication-spec/" xmlns="http://relaxng.org/ns/structure/1.0" datatypeLibrary="http://www.w3.org/2001/XMLSchema-datatypes">
+  <!-- This is version 3 of the protocol. -->
+  <define name="version">
+    <value>3</value>
+  </define>
+  <!-- Top level PDU is either a query or a reply. -->
+  <start>
+    <element name="msg">
+      <attribute name="version">
+        <ref name="version"/>
+      </attribute>
+      <choice>
+        <group>
+          <attribute name="type">
+            <value>query</value>
+          </attribute>
+          <zeroOrMore>
+            <ref name="query_elt"/>
+          </zeroOrMore>
+        </group>
+        <group>
+          <attribute name="type">
+            <value>reply</value>
+          </attribute>
+          <zeroOrMore>
+            <ref name="reply_elt"/>
+          </zeroOrMore>
+        </group>
+      </choice>
+    </element>
+  </start>
+  <!-- PDUs allowed in  queries and replies. -->
+  <define name="query_elt">
+    <choice>
+      <ref name="publish_query"/>
+      <ref name="withdraw_query"/>
+    </choice>
+  </define>
+  <define name="reply_elt">
+    <choice>
+      <ref name="publish_reply"/>
+      <ref name="withdraw_reply"/>
+      <ref name="report_error_reply"/>
+    </choice>
+  </define>
+  <!-- Tag attributes for bulk operations. -->
+  <define name="tag">
+    <attribute name="tag">
+      <data type="token">
+        <param name="maxLength">1024</param>
+      </data>
+    </attribute>
+  </define>
+  <!-- Base64 encoded DER stuff. -->
+  <define name="base64">
+    <data type="base64Binary"/>
+  </define>
+  <!-- Publication URIs. -->
+  <define name="uri">
+    <attribute name="uri">
+      <data type="anyURI">
+        <param name="maxLength">4096</param>
+      </data>
+    </attribute>
+  </define>
+  <!-- Handles on remote objects (replaces passing raw SQL IDs). -->
+  <define name="object_handle">
+    <data type="string">
+      <param name="maxLength">255</param>
+      <param name="pattern">[\-_A-Za-z0-9/]*</param>
+    </data>
+  </define>
+  <!-- Error codes. -->
+  <define name="error">
+    <data type="token">
+      <param name="maxLength">1024</param>
+    </data>
+  </define>
+  <!-- <publish/> element -->
+  <define name="publish_query" combine="choice">
+    <element name="publish">
+      <optional>
+        <ref name="tag"/>
+      </optional>
+      <ref name="uri"/>
+      <ref name="base64"/>
+    </element>
+  </define>
+  <define name="publish_reply" combine="choice">
+    <element name="publish">
+      <optional>
+        <ref name="tag"/>
+      </optional>
+      <ref name="uri"/>
+    </element>
+  </define>
+  <!-- <withdraw/> element -->
+  <define name="withdraw_query" combine="choice">
+    <element name="withdraw">
+      <optional>
+        <ref name="tag"/>
+      </optional>
+      <ref name="uri"/>
+    </element>
+  </define>
+  <define name="withdraw_reply" combine="choice">
+    <element name="withdraw">
+      <optional>
+        <ref name="tag"/>
+      </optional>
+      <ref name="uri"/>
+    </element>
+  </define>
+  <!-- <report_error/> element -->
+  <define name="report_error_reply">
+    <element name="report_error">
+      <optional>
+        <ref name="tag"/>
+      </optional>
+      <attribute name="error_code">
+        <ref name="error"/>
+      </attribute>
+      <optional>
+        <data type="string">
+          <param name="maxLength">512000</param>
+        </data>
+      </optional>
+    </element>
+  </define>
+</grammar>
