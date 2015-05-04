@@ -4,12 +4,9 @@ import org.specs2.mutable.Specification
 import spray.testkit.Specs2RouteTest
 import spray.http._
 import StatusCodes._
-import scala.io.Source
 
-class MyServiceSpec extends Specification with Specs2RouteTest with MyService {
+class MyServiceSpec extends Specification with Specs2RouteTest with MyService with TestFiles {
   def actorRefFactory = system
-
-  def getFile(fileName: String) = Source.fromURL(getClass.getResource(fileName))
   
   "MyService" should {
 
