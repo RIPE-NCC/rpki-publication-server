@@ -83,7 +83,7 @@ class ReplyMsg(val pdus: Seq[ReplyPdu]) extends Msg[ReplyPdu](MsgType.reply, pdu
 
 object MsgXml {
 
-  def parseStream(xmlString: String): QueryMsg = {
+  def parseStream(xmlString: String): Either[MsgError, QueryMsg] = {
     val xmlif: XMLInputFactory2 = XMLInputFactory.newInstance() match {
       case x: XMLInputFactory2 => x
       case _ => throw new ClassCastException
@@ -128,7 +128,7 @@ object MsgXml {
 
     parse(reader)
 
-    new QueryMsg(Seq())
+    Right(new QueryMsg(Seq()))
   }
 
   def parse(xmlString: String): Either[MsgError, QueryMsg] = {

@@ -8,7 +8,7 @@ class MsgXmlSpec extends Specification with TestFiles {
 
     "parse publish message" in {
       val publishXml = getFile("/publish.xml")
-      val msg = MsgXml.parse(publishXml.mkString).right.get
+      val msg = MsgXml.parseStream(publishXml.mkString).right.get
 
       msg.msgType should be(MsgType.query)
       val publishQ = msg.pdus.head.asInstanceOf[PublishQ]
@@ -18,7 +18,7 @@ class MsgXmlSpec extends Specification with TestFiles {
 
     "parse withdraw message" in {
       val withdrawXml = getFile("/withdraw.xml")
-      val msg = MsgXml.parse(withdrawXml.mkString).right.get
+      val msg = MsgXml.parseStream(withdrawXml.mkString).right.get
 
       msg.msgType should be(MsgType.query)
       val withdrawQ = msg.pdus.head.asInstanceOf[WithdrawQ]
