@@ -17,22 +17,34 @@ class MyServiceActor extends Actor with MyService {
   // other things here, like request stream processing
   // or timeout handling
   def receive = runRoute(myRoute)
-}
 
+  override def repository: Repository = {
+    // TODO Implement proper sharing
+    new Repository()
+  }
+}
 
 // this trait defines our service behavior independently from the service actor
 trait MyService extends HttpService {
 
+  def repository: Repository
+
   val myRoute =
     path("") {
       post {
-        respondWithMediaType(`application/xml`) { // TODO protocol should be application/rpki-publication
-          complete {
-            <html>
-              <body>
-                <h1>Say hello to <i>spray-routing</i> on <i>spray-can</i>!</h1>
-              </body>
-            </html>
+        // TODO protocol should be application/rpki-publication
+        respondWithMediaType(`application/xml`) {
+          entity(as[String]) { xmlMessage =>
+            val response = MsgXml.parse(xmlMessage) match {
+              case Right(msg) =>
+                val responseMsg = repository.update(msg)
+                MsgXml.serialize(responseMsg)
+              case Left(msgError) =>
+                MsgXml.serialize(msgError)
+            }
+            complete {
+              response
+            }
           }
         }
       }

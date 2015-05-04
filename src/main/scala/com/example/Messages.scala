@@ -7,11 +7,16 @@ import org.codehaus.stax2.{XMLInputFactory2, XMLStreamReader2}
 
 import scala.annotation.tailrec
 
+import scala.io.Source
+import scala.xml._
+import scala.xml.pull._
+
+
 case class MsgError(code: String, message: String)
 
 case class Base64(s: String)
 
-case class Msg[P](msgType: MsgType.MsgType, pdus: Seq[P])
+class Msg[P](val msgType: MsgType.MsgType, pdus: Seq[P])
 
 class QueryPdu()
 
@@ -31,10 +36,8 @@ object MsgType extends Enumeration {
   type MsgType = Value
   val query = Value("query")
   val reply = Value("reply")
-
-  type QueryMsg = Msg[QueryPdu]
-  type ReplyMsg = Msg[ReplyPdu]
 }
+
 
 trait StaxEvent {
 }
@@ -73,9 +76,12 @@ case class ElementEnd(label: String) extends StaxEvent {
 case class ElementText(text: String) extends StaxEvent {
 }
 
-object MsgXml {
+class QueryMsg(val pdus: Seq[QueryPdu]) extends Msg[QueryPdu](MsgType.query, pdus)
+class ReplyMsg(val pdus: Seq[ReplyPdu]) extends Msg[ReplyPdu](MsgType.reply, pdus)
 
-  import MsgType.QueryMsg
+
+
+object MsgXml {
 
   def parseStream(xmlString: String): QueryMsg = {
     val xmlif: XMLInputFactory2 = XMLInputFactory.newInstance() match {
@@ -122,7 +128,7 @@ object MsgXml {
 
     parse(reader)
 
-    Msg(MsgType.query, Seq())
+    new QueryMsg(Seq())
   }
 
   def parse(xmlString: String): Either[MsgError, QueryMsg] = {
@@ -138,23 +144,32 @@ object MsgXml {
       val publishes = (xml \ "publish").map(x => PublishQ((x \ "@uri").text, Base64(x.text)))
       val withdraws = (xml \ "withdraw").map(x => WithdrawQ((x \ "@uri").text))
 
-      Right(Msg(MsgType.query, publishes ++ withdraws))
+      Right(new QueryMsg(publishes ++ withdraws))
     }
   }
 
-  def serialize(msg: MsgType.ReplyMsg): String = {
-    val xml = <msg
-    type="reply"
-    version="3"
-    xmlns="http://www.hactrn.net/uris/rpki/publication-spec/">
-      {msg.pdus.map {
-        case PublishR(uri) => <publish uri={uri}/>
-        case WithdrawR(uri) => <withdraw uri={uri}/>
-      }}
+  def serialize(msg: ReplyMsg) = reply {
+    msg.pdus.map {
+      case PublishR(uri) => <publish uri={uri}/>
+      case WithdrawR(uri) => <withdraw uri={uri}/>
+      case ReportError(code, message) =>
+        <report_error error_code={code}>
+          {message}
+        </report_error>
+    }
+  }
+
+  def serialize(msgError: MsgError) = reply {
+    <report_error error_code={msgError.code}>
+      {msgError.message}
+    </report_error>
+  }
+
+  private def reply(pdus: => NodeSeq): Elem =
+    <msg type="reply" version="3" xmlns="http://www.hactrn.net/uris/rpki/publication-spec/">
+      {pdus}
     </msg>
 
-    xml.toString()
-  }
 
 }
 

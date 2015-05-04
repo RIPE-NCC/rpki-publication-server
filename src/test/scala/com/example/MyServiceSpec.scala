@@ -1,5 +1,6 @@
 package com.example
 
+import scala.xml.Utility._
 import org.specs2.mutable.Specification
 import spray.testkit.Specs2RouteTest
 import spray.http._
@@ -7,7 +8,10 @@ import StatusCodes._
 
 class MyServiceSpec extends Specification with Specs2RouteTest with MyService with TestFiles {
   def actorRefFactory = system
-  
+
+  // TODO Add some implmentation here
+  def repository = new Repository
+
   "MyService" should {
 
     "return an ok response for a valid publish request" in {
