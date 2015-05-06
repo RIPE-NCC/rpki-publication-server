@@ -16,7 +16,6 @@ class PublicationServiceSpec extends FunSuite with Matchers with ScalatestRouteT
 
     Post("/", publishXml.mkString) ~> myRoute ~> check {
       val response = responseAs[String]
-      println (response)
       trim(response) should be(trim(publishXmlResponse.mkString))
     }
   }
@@ -29,7 +28,6 @@ class PublicationServiceSpec extends FunSuite with Matchers with ScalatestRouteT
 
     Post("/", withdrawXml.mkString) ~> myRoute ~> check {
       val response = responseAs[String]
-      println (response)
       trim(response) should be(trim(withdrawXmlResponse.mkString))
     }
   }

@@ -30,7 +30,7 @@ object MsgType extends Enumeration {
 
 class ReplyMsg(val pdus: Seq[ReplyPdu])
 
-object MsgXml {
+object MsgParser {
 
   val Schema = Source.fromURL(getClass.getResource("/schema.rng")).mkString
 
@@ -41,30 +41,35 @@ object MsgXml {
 
     def parse(parser: StaxParser): Either[MsgError, ReplyMsg] = {
       @tailrec
-      def parseNext(uri: String, base64: Base64, pduReplies: Seq[ReplyPdu]): Option[ReplyMsg] = {
+      def parseNext(uri: String, base64: Base64, pduReplies: Seq[ReplyPdu]): Either[MsgError, ReplyMsg] = {
         if (!parser.hasNext) {
-          None
+          Left(MsgError("42", "The request does not contain a msg element")) // TODO rethink the error code
         } else {
           parser.next match {
             case ElementStart(label, attrs) =>
-              val newUri = label match {
+              val newItem = label.toLowerCase match {
                 case "msg" =>
                   val msgType = attrs("type")
 
-                  // TODO this needs to result in an error message somehow
-                  if (!MsgType.query.toString.equals(msgType)) throw new Exception("Messages of type " + msgType + " are not accepted")
-                  null
+                  if (!MsgType.query.toString.equalsIgnoreCase(msgType))
+                    Left("Messages of type " + msgType + " are not accepted")
+                  else
+                    Right(null)
 
                 case "publish" =>
-                  attrs("uri")
+                  Right(attrs("uri"))
 
                 case "withdraw" =>
-                  attrs("uri")
+                  Right(attrs("uri"))
               }
-              parseNext(newUri, null, pduReplies)
+
+              newItem match {
+                case Right(newUri) => parseNext(newUri, null, pduReplies)
+                case Left(msg) => Left(MsgError("42", msg)) // TODO rethink the error code
+              }
 
             case ElementEnd(label) =>
-              val newItem = label match {
+              val newItem = label.toLowerCase match {
                 case "msg" =>
                   Left(new ReplyMsg(pduReplies))
 
@@ -78,7 +83,7 @@ object MsgXml {
               }
 
               newItem match {
-                case Left(msg) => Some(msg)
+                case Left(msg) => Right(msg)
                 case Right(pdu) => parseNext(null, null, pdu +: pduReplies)
               }
 
@@ -90,11 +95,7 @@ object MsgXml {
         }
       }
 
-      val result = parseNext(null, null, Seq())
-      result match {
-        case Some(msg) => Right(msg)
-        case None => Left(MsgError("42", "The message was empty")) // TODO rethink the message and the code
-      }
+      parseNext(null, null, Seq())
     }
 
     parse(parser)
@@ -122,6 +123,4 @@ object MsgXml {
       {pdus}
     </msg>
 
-
 }
-

@@ -35,11 +35,11 @@ trait PublicationService extends HttpService {
       post {
         respondWithMediaType(RpkiPublicationType) {
           entity(as[String]) { xmlMessage =>
-            val response = MsgXml.process(xmlMessage, repository.update) match {
+            val response = MsgParser.process(xmlMessage, repository.update) match {
               case Right(msg) =>
-                MsgXml.serialize(msg)
+                MsgParser.serialize(msg)
               case Left(msgError) =>
-                MsgXml.serialize(msgError)
+                MsgParser.serialize(msgError)
             }
             complete {
               response

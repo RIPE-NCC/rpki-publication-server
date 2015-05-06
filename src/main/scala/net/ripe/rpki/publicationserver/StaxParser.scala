@@ -48,7 +48,8 @@ object StaxEvent {
 
   def readFrom(reader: XMLStreamReader): StaxEvent = {
     reader.next() match {
-      case XMLStreamConstants.START_ELEMENT => {
+
+      case XMLStreamConstants.START_ELEMENT =>
         val label = reader.getLocalName
         val nrAttrs = reader.getAttributeCount
         val attrs = (0 until nrAttrs).map(i => {
@@ -57,15 +58,15 @@ object StaxEvent {
           attrName -> value
         }).toMap
         new ElementStart(label, attrs)
-      }
-      case XMLStreamConstants.END_ELEMENT => {
+
+      case XMLStreamConstants.END_ELEMENT =>
         val label = reader.getLocalName
         new ElementEnd(label)
-      }
-      case XMLStreamConstants.CHARACTERS => {
+
+      case XMLStreamConstants.CHARACTERS =>
         val text = reader.getText()
         new ElementText(text)
-      }
+
       case _ => null
     }
   }
