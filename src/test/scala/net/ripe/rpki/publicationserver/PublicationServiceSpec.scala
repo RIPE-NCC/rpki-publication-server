@@ -1,46 +1,45 @@
 package net.ripe.rpki.publicationserver
 
-import org.specs2.mutable.Specification
 import spray.http.StatusCodes._
-import spray.testkit.Specs2RouteTest
+import spray.testkit.{ScalatestRouteTest, Specs2RouteTest}
 
-class PublicationServiceSpec extends Specification with Specs2RouteTest with PublicationService with TestFiles {
+import org.scalatest.{FunSuite, Matchers}
+
+class PublicationServiceSpec extends FunSuite with Matchers with ScalatestRouteTest with PublicationService with TestFiles {
   def actorRefFactory = system
 
   // TODO Add some implmentation here
   def repository = new Repository
 
-  "PublicationService" should {
-
-    "return an ok response for a valid publish request" in {
+    test ("should return an ok response for a valid publish request") {
       val publishXml = getFile("/publish.xml")
       val publishXmlResponse = getFile("/publishResponse.xml")
 
       Post("/", publishXml.mkString) ~> myRoute ~> check {
-        responseAs[String] must be(publishXmlResponse.mkString)
+        responseAs[String] should be(publishXmlResponse.mkString)
       }
     }
 
-    "return an ok response for a valid withdraw request" in {
+   test ("should return an ok response for a valid withdraw request") {
       val withdrawXml = getFile("/withdraw.xml")
       val withdrawXmlResponse = getFile("/withdrawResponse.xml")
 
       Post("/", withdrawXml.mkString) ~> myRoute ~> check {
-        responseAs[String] must be(withdrawXmlResponse.mkString)
+        responseAs[String] should be(withdrawXmlResponse.mkString)
       }
     }
 
-    "leave POST requests to other paths unhandled" in {
+   test ("should leave POST requests to other paths unhandled") {
       Post("/kermit") ~> myRoute ~> check {
-        handled must beFalse
+        handled should be(false)
       }
     }
 
-    "return a MethodNotAllowed error for PUT requests to the root path" in {
+   test ("return a MethodNotAllowed error for PUT requests to the root path") {
       Put() ~> sealRoute(myRoute) ~> check {
         status === MethodNotAllowed
         responseAs[String] === "HTTP method not allowed, supported methods: POST"
       }
     }
-  }
+
 }
