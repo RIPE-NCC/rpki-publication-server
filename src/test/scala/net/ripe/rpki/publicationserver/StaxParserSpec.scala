@@ -3,13 +3,17 @@ package net.ripe.rpki.publicationserver
 import com.ctc.wstx.exc.WstxValidationException
 import org.scalatest._
 
-class StaxParserSpec extends FunSuite with Matchers with TestFiles {
+class StaxParserSpec extends FunSuite with Matchers with TestFiles with BeforeAndAfter {
 
-    test("should parse and validate my xml file") {
+  var schema: String = _
+
+  before {
+    // .rnc can't be handled by Woodstox or Stax. And the only schema that the .rnc could be converted to without loss of information, is .rng ...
+     schema = getFile("/schema.rng").mkString
+  }
+
+  test("should parse and validate my xml file") {
       val publishXml = getFile("/publish.xml")
-
-      // .rnc can't be handled by Woodstox or Stax. And the only schema that the .rnc could be converted to without loss of information, is .rng ...
-      val schema = getFile("/schema.rng")
 
       val parser = StaxParser.createFor(publishXml.mkString, schema.mkString)
 
@@ -22,8 +26,6 @@ class StaxParserSpec extends FunSuite with Matchers with TestFiles {
 
     test("should raise an exception when the request is invalid") {
       val invalidXml = getFile("/invalidRequest.xml")
-
-      val schema = getFile("/schema.rng")
 
       val parser = StaxParser.createFor(invalidXml.mkString, schema.mkString)
 

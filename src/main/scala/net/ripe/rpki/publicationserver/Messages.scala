@@ -35,9 +35,24 @@ object MsgParser {
   val Schema = Source.fromURL(getClass.getResource("/schema.rng")).mkString
 
   def process(xmlString: String, pduHandler: QueryPdu => ReplyPdu): Either[MsgError, ReplyMsg] = {
-    // The StaxParser will make make sure that the message is validated against the schema while we are reading it:
-    // this way our parsing code can rely on the assumption that the xml is valid
-    val parser = StaxParser.createFor(xmlString, Schema)
+
+    def parseElementStart(label: String, attrs: Map[String, String]): Either[String, String] = {
+      label.toLowerCase match {
+        case "msg" =>
+          val msgType = attrs("type")
+
+          if (!MsgType.query.toString.equalsIgnoreCase(msgType))
+            Left("Messages of type " + msgType + " are not accepted")
+          else
+            Right(null)
+
+        case "publish" =>
+          Right(attrs("uri"))
+
+        case "withdraw" =>
+          Right(attrs("uri"))
+      }
+    }
 
     def parse(parser: StaxParser): Either[MsgError, ReplyMsg] = {
       @tailrec
@@ -47,25 +62,11 @@ object MsgParser {
         } else {
           parser.next match {
             case ElementStart(label, attrs) =>
-              val newItem = label.toLowerCase match {
-                case "msg" =>
-                  val msgType = attrs("type")
-
-                  if (!MsgType.query.toString.equalsIgnoreCase(msgType))
-                    Left("Messages of type " + msgType + " are not accepted")
-                  else
-                    Right(null)
-
-                case "publish" =>
-                  Right(attrs("uri"))
-
-                case "withdraw" =>
-                  Right(attrs("uri"))
-              }
+              val newItem = parseElementStart(label, attrs)
 
               newItem match {
                 case Right(newUri) => parseNext(newUri, null, pduReplies)
-                case Left(msg) => Left(MsgError("42", msg)) // TODO rethink the error code
+                case Left(errorMsg) => Left(MsgError("42", errorMsg)) // TODO rethink the error code
               }
 
             case ElementEnd(label) =>
@@ -97,6 +98,10 @@ object MsgParser {
 
       parseNext(null, null, Seq())
     }
+
+    // The StaxParser will make make sure that the message is validated against the schema while we are reading it:
+    // this way our parsing code can rely on the assumption that the xml is valid
+    val parser = StaxParser.createFor(xmlString, Schema)
 
     parse(parser)
   }
