@@ -8,17 +8,15 @@ case class MsgError(code: String, message: String)
 
 case class Base64(s: String)
 
-class Msg[P](val msgType: MsgType.MsgType, pdus: Seq[P])
-
 class QueryPdu()
-
-class ReplyPdu()
 
 case class PublishQ(uri: String, base64: Base64) extends QueryPdu
 
-case class PublishR(uri: String) extends ReplyPdu
-
 case class WithdrawQ(uri: String) extends QueryPdu
+
+class ReplyPdu()
+
+case class PublishR(uri: String) extends ReplyPdu
 
 case class WithdrawR(uri: String) extends ReplyPdu
 
@@ -30,70 +28,76 @@ object MsgType extends Enumeration {
   val reply = Value("reply")
 }
 
-class QueryMsg(val pdus: Seq[QueryPdu]) extends Msg[QueryPdu](MsgType.query, pdus)
-class ReplyMsg(val pdus: Seq[ReplyPdu]) extends Msg[ReplyPdu](MsgType.reply, pdus)
-
+class ReplyMsg(val pdus: Seq[ReplyPdu])
 
 object MsgXml {
 
-  val Schema = Source.fromURL(getClass.getResource("/schema.rng"))
+  val Schema = Source.fromURL(getClass.getResource("/schema.rng")).mkString
 
-  def parseStream(xmlString: String): Either[MsgError, QueryMsg] = {
-    val parser = StaxParser.createFor(xmlString, Schema.mkString)
+  def process(xmlString: String, pduHandler: QueryPdu => ReplyPdu): Either[MsgError, ReplyMsg] = {
+    // The StaxParser will make make sure that the message is validated against the schema while we are reading it:
+    // this way our parsing code can rely on the assumption that the xml is valid
+    val parser = StaxParser.createFor(xmlString, Schema)
 
-    def parse(parser: StaxParser) {
+    def parse(parser: StaxParser): Either[MsgError, ReplyMsg] = {
       @tailrec
-      def loop(currNode: List[String]) {
-        if (parser.hasNext) {
-
+      def parseNext(uri: String, base64: Base64, pduReplies: Seq[ReplyPdu]): Option[ReplyMsg] = {
+        if (!parser.hasNext) {
+          None
+        } else {
           parser.next match {
             case ElementStart(label, attrs) =>
-              println("Start element: " + label)
-              label match {
-                case "msg" => attrs("type")
+              val newUri = label match {
+                case "msg" =>
+                  val msgType = attrs("type")
+
+                  // TODO this needs to result in an error message somehow
+                  if (!MsgType.query.toString.equals(msgType)) throw new Exception("Messages of type " + msgType + " are not accepted")
+                  null
+
                 case "publish" =>
+                  attrs("uri")
+
                 case "withdraw" =>
+                  attrs("uri")
+              }
+              parseNext(newUri, null, pduReplies)
+
+            case ElementEnd(label) =>
+              val newItem = label match {
+                case "msg" =>
+                  Left(new ReplyMsg(pduReplies))
+
+                case "publish" =>
+                  val pdu = new PublishQ(uri, base64)
+                  Right(pduHandler(pdu))
+
+                case "withdraw" =>
+                  val pdu = new WithdrawQ(uri)
+                  Right(pduHandler(pdu))
               }
 
-              loop(label :: currNode)
-            case ElementEnd(label) =>
-              println("End element: " + label)
-              label match {
-                case "msg" =>
-                case "publish" =>
-                case "withdraw" =>
+              newItem match {
+                case Left(msg) => Some(msg)
+                case Right(pdu) => parseNext(null, null, pdu +: pduReplies)
               }
-              loop(currNode.tail)
+
             case ElementText(text) =>
-              println("Text: " + text)
-              loop(currNode)
-            case _ => loop(currNode)
+              parseNext(uri, Base64.apply(text), pduReplies)
+
+            case _ => parseNext(uri, base64, pduReplies)
           }
         }
       }
-      loop(List.empty)
+
+      val result = parseNext(null, null, Seq())
+      result match {
+        case Some(msg) => Right(msg)
+        case None => Left(MsgError("42", "The message was empty")) // TODO rethink the message and the code
+      }
     }
 
     parse(parser)
-
-    Right(new QueryMsg(Seq()))
-  }
-
-  def parse(xmlString: String): Either[MsgError, QueryMsg] = {
-    val xml = try
-      Right(scala.xml.XML.loadString(xmlString))
-    catch {
-      case e: Exception =>
-        e.printStackTrace()
-        Left(MsgError(e.getMessage, "Could not parse XML"))
-    }
-
-    xml.right.flatMap { xml =>
-      val publishes = (xml \ "publish").map(x => PublishQ((x \ "@uri").text, Base64(x.text)))
-      val withdraws = (xml \ "withdraw").map(x => WithdrawQ((x \ "@uri").text))
-
-      Right(new QueryMsg(publishes ++ withdraws))
-    }
   }
 
   def serialize(msg: ReplyMsg) = reply {

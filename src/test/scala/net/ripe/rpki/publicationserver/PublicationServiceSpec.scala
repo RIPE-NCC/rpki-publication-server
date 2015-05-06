@@ -1,45 +1,50 @@
 package net.ripe.rpki.publicationserver
 
-import spray.http.StatusCodes._
-import spray.testkit.{ScalatestRouteTest, Specs2RouteTest}
-
 import org.scalatest.{FunSuite, Matchers}
+import spray.http.StatusCodes._
+import spray.testkit.ScalatestRouteTest
 
 class PublicationServiceSpec extends FunSuite with Matchers with ScalatestRouteTest with PublicationService with TestFiles {
   def actorRefFactory = system
 
-  // TODO Add some implmentation here
+  // TODO Add some implementation here
   def repository = new Repository
 
-    test ("should return an ok response for a valid publish request") {
-      val publishXml = getFile("/publish.xml")
-      val publishXmlResponse = getFile("/publishResponse.xml")
+  test("should return an ok response for a valid publish request") {
+    val publishXml = getFile("/publish.xml")
+    val publishXmlResponse = getFile("/publishResponse.xml")
 
-      Post("/", publishXml.mkString) ~> myRoute ~> check {
-        responseAs[String] should be(publishXmlResponse.mkString)
-      }
+    Post("/", publishXml.mkString) ~> myRoute ~> check {
+      val response = responseAs[String]
+      println (response)
+      trim(response) should be(trim(publishXmlResponse.mkString))
     }
+  }
 
-   test ("should return an ok response for a valid withdraw request") {
-      val withdrawXml = getFile("/withdraw.xml")
-      val withdrawXmlResponse = getFile("/withdrawResponse.xml")
+  def trim(s: String): String = s.filterNot(c => c == ' ' || c == '\n')
 
-      Post("/", withdrawXml.mkString) ~> myRoute ~> check {
-        responseAs[String] should be(withdrawXmlResponse.mkString)
-      }
+  test("should return an ok response for a valid withdraw request") {
+    val withdrawXml = getFile("/withdraw.xml")
+    val withdrawXmlResponse = getFile("/withdrawResponse.xml")
+
+    Post("/", withdrawXml.mkString) ~> myRoute ~> check {
+      val response = responseAs[String]
+      println (response)
+      trim(response) should be(trim(withdrawXmlResponse.mkString))
     }
+  }
 
-   test ("should leave POST requests to other paths unhandled") {
-      Post("/kermit") ~> myRoute ~> check {
-        handled should be(false)
-      }
+  test("should leave POST requests to other paths unhandled") {
+    Post("/kermit") ~> myRoute ~> check {
+      handled should be(false)
     }
+  }
 
-   test ("return a MethodNotAllowed error for PUT requests to the root path") {
-      Put() ~> sealRoute(myRoute) ~> check {
-        status === MethodNotAllowed
-        responseAs[String] === "HTTP method not allowed, supported methods: POST"
-      }
+  test("return a MethodNotAllowed error for PUT requests to the root path") {
+    Put() ~> sealRoute(myRoute) ~> check {
+      status === MethodNotAllowed
+      responseAs[String] === "HTTP method not allowed, supported methods: POST"
     }
+  }
 
 }
