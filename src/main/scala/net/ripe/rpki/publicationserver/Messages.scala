@@ -1,6 +1,7 @@
 package net.ripe.rpki.publicationserver
 
 import scala.annotation.tailrec
+import scala.io.Source
 import scala.xml._
 
 case class MsgError(code: String, message: String)
@@ -35,8 +36,10 @@ class ReplyMsg(val pdus: Seq[ReplyPdu]) extends Msg[ReplyPdu](MsgType.reply, pdu
 
 object MsgXml {
 
+  val Schema = Source.fromURL(getClass.getResource("/schema.rng"))
+
   def parseStream(xmlString: String): Either[MsgError, QueryMsg] = {
-    val parser = StaxParser.createFor(xmlString, null) // TODO add rng
+    val parser = StaxParser.createFor(xmlString, Schema.mkString)
 
     def parse(parser: StaxParser) {
       @tailrec
