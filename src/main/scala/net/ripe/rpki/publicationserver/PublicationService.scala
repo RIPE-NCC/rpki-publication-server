@@ -1,9 +1,8 @@
 package net.ripe.rpki.publicationserver
 
 import akka.actor.Actor
-import spray.routing._
 import spray.http._
-import MediaTypes._
+import spray.routing._
 
 // we don't implement our route structure directly in the service actor because
 // we want to be able to test it independently, without having to spin up an actor
@@ -24,16 +23,17 @@ class PublicationServiceActor extends Actor with PublicationService {
   }
 }
 
-// this trait defines our service behavior independently from the service actor
 trait PublicationService extends HttpService {
+
+  val RpkiPublicationType = MediaType.custom("application/rpki-publication")
+  MediaTypes.register(RpkiPublicationType)
 
   def repository: Repository
 
   val myRoute =
     path("") {
       post {
-        // TODO protocol should be application/rpki-publication
-        respondWithMediaType(`application/xml`) {
+        respondWithMediaType(RpkiPublicationType) {
           entity(as[String]) { xmlMessage =>
             val response = MsgXml.parse(xmlMessage) match {
               case Right(msg) =>
