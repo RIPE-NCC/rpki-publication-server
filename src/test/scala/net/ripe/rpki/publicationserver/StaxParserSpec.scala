@@ -1,6 +1,6 @@
 package net.ripe.rpki.publicationserver
 
-import scala.util.{Failure, Success, Try}
+import com.ctc.wstx.exc.WstxValidationException
 import org.scalatest._
 
 class StaxParserSpec extends FunSuite with Matchers with TestFiles {
@@ -29,12 +29,11 @@ class StaxParserSpec extends FunSuite with Matchers with TestFiles {
 
       parser should not be null
 
-      Try (
+      val thrown = intercept[WstxValidationException] {
         while (parser.hasNext) parser.next
-      ) match {
-        case Success(_) => false
-        case Failure(_) => true
       }
+
+      thrown.getMessage should include ("tag name \"foo\" is not allowed")
     }
 
 }
