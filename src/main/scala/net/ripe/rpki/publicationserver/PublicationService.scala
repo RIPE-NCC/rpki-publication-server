@@ -1,6 +1,8 @@
 package net.ripe.rpki.publicationserver
 
 import akka.actor.Actor
+import grizzled.slf4j.{Logger, Logging}
+import spray.http.HttpHeaders.`Content-Type`
 import spray.http._
 import spray.routing._
 
@@ -18,29 +20,49 @@ class PublicationServiceActor extends Actor with PublicationService {
   }
 }
 
-trait PublicationService extends HttpService {
+trait PublicationService extends HttpService with Logging {
 
-  val RpkiPublicationType = MediaType.custom("application/rpki-publication")
+  val MediaTypeString = "application/rpki-publication"
+  val RpkiPublicationType = MediaType.custom(MediaTypeString)
   MediaTypes.register(RpkiPublicationType)
+
+  val serviceLogger = Logger("PublicationService")
 
   def repository: Repository
 
   val myRoute =
     path("") {
       post {
-        respondWithMediaType(RpkiPublicationType) {
-          entity(as[String]) { xmlMessage =>
-            val response = MsgParser.process(xmlMessage, repository.update) match {
-              case Right(msg) =>
-                MsgParser.serialize(msg)
-              case Left(msgError) =>
-                MsgParser.serialize(msgError)
-            }
-            complete {
-              response
-            }
+        // TODO for some reason posts are not handled when the headerValue function is invoked
+        // headerValue(checkContentType) { _ =>
+          respondWithMediaType(RpkiPublicationType) {
+            entity(as[String])(processRequest)
           }
-        }
+        //}
       }
     }
+
+  def processRequest(xmlMessage: String): StandardRoute = {
+    val response = MsgParser.process(xmlMessage, repository.update) match {
+      case Right(msg) =>
+        MsgParser.serialize(msg)
+      case Left(msgError) =>
+        MsgParser.serialize(msgError)
+    }
+    complete {
+      response
+    }
+  }
+
+  def checkContentType: (HttpHeader) => Some[ContentType] = {
+
+    case `Content-Type`(ct) =>
+      if (!MediaTypeString.equals(ct.mediaType.toString())) {
+        serviceLogger.warn("Request uses wrong media type: " + ct.mediaType.toString())
+      }
+      Some(ct)
+    case _ =>
+      serviceLogger.warn("Request does not specify content-type")
+      Some(null)
+  }
 }
