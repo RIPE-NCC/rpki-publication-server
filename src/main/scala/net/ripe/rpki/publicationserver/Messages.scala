@@ -36,13 +36,13 @@ object MsgParser {
 
   def process(xmlString: String, pduHandler: QueryPdu => ReplyPdu): Either[MsgError, ReplyMsg] = {
 
-    def parseElementStart(label: String, attrs: Map[String, String]): Either[String, String] = {
+    def parseElementStart(label: String, attrs: Map[String, String]): Either[MsgError, String] = {
       label.toLowerCase match {
         case "msg" =>
           val msgType = attrs("type")
 
           if (!MsgType.query.toString.equalsIgnoreCase(msgType))
-            Left("Messages of type " + msgType + " are not accepted")
+            Left(MsgError("Wrong query type", "Messages of type " + msgType + " are not accepted"))
           else
             Right(null)
 
@@ -58,7 +58,7 @@ object MsgParser {
       @tailrec
       def parseNext(uri: String, base64: Base64, pduReplies: Seq[ReplyPdu]): Either[MsgError, ReplyMsg] = {
         if (!parser.hasNext) {
-          Left(MsgError("42", "The request does not contain a msg element")) // TODO rethink the error code
+          Left(MsgError("No msg element", "The request does not contain a msg element"))
         } else {
           parser.next match {
             case ElementStart(label, attrs) =>
@@ -66,7 +66,7 @@ object MsgParser {
 
               newItem match {
                 case Right(newUri) => parseNext(newUri, null, pduReplies)
-                case Left(errorMsg) => Left(MsgError("42", errorMsg)) // TODO rethink the error code
+                case Left(errorMsg) => Left(errorMsg)
               }
 
             case ElementEnd(label) =>
