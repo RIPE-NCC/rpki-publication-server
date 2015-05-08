@@ -33,12 +33,11 @@ trait PublicationService extends HttpService with Logging {
   val myRoute =
     path("") {
       post {
-        // TODO for some reason posts are not handled when the headerValue function is invoked
-        // headerValue(checkContentType) { _ =>
+        optionalHeaderValue(getContentType) { _ =>
           respondWithMediaType(RpkiPublicationType) {
             entity(as[String])(processRequest)
           }
-        //}
+        }
       }
     }
 
@@ -54,7 +53,7 @@ trait PublicationService extends HttpService with Logging {
     }
   }
 
-  def checkContentType: (HttpHeader) => Some[ContentType] = {
+  def getContentType(header : HttpHeader) : Some[ContentType] = header match {
 
     case `Content-Type`(ct) =>
       if (!MediaTypeString.equals(ct.mediaType.toString())) {

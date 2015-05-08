@@ -1,6 +1,7 @@
 package net.ripe.rpki.publicationserver
 
 import org.scalatest.{FunSuite, Matchers}
+import spray.http.{MediaTypes, HttpEntity}
 import spray.http.StatusCodes._
 import spray.testkit.ScalatestRouteTest
 
@@ -9,6 +10,9 @@ class PublicationServiceSpec extends FunSuite with Matchers with ScalatestRouteT
 
   // TODO Add some implementation here
   def repository = new Repository
+
+
+  // TODO check that warning is logged for wrong mediatype, check that correct mediatype is set in the response
 
   test("should return an ok response for a valid publish request") {
     val publishXml = getFile("/publish.xml")
