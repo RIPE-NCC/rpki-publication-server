@@ -1,24 +1,55 @@
 package net.ripe.rpki.publicationserver
 
+
+import org.mockito.Mockito._
+import org.scalatest.mock.MockitoSugar
 import org.scalatest.{FunSuite, Matchers}
-import spray.http.{MediaTypes, HttpEntity}
-import spray.http.StatusCodes._
+import org.slf4j.Logger
+import spray.http._
 import spray.testkit.ScalatestRouteTest
 
-class PublicationServiceSpec extends FunSuite with Matchers with ScalatestRouteTest with PublicationService with TestFiles {
+class PublicationServiceSpec extends FunSuite with Matchers with ScalatestRouteTest with TestFiles with MockitoSugar {
   def actorRefFactory = system
 
   // TODO Add some implementation here
   def repository = new Repository
 
+  trait Context {
+    def actorRefFactory = system
 
-  // TODO check that warning is logged for wrong mediatype, check that correct mediatype is set in the response
+    def repository = new Repository
+  }
+
+  def publicationService =  new PublicationService with Context
+
+  test("should return a response with content-type application/rpki-publication") {
+    val publishXml = getFile("/publish.xml")
+
+    Post("/", publishXml.mkString) ~> publicationService.myRoute ~> check {
+      contentType.toString() should include("application/rpki-publication")
+    }
+  }
+
+  test("should log a warning when the wrong media type is used in the request") {
+    val logSpy = mock[Logger](RETURNS_SMART_NULLS)
+
+    val service = new PublicationService with Context {
+      override val serviceLogger = logSpy
+    }
+
+    val publishXml = getFile("/publish.xml")
+    val contentType = HttpHeaders.`Content-Type`(ContentType(MediaTypes.`application/xml`))
+
+    HttpRequest(HttpMethods.POST, "/", List(contentType), publishXml.mkString) ~> service.myRoute ~> check {
+      verify(logSpy).warn("Request uses wrong media type: application/xml")
+    }
+  }
 
   test("should return an ok response for a valid publish request") {
     val publishXml = getFile("/publish.xml")
     val publishXmlResponse = getFile("/publishResponse.xml")
 
-    Post("/", publishXml.mkString) ~> myRoute ~> check {
+    Post("/", publishXml.mkString) ~> publicationService.myRoute ~> check {
       val response = responseAs[String]
       trim(response) should be(trim(publishXmlResponse.mkString))
     }
@@ -30,22 +61,15 @@ class PublicationServiceSpec extends FunSuite with Matchers with ScalatestRouteT
     val withdrawXml = getFile("/withdraw.xml")
     val withdrawXmlResponse = getFile("/withdrawResponse.xml")
 
-    Post("/", withdrawXml.mkString) ~> myRoute ~> check {
+    Post("/", withdrawXml.mkString) ~> publicationService.myRoute ~> check {
       val response = responseAs[String]
       trim(response) should be(trim(withdrawXmlResponse.mkString))
     }
   }
 
   test("should leave POST requests to other paths unhandled") {
-    Post("/kermit") ~> myRoute ~> check {
+    Post("/kermit") ~> publicationService.myRoute ~> check {
       handled should be(false)
-    }
-  }
-
-  test("return a MethodNotAllowed error for PUT requests to the root path") {
-    Put() ~> sealRoute(myRoute) ~> check {
-      status === MethodNotAllowed
-      responseAs[String] === "HTTP method not allowed, supported methods: POST"
     }
   }
 

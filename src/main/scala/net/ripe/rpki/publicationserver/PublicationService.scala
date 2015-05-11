@@ -1,7 +1,7 @@
 package net.ripe.rpki.publicationserver
 
 import akka.actor.Actor
-import grizzled.slf4j.{Logger, Logging}
+import org.slf4j.Logger
 import spray.http.HttpHeaders.`Content-Type`
 import spray.http._
 import spray.routing._
@@ -20,23 +20,30 @@ class PublicationServiceActor extends Actor with PublicationService {
   }
 }
 
-trait PublicationService extends HttpService with Logging {
+trait PublicationService extends HttpService {
 
   val MediaTypeString = "application/rpki-publication"
   val RpkiPublicationType = MediaType.custom(MediaTypeString)
   MediaTypes.register(RpkiPublicationType)
 
-  val serviceLogger = Logger("PublicationService")
+  val serviceLogger = org.slf4j.LoggerFactory.getLogger("PublicationService")
 
   def repository: Repository
+
+  def handlePost = {
+    respondWithMediaType(RpkiPublicationType) {
+      entity(as[String])(processRequest)
+    }
+  }
 
   val myRoute =
     path("") {
       post {
-        optionalHeaderValue(getContentType) { _ =>
-          respondWithMediaType(RpkiPublicationType) {
-            entity(as[String])(processRequest)
+        optionalHeaderValue(checkContentType) { ct =>
+          if (!ct.isDefined) {
+            serviceLogger.warn("Request does not specify content-type")
           }
+          handlePost
         }
       }
     }
@@ -53,15 +60,13 @@ trait PublicationService extends HttpService with Logging {
     }
   }
 
-  def getContentType(header : HttpHeader) : Some[ContentType] = header match {
+  def checkContentType(header: HttpHeader): Option[ContentType] = header match {
 
     case `Content-Type`(ct) =>
       if (!MediaTypeString.equals(ct.mediaType.toString())) {
         serviceLogger.warn("Request uses wrong media type: " + ct.mediaType.toString())
       }
       Some(ct)
-    case _ =>
-      serviceLogger.warn("Request does not specify content-type")
-      Some(null)
+    case _ => None
   }
 }

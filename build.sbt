@@ -19,9 +19,11 @@ libraryDependencies ++= {
     "com.typesafe.akka"     %% "akka-actor"       % akkaV,
     "com.typesafe.akka"     %% "akka-testkit"     % akkaV     % "test",
     "org.scalatest"         %% "scalatest"        % "2.0"     % "test",
+    "org.mockito"           % "mockito-all"       % "1.9.5"   % "test",
     "org.codehaus.woodstox" % "woodstox-core-asl" % "4.4.1",
     "com.sun.xml.bind"      % "jaxb1-impl"        % "2.2.5.1",
-    "org.clapper"           %% "grizzled-slf4j"   % "1.0.2"
+    "org.slf4j"             % "slf4j-api"         % "1.7.12",
+    "org.slf4j"             % "slf4j-log4j12"     % "1.7.12"
   )
 }
 
