@@ -11,13 +11,8 @@ import spray.testkit.ScalatestRouteTest
 class PublicationServiceSpec extends FunSuite with Matchers with ScalatestRouteTest with TestFiles with MockitoSugar {
   def actorRefFactory = system
 
-  // TODO Add some implementation here
-  def repository = new Repository
-
   trait Context {
     def actorRefFactory = system
-
-    def repository = new Repository
   }
 
   def publicationService =  new PublicationService with Context

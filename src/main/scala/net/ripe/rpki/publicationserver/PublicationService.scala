@@ -13,12 +13,9 @@ class PublicationServiceActor extends Actor with PublicationService {
   def actorRefFactory = context
 
   def receive = runRoute(myRoute)
-
-  override def repository: Repository = {
-    // TODO Implement proper sharing
-    new Repository()
-  }
 }
+
+import com.softwaremill.macwire.MacwireMacros._
 
 trait PublicationService extends HttpService {
 
@@ -28,7 +25,9 @@ trait PublicationService extends HttpService {
 
   val serviceLogger = LoggerFactory.getLogger("PublicationService")
 
-  def repository: Repository
+  val repository = wire[Repository]
+
+  val msgParser = wire[MsgParser]
 
   def handlePost = {
     respondWithMediaType(RpkiPublicationType) {
@@ -50,13 +49,13 @@ trait PublicationService extends HttpService {
     }
 
   def processRequest(xmlMessage: String): StandardRoute = {
-    val response = MsgParser.process(xmlMessage, repository.update) match {
+    val response = msgParser.process(xmlMessage, repository.update) match {
       case Right(msg) =>
         serviceLogger.info("Request handled successfully")
-        MsgParser.serialize(msg)
+        msgParser.serialize(msg)
       case Left(msgError) =>
         serviceLogger.warn("Error while handling request: " + msgError)
-        MsgParser.serialize(msgError)
+        msgParser.serialize(msgError)
     }
     complete {
       response

@@ -30,7 +30,7 @@ object MsgType extends Enumeration {
 
 class ReplyMsg(val pdus: Seq[ReplyPdu])
 
-object MsgParser {
+class MsgParser {
 
   val Schema = Source.fromURL(getClass.getResource("/schema.rng")).mkString
 
