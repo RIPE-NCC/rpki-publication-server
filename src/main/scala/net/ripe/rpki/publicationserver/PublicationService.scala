@@ -1,10 +1,10 @@
 package net.ripe.rpki.publicationserver
 
 import akka.actor.Actor
-import org.slf4j.Logger
 import spray.http.HttpHeaders.`Content-Type`
 import spray.http._
 import spray.routing._
+import org.slf4j.LoggerFactory
 
 // we don't implement our route structure directly in the service actor because
 // we want to be able to test it independently, without having to spin up an actor
@@ -26,7 +26,7 @@ trait PublicationService extends HttpService {
   val RpkiPublicationType = MediaType.custom(MediaTypeString)
   MediaTypes.register(RpkiPublicationType)
 
-  val serviceLogger = org.slf4j.LoggerFactory.getLogger("PublicationService")
+  val serviceLogger = LoggerFactory.getLogger("PublicationService")
 
   def repository: Repository
 
@@ -40,6 +40,7 @@ trait PublicationService extends HttpService {
     path("") {
       post {
         optionalHeaderValue(checkContentType) { ct =>
+          serviceLogger.info("Post request received")
           if (!ct.isDefined) {
             serviceLogger.warn("Request does not specify content-type")
           }
@@ -51,8 +52,10 @@ trait PublicationService extends HttpService {
   def processRequest(xmlMessage: String): StandardRoute = {
     val response = MsgParser.process(xmlMessage, repository.update) match {
       case Right(msg) =>
+        serviceLogger.info("Request handled successfully")
         MsgParser.serialize(msg)
       case Left(msgError) =>
+        serviceLogger.warn("Error while handling request: " + msgError)
         MsgParser.serialize(msgError)
     }
     complete {
