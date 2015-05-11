@@ -15,7 +15,6 @@ class MsgParserSpec extends FunSuite with Matchers with TestFiles {
 
     val publishR = msg.pdus.head.asInstanceOf[PublishR]
     publishR.uri should be("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer")
-    //publishQ.base64.s.trim should startWith("MIIE+jCCA+KgAwIBAgIBDTANBgkqhkiG9w0BAQsFADAzMTEwLwYDVQQDEyhE")
   }
 
   test("should parse withdraw message") {
@@ -23,7 +22,6 @@ class MsgParserSpec extends FunSuite with Matchers with TestFiles {
     val msg = MsgParser.process(withdrawXml.mkString, dummyRepo).right.get
 
     val withdrawR = msg.pdus.head.asInstanceOf[WithdrawR]
-    //withdrawQ.uri should be("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer")
   }
 
 }

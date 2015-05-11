@@ -1,0 +1,5 @@
+<msg type="reply" version="3" xmlns="http://www.hactrn.net/uris/rpki/publication-spec/">
+  <report_error error_code="Wrong query type">
+    Messages of type reply are not accepted
+  </report_error>
+</msg>

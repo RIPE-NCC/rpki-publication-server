@@ -67,6 +67,16 @@ class PublicationServiceSpec extends FunSuite with Matchers with ScalatestRouteT
     }
   }
 
+  test("should return an error response for a invalid publish request") {
+    val invalidPublishXml = getFile("/publishResponse.xml")
+    val publishError = getFile("/errorResponse.xml")
+
+    Post("/", invalidPublishXml.mkString) ~> publicationService.myRoute ~> check {
+      val response = responseAs[String]
+      trim(response) should be(trim(publishError.mkString))
+    }
+  }
+
   test("should leave POST requests to other paths unhandled") {
     Post("/kermit") ~> publicationService.myRoute ~> check {
       handled should be(false)
