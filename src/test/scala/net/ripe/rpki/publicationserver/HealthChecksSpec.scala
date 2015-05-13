@@ -1,9 +1,8 @@
 package net.ripe.rpki.publicationserver
 
-import org.scalatest.{FunSuite, Matchers}
 import spray.json._
 
-class HealthChecksSpec extends FunSuite with Matchers with TestUtils {
+class HealthChecksSpec extends PublicationServerBaseSpec {
   val healthChecks = new HealthChecks()
 
   test("should return build info in json format") {

@@ -1,9 +1,8 @@
 package net.ripe.rpki.publicationserver
 
 import com.ctc.wstx.exc.WstxValidationException
-import org.scalatest._
 
-class StaxParserSpec extends FunSuite with Matchers with TestUtils with BeforeAndAfter {
+class StaxParserSpec extends PublicationServerBaseSpec {
 
   var schema: String = _
 

@@ -1,8 +1,6 @@
 package net.ripe.rpki.publicationserver
 
-import org.scalatest.{FunSuite, Matchers}
-
-class MsgParserSpec extends FunSuite with Matchers with TestUtils {
+class MsgParserSpec extends PublicationServerBaseSpec {
 
   val msgParser = new MsgParser
 

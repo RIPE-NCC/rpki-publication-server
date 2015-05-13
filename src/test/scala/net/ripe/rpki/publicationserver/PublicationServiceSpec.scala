@@ -1,14 +1,11 @@
 package net.ripe.rpki.publicationserver
 
-
 import org.mockito.Mockito._
-import org.scalatest.mock.MockitoSugar
-import org.scalatest.{FunSuite, Matchers}
 import org.slf4j.Logger
 import spray.http._
 import spray.testkit.ScalatestRouteTest
 
-class PublicationServiceSpec extends FunSuite with Matchers with ScalatestRouteTest with TestUtils with MockitoSugar {
+class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRouteTest {
   def actorRefFactory = system
 
   trait Context {
