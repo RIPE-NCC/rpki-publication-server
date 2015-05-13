@@ -54,7 +54,7 @@ trait PublicationService extends HttpService {
         serviceLogger.info("Request handled successfully")
         msgParser.serialize(msg)
       case Left(msgError) =>
-        serviceLogger.warn("Error while handling request: " + msgError)
+        serviceLogger.warn("Error while handling request: {}", msgError)
         msgParser.serialize(msgError)
     }
     complete(response)
@@ -63,7 +63,7 @@ trait PublicationService extends HttpService {
   private def checkContentType(header: HttpHeader): Option[ContentType] = header match {
     case `Content-Type`(ct) =>
       if (!MediaTypeString.equals(ct.mediaType.toString())) {
-        serviceLogger.warn("Request uses wrong media type: " + ct.mediaType.toString())
+        serviceLogger.warn("Request uses wrong media type: {}", ct.mediaType.toString())
       }
       Some(ct)
     case _ => None

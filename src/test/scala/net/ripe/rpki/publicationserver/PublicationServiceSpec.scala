@@ -33,7 +33,7 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
     val contentType = HttpHeaders.`Content-Type`(ContentType(MediaTypes.`application/xml`))
 
     HttpRequest(HttpMethods.POST, "/", List(contentType), publishXml.mkString) ~> service.myRoute ~> check {
-      verify(logSpy).warn("Request uses wrong media type: application/xml")
+      verify(logSpy).warn("Request uses wrong media type: {}", "application/xml")
     }
   }
 
