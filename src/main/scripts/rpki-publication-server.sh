@@ -152,7 +152,7 @@ case ${FIRST_ARG} in
 
         info "Starting ${APP_NAME}..."
         info "writing logs under log directory"
-        info "Publication server is available on port 8091"
+        info "Publication server is available on port 8090"
 
         CLASSPATH=:"$LIB_DIR/*"
         MEM_OPTIONS="-Xms$JVM_XMS -Xmx$JVM_XMX"
