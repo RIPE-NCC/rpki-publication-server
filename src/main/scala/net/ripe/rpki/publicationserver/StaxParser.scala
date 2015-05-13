@@ -44,6 +44,8 @@ case class ElementEnd(label: String) extends StaxEvent
 
 case class ElementText(text: String) extends StaxEvent
 
+case class UnknownEvent(code: Int) extends StaxEvent
+
 object StaxEvent {
 
   def readFrom(reader: XMLStreamReader): StaxEvent = {
@@ -67,7 +69,7 @@ object StaxEvent {
         val text = reader.getText()
         new ElementText(text)
 
-      case _ => null
+      case whatever => new UnknownEvent(whatever)
     }
   }
 }
