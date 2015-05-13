@@ -25,7 +25,8 @@ libraryDependencies ++= {
     "org.slf4j"                 % "slf4j-api"         % "1.7.12",
     "org.slf4j"                 % "slf4j-log4j12"     % "1.7.12",
     "com.softwaremill.macwire" %% "macros"            % "0.7.3",
-    "com.softwaremill.macwire" %% "runtime"           % "0.7.3"
+    "com.softwaremill.macwire" %% "runtime"           % "0.7.3",
+    "io.spray"                 %% "spray-json"        % "1.3.2"
   )
 }
 

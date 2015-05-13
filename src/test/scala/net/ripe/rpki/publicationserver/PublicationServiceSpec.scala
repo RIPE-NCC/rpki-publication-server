@@ -8,14 +8,14 @@ import org.slf4j.Logger
 import spray.http._
 import spray.testkit.ScalatestRouteTest
 
-class PublicationServiceSpec extends FunSuite with Matchers with ScalatestRouteTest with TestFiles with MockitoSugar {
+class PublicationServiceSpec extends FunSuite with Matchers with ScalatestRouteTest with TestUtils with MockitoSugar {
   def actorRefFactory = system
 
   trait Context {
     def actorRefFactory = system
   }
 
-  def publicationService =  new PublicationService with Context
+  def publicationService = new PublicationService with Context
 
   test("should return a response with content-type application/rpki-publication") {
     val publishXml = getFile("/publish.xml")
@@ -50,8 +50,6 @@ class PublicationServiceSpec extends FunSuite with Matchers with ScalatestRouteT
     }
   }
 
-  def trim(s: String): String = s.filterNot(c => c == ' ' || c == '\n')
-
   test("should return an ok response for a valid withdraw request") {
     val withdrawXml = getFile("/withdraw.xml")
     val withdrawXmlResponse = getFile("/withdrawResponse.xml")
@@ -78,4 +76,16 @@ class PublicationServiceSpec extends FunSuite with Matchers with ScalatestRouteT
     }
   }
 
+  test("should return a health check response") {
+    Get("/monitoring/healthcheck") ~> publicationService.myRoute ~> check {
+      val response = responseAs[String]
+      trim(response) should be(trim( """
+        {
+          "buildNumber": "dev",
+          "buildTimestamp": "dev",
+          "revisionNumber": "dev",
+          "host": "guest7.guestnet.ripe.net"
+        }"""))
+    }
+  }
 }

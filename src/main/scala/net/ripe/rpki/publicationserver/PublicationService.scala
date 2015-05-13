@@ -1,10 +1,10 @@
 package net.ripe.rpki.publicationserver
 
 import akka.actor.Actor
+import org.slf4j.LoggerFactory
 import spray.http.HttpHeaders.`Content-Type`
 import spray.http._
 import spray.routing._
-import org.slf4j.LoggerFactory
 
 // we don't implement our route structure directly in the service actor because
 // we want to be able to test it independently, without having to spin up an actor
@@ -29,6 +29,8 @@ trait PublicationService extends HttpService {
 
   val msgParser = wire[MsgParser]
 
+  val healthChecks = wire[HealthChecks]
+
   def handlePost = {
     respondWithMediaType(RpkiPublicationType) {
       entity(as[String])(processRequest)
@@ -46,7 +48,15 @@ trait PublicationService extends HttpService {
           handlePost
         }
       }
+    } ~
+    path("monitoring" / "healthcheck") {
+      get {
+        val response = healthChecks.healthString
+        complete {
+          response
+        }
     }
+  }
 
   def processRequest(xmlMessage: String): StandardRoute = {
     val response = msgParser.process(xmlMessage, repository.update) match {
