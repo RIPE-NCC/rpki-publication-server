@@ -14,7 +14,7 @@ class StaxParserSpec extends PublicationServerBaseSpec {
   test("should parse and validate my xml file") {
       val publishXml = getFile("/publish.xml")
 
-      val parser = StaxParser.createFor(publishXml.mkString, schema.mkString)
+      val parser = StaxParser.createFor(publishXml.mkString, schema)
 
       parser should not be null
 
@@ -26,7 +26,7 @@ class StaxParserSpec extends PublicationServerBaseSpec {
     test("should raise an exception when the request is invalid") {
       val invalidXml = getFile("/invalidRequest.xml")
 
-      val parser = StaxParser.createFor(invalidXml.mkString, schema.mkString)
+      val parser = StaxParser.createFor(invalidXml.mkString, schema)
 
       parser should not be null
 

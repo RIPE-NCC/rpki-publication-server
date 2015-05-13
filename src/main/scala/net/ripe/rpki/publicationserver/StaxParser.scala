@@ -16,24 +16,24 @@ class StaxParser(reader: XMLStreamReader) {
 
 object StaxParser {
 
-  def createFor(xmlString: String, rngString: String): StaxParser = {
-    val xmlif: XMLInputFactory2 = XMLInputFactory.newInstance() match {
-      case x: XMLInputFactory2 => x
-      case _ => throw new ClassCastException
-    }
-    val reader: XMLStreamReader2 = xmlif.createXMLStreamReader(new StringReader(xmlString)) match {
-      case x: XMLStreamReader2 => x
-      case _ => throw new ClassCastException
-    }
+    def createFor(xmlString: String, rngString: String): StaxParser = {
+      val xmlif: XMLInputFactory2 = XMLInputFactory.newInstance() match {
+        case x: XMLInputFactory2 => x
+        case _ => throw new ClassCastException
+      }
+      val reader: XMLStreamReader2 = xmlif.createXMLStreamReader(new StringReader(xmlString)) match {
+        case x: XMLStreamReader2 => x
+        case _ => throw new ClassCastException
+      }
 
-    if (rngString != null) {
-      val sf = XMLValidationSchemaFactory.newInstance(XMLValidationSchema.SCHEMA_ID_RELAXNG)
-      val rnc = sf.createSchema(new StringReader(rngString))
-      reader.validateAgainst(rnc)
-    }
+      if (rngString != null) {
+        val sf = XMLValidationSchemaFactory.newInstance(XMLValidationSchema.SCHEMA_ID_RELAXNG)
+        val rnc = sf.createSchema(new StringReader(rngString))
+        reader.validateAgainst(rnc)
+      }
 
-    new StaxParser(reader)
-  }
+      new StaxParser(reader)
+    }
 }
 
 trait StaxEvent
@@ -49,7 +49,8 @@ case class UnknownEvent(code: Int) extends StaxEvent
 object StaxEvent {
 
   def readFrom(reader: XMLStreamReader): StaxEvent = {
-    reader.next() match {
+    // Unfortunately the synchronizing is needed because the Woodstox parser's validating is not thread safe, not even across readers.
+    getClass.synchronized(reader.next()) match {
 
       case XMLStreamConstants.START_ELEMENT =>
         val label = reader.getLocalName
