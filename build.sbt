@@ -6,7 +6,10 @@ scalaVersion := "2.11.6"
 
 scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8")
 
+enablePlugins(UniversalPlugin)
+
 resolvers += "Codehaus Maven2 Repository" at "http://repository.codehaus.org/"
+
 resolvers += "JCenter" at "http://jcenter.bintray.com/"
 
 libraryDependencies ++= {
@@ -31,3 +34,4 @@ libraryDependencies ++= {
 }
 
 Revolver.settings: Seq[sbt.Setting[_]]
+
