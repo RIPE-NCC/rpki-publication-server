@@ -44,15 +44,17 @@ sourceGenerators in Compile += Def.task {
   val code = s"""package net.ripe.rpki.publicationserver
                 object GeneratedBuildInformation {
                 val version = "${version.value}"
-                val buildDate = "${now}"
-                val revision = "${rev}"
+                val buildDate = "$now"
+                val revision = "$rev"
             }""".stripMargin
   IO.write(generatedFile, code.getBytes)
   Seq(generatedFile)
 }.taskValue
 
+Revolver.settings: Seq[sbt.Setting[_]]
+
 // Package the initd script. Note: the Universal plugin will make anything in a bin/ directory executable.
 mappings in Universal += file("src/main/scripts/rpki-publication-server.sh") -> "bin/rpki-publication-server.sh"
 
-Revolver.settings: Seq[sbt.Setting[_]]
+mappings in Universal += file("src/main/resources/application.conf") -> "conf/rpki-publication-server.default.conf"
 
