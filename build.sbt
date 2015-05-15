@@ -33,12 +33,26 @@ libraryDependencies ++= {
   )
 }
 
-Revolver.settings: Seq[sbt.Setting[_]]
+// Generate the GeneratedBuildInformation object
+import java.util.Date
+import java.text.SimpleDateFormat
 
+sourceGenerators in Compile += Def.task {
+  val generatedFile = (sourceManaged in Compile).value / "net.ripe.rpki.publicationserver" /"GeneratedBuildInformation.scala"
+  val now = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date())
+  val rev = "git rev-parse HEAD".!!.trim()
+  val code = s"""package net.ripe.rpki.publicationserver
+                object GeneratedBuildInformation {
+                val version = "${version.value}"
+                val buildDate = "${now}"
+                val revision = "${rev}"
+            }""".stripMargin
+  IO.write(generatedFile, code.getBytes)
+  Seq(generatedFile)
+}.taskValue
 
 // Package the initd script. Note: the Universal plugin will make anything in a bin/ directory executable.
 mappings in Universal += file("src/main/scripts/rpki-publication-server.sh") -> "bin/rpki-publication-server.sh"
 
-// Package the build.properties file
-//mappings in Universal += file("build.properties") -> "build.properties"
+Revolver.settings: Seq[sbt.Setting[_]]
 

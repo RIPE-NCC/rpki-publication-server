@@ -17,13 +17,11 @@ class HealthChecks {
 
   def healthString: String = {
     val buildInformation = BuildInformation(
-      buildNumber = systemProperty("build.number"),
-      buildTimestamp = systemProperty("build.timestamp"),
-      revisionNumber = systemProperty("revision.number"),
+      buildNumber = GeneratedBuildInformation.version,
+      buildTimestamp = GeneratedBuildInformation.buildDate,
+      revisionNumber = GeneratedBuildInformation.revision,
       host = InetAddress.getLocalHost.getHostName
     )
     buildInformation.toJson.prettyPrint
   }
-
-  private def systemProperty(key: String) = sys.props.getOrElse(key, "dev")
 }
