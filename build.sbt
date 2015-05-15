@@ -1,6 +1,6 @@
 organization := "net.ripe"
 
-version := "0.1"
+version := sys.props.getOrElse("build.number", "DEV")
 
 scalaVersion := "2.11.6"
 
