@@ -109,28 +109,10 @@ function parse_config_line {
     eval "$2=$VALUE"
 }
 
-function parse_jvm_options {
-    parse_optional_config_line "jvm.proxy.socks.host" JVM_SOCKS_PROXY_HOST
-    parse_optional_config_line "jvm.proxy.socks.port" JVM_SOCKS_PROXY_PORT
-
-    parse_optional_config_line "jvm.proxy.http.host" JVM_HTTP_PROXY_HOST
-    parse_optional_config_line "jvm.proxy.http.port" JVM_HTTP_PROXY_PORT
-
-    JVM_OPTIONS="-Dapp.name=${APP_NAME} -Dconfig.file=$CONFIG_FILE"
-    if [[ -n $JVM_SOCKS_PROXY_HOST && -n $JVM_SOCKS_PROXY_PORT ]]; then
-        JVM_OPTIONS="$JVM_OPTIONS -DsocksProxyHost=$JVM_SOCKS_PROXY_HOST -DsocksProxyPort=$JVM_SOCKS_PROXY_PORT"
-    elif [[ -n $JVM_HTTP_PROXY_HOST && -n $JVM_HTTP_PROXY_PORT ]]; then
-        JVM_OPTIONS="$JVM_OPTIONS -Dhttp.proxyHost=$JVM_HTTP_PROXY_HOST -Dhttp.proxyPort=$JVM_HTTP_PROXY_PORT"
-    fi
-}
-
-parse_config_line "locations.libdir" LIB_DIR
 parse_config_line "locations.pidfile" PID_FILE
 
 parse_config_line "jvm.memory.initial" JVM_XMS
 parse_config_line "jvm.memory.maximum" JVM_XMX
-
-parse_jvm_options
 
 #
 # Determine if the application is already running
@@ -154,12 +136,16 @@ case ${FIRST_ARG} in
         info "writing logs under log directory"
         info "Publication server is available on port 8090"
 
-        CLASSPATH=:"$LIB_DIR/*"
+        # in the beginning of the script we do "cd <path>/bin",
+        # so "lib" will always be next to it
+        CLASSPATH=:"../lib/*"
         MEM_OPTIONS="-Xms$JVM_XMS -Xmx$JVM_XMX"
 
-        CMDLINE="${JAVA_CMD} ${JVM_OPTIONS} ${MEM_OPTIONS} ${JAVA_OPTS} \
+        CMDLINE="${JAVA_CMD} ${MEM_OPTIONS} \
                  -Dapp.name=${APP_NAME} -Dconfig.file=${CONFIG_FILE} \
                  -classpath ${CLASSPATH} net.ripe.rpki.publicationserver.Boot"
+
+        echo "CMDLINE=${CMDLINE}"
 
         if [ ${FIRST_ARG} == "start" ]; then
             ${CMDLINE} &
