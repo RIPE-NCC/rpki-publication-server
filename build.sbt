@@ -1,5 +1,7 @@
 organization := "net.ripe"
 
+name := "rpki-publication-server"
+
 version := sys.props.getOrElse("build.number", "DEV")
 
 scalaVersion := "2.11.6"
