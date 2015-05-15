@@ -6,7 +6,7 @@ scalaVersion := "2.11.6"
 
 scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8")
 
-enablePlugins(UniversalPlugin)
+enablePlugins(UniversalPlugin, JavaServerAppPackaging)
 
 resolvers += "Codehaus Maven2 Repository" at "http://repository.codehaus.org/"
 
@@ -34,4 +34,11 @@ libraryDependencies ++= {
 }
 
 Revolver.settings: Seq[sbt.Setting[_]]
+
+
+// Package the initd script. Note: the Universal plugin will make anything in a bin/ directory executable.
+mappings in Universal += file("src/main/scripts/rpki-publication-server.sh") -> "bin/rpki-publication-server.sh"
+
+// Package the build.properties file
+//mappings in Universal += file("build.properties") -> "build.properties"
 
