@@ -15,5 +15,5 @@ object Boot extends App {
 
   implicit val timeout = Timeout(5.seconds)
 
-  IO(Http) ? Http.Bind(service, interface = "::0", port = 7777)
+  IO(Http) ? Http.Bind(service, interface = "::0", port = 7788)
 }
