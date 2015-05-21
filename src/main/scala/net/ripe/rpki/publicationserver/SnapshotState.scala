@@ -2,11 +2,13 @@ package net.ripe.rpki.publicationserver
 
 import java.util.concurrent.atomic.AtomicReference
 
+import scala.xml.{Elem, Node}
+
 case class SessionId(id: String)
 
 case class Hash(h: String)
 
-class SnapshotState(sessionId: SessionId, serial: BigInt, pdus: Map[String, (Base64, Hash)]) {
+case class SnapshotState(sessionId: SessionId, serial: BigInt, pdus: Map[String, (Base64, Hash)]) {
   def apply(queries: Seq[QueryPdu]): Either[MsgError, SnapshotState] = {
     val newPdus = queries.foldLeft[Either[MsgError, Map[String, (Base64, Hash)]]](Right(pdus)) { (pduMap, query) =>
       pduMap.right.flatMap { m =>
@@ -69,6 +71,19 @@ object SnapshotState {
     newState
   }
 
+  def serialize(state: SnapshotState) = snapshotXml (
+    state.sessionId,
+    state.serial,
+    state.pdus.map { e =>
+      val (hash, (uri, base64)) = e
+      <publish uri={uri.toString} hash={hash.toString}>{base64}</publish>
+    }
+  )
+
+  private def snapshotXml(sessionId: SessionId, serial: BigInt, pdus: => Iterable[Node]): Elem =
+    <delta xmlns="HTTP://www.ripe.net/rpki/rrdp" version="1" session_id={sessionId.id} serial={serial.toString}>
+      {pdus}
+    </delta>
 }
 
 
