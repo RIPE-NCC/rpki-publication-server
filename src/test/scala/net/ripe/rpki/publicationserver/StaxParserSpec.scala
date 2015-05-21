@@ -11,7 +11,7 @@ class StaxParserSpec extends PublicationServerBaseSpec {
     // To convert the rnc from the publication server draft to rng, download a trang.jar from http://www.thaiopensource.com/relaxng/trang.html
     // and execute it like this:
     // java -jar trang.jar -I rnc -O rng schema.rnc schema.rng
-    schema = getFile("/publication-schema.rng").mkString
+    schema = getFile("/rpki-publication-schema.rng").mkString
   }
 
   test("should parse and validate my publish xml file") {

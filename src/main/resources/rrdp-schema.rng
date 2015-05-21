@@ -1,69 +1,136 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--  -->
-<!-- RelaxNG schema for RPKI Repository Delta Protocol (RRDP). -->
-<!--  -->
-<define name="version" xmlns="http://relaxng.org/ns/structure/1.0"
-    ns="HTTP://www.ripe.net/rpki/rrdp"
-    datatypeLibrary="http://www.w3.org/2001/XMLSchema-datatypes">
-  <data type="positiveInteger"/>
-</define>
-<define name="serial">
-  <data type="nonNegativeInteger"/>
-</define>
-<define name="uri">
-  <data type="anyURI"/>
-</define>
-<define name="uuid">
-  <data type="string">
-    <param name="pattern">[\-0-9a-fA-F]+</param>
-  </data>
-</define>
-<define name="hash">
-  <data type="string">
-    <param name="pattern">[0-9a-fA-F]+</param>
-  </data>
-</define>
-<define name="base64">
-  <choice>
+<!--
+  
+  RelaxNG schema for RPKI Repository Delta Protocol (RRDP).
+  
+-->
+<grammar ns="HTTP://www.ripe.net/rpki/rrdp" xmlns="http://relaxng.org/ns/structure/1.0" datatypeLibrary="http://www.w3.org/2001/XMLSchema-datatypes">
+  <define name="version">
+    <data type="positiveInteger">
+      <param name="maxInclusive">1</param>
+    </data>
+  </define>
+  <define name="serial">
+    <data type="nonNegativeInteger"/>
+  </define>
+  <define name="uri">
+    <data type="anyURI"/>
+  </define>
+  <define name="uuid">
+    <data type="string">
+      <param name="pattern">[\-0-9a-fA-F]+</param>
+    </data>
+  </define>
+  <define name="hash">
+    <data type="string">
+      <param name="pattern">[0-9a-fA-F]+</param>
+    </data>
+  </define>
+  <define name="base64">
     <data type="base64Binary"/>
-    <!-- Notification file: lists current snapshots and deltas -->
-    <ref name="start"/>
+  </define>
+  <!-- Notification file: lists current snapshots and deltas -->
+  <start combine="choice">
     <element name="notification">
-        <element name="snapshot">
-
+      <attribute name="version">
+        <ref name="version"/>
+      </attribute>
+      <attribute name="session_id">
+        <ref name="uuid"/>
+      </attribute>
+      <attribute name="serial">
+        <ref name="serial"/>
+      </attribute>
+      <element name="snapshot">
+        <attribute name="uri">
+          <ref name="uri"/>
+        </attribute>
+        <attribute name="hash">
+          <ref name="hash"/>
+        </attribute>
+      </element>
+      <zeroOrMore>
+        <element name="delta">
+          <attribute name="serial">
+            <ref name="serial"/>
+          </attribute>
+          <attribute name="uri">
+            <ref name="uri"/>
+          </attribute>
+          <attribute name="hash">
+            <ref name="hash"/>
+          </attribute>
         </element>
-        <zeroOrMore>
-          <element name="delta">
-
-          </element>
-        </zeroOrMore>
+      </zeroOrMore>
     </element>
-    <!-- Snapshot segment: think DNS AXFR. -->
-    <ref name="start"/>
+  </start>
+  <!-- Snapshot segment: think DNS AXFR. -->
+  <start combine="choice">
     <element name="snapshot">
-        <zeroOrMore>
-          <element name="publish">
-              <ref name="base64"/>
-          </element>
-        </zeroOrMore>
+      <attribute name="version">
+        <ref name="version"/>
+      </attribute>
+      <attribute name="session_id">
+        <ref name="uuid"/>
+      </attribute>
+      <attribute name="serial">
+        <ref name="serial"/>
+      </attribute>
+      <zeroOrMore>
+        <element name="publish">
+          <attribute name="uri">
+            <ref name="uri"/>
+          </attribute>
+          <ref name="base64"/>
+        </element>
+      </zeroOrMore>
     </element>
-    <!-- Delta segment: think DNS IXFR. -->
-    <ref name="start"/>
+  </start>
+  <!-- Delta segment: think DNS IXFR. -->
+  <start combine="choice">
     <element name="delta">
+      <attribute name="version">
+        <ref name="version"/>
+      </attribute>
+      <attribute name="session_id">
+        <ref name="uuid"/>
+      </attribute>
+      <attribute name="serial">
+        <ref name="serial"/>
+      </attribute>
+      <oneOrMore>
         <ref name="delta_element"/>
+      </oneOrMore>
     </element>
-    <ref name="delta_element"/>
+  </start>
+  <define name="delta_element" combine="choice">
     <element name="publish">
-        <ref name="base64"/>
+      <attribute name="uri">
+        <ref name="uri"/>
+      </attribute>
+      <optional>
+        <attribute name="hash">
+          <ref name="hash"/>
+        </attribute>
+      </optional>
+      <ref name="base64"/>
     </element>
-    <ref name="delta_element"/>
+  </define>
+  <define name="delta_element" combine="choice">
     <element name="withdraw">
-
+      <attribute name="uri">
+        <ref name="uri"/>
+      </attribute>
+      <attribute name="hash">
+        <ref name="hash"/>
+      </attribute>
     </element>
-    <!-- Local Variables: -->
-    <!-- indent-tabs-mode: nil -->
-    <!-- comment-start: "# " -->
-    <!-- comment-start-skip: "#[ \t]*" -->
-    <!-- End: -->
-  </choice>
-</define>
+  </define>
+</grammar>
+<!--
+  Local Variables:
+  indent-tabs-mode: nil
+  comment-start: "# "
+  comment-start-skip: "#[ \t]*"
+  End:
+-->

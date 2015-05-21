@@ -1,0 +1,8 @@
+<msg
+    type="reply"
+    version="3"
+    xmlns="http://www.hactrn.net/uris/rpki/publication-spec/">
+  <withdraw
+      tag="123"
+      uri="rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"/>
+</msg>
