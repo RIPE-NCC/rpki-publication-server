@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  $Id: rpki-publication.rnc 2698 2013-12-13 23:33:07Z sra $
+  $Id: rpki-publication.rnc 3171 2015-02-26 00:09:05Z sra $
   RelaxNG schema for RPKI publication protocol.
 -->
 <grammar ns="http://www.hactrn.net/uris/rpki/publication-spec/" xmlns="http://relaxng.org/ns/structure/1.0" datatypeLibrary="http://www.w3.org/2001/XMLSchema-datatypes">
@@ -9,29 +9,30 @@
     <value>3</value>
   </define>
   <!-- Top level PDU is either a query or a reply. -->
-  <start>
+  <start combine="choice">
     <element name="msg">
       <attribute name="version">
         <ref name="version"/>
       </attribute>
-      <choice>
-        <group>
-          <attribute name="type">
-            <value>query</value>
-          </attribute>
-          <zeroOrMore>
-            <ref name="query_elt"/>
-          </zeroOrMore>
-        </group>
-        <group>
-          <attribute name="type">
-            <value>reply</value>
-          </attribute>
-          <zeroOrMore>
-            <ref name="reply_elt"/>
-          </zeroOrMore>
-        </group>
-      </choice>
+      <attribute name="type">
+        <value>query</value>
+      </attribute>
+      <zeroOrMore>
+        <ref name="query_elt"/>
+      </zeroOrMore>
+    </element>
+  </start>
+  <start combine="choice">
+    <element name="msg">
+      <attribute name="version">
+        <ref name="version"/>
+      </attribute>
+      <attribute name="type">
+        <value>reply</value>
+      </attribute>
+      <zeroOrMore>
+        <ref name="reply_elt"/>
+      </zeroOrMore>
     </element>
   </start>
   <!-- PDUs allowed in  queries and replies. -->
@@ -39,13 +40,15 @@
     <choice>
       <ref name="publish_query"/>
       <ref name="withdraw_query"/>
+      <ref name="list_query"/>
     </choice>
   </define>
   <define name="reply_elt">
     <choice>
       <ref name="publish_reply"/>
       <ref name="withdraw_reply"/>
-      <ref name="report_error_reply"/>
+      <ref name="list_reply"/>
+      <ref name="error_reply"/>
     </choice>
   </define>
   <!-- Tag attributes for bulk operations. -->
@@ -68,12 +71,13 @@
       </data>
     </attribute>
   </define>
-  <!-- Handles on remote objects (replaces passing raw SQL IDs). -->
-  <define name="object_handle">
-    <data type="string">
-      <param name="maxLength">255</param>
-      <param name="pattern">[\-_A-Za-z0-9/]*</param>
-    </data>
+  <!-- Digest of an existing object (hexadecimal). -->
+  <define name="hash">
+    <attribute name="hash">
+      <data type="string">
+        <param name="pattern">[0-9a-fA-F]+</param>
+      </data>
+    </attribute>
   </define>
   <!-- Error codes. -->
   <define name="error">
@@ -82,16 +86,19 @@
     </data>
   </define>
   <!-- <publish/> element -->
-  <define name="publish_query" combine="choice">
+  <define name="publish_query">
     <element name="publish">
       <optional>
         <ref name="tag"/>
       </optional>
       <ref name="uri"/>
+      <optional>
+        <ref name="hash"/>
+      </optional>
       <ref name="base64"/>
     </element>
   </define>
-  <define name="publish_reply" combine="choice">
+  <define name="publish_reply">
     <element name="publish">
       <optional>
         <ref name="tag"/>
@@ -100,7 +107,16 @@
     </element>
   </define>
   <!-- <withdraw/> element -->
-  <define name="withdraw_query" combine="choice">
+  <define name="withdraw_query">
+    <element name="withdraw">
+      <optional>
+        <ref name="tag"/>
+      </optional>
+      <ref name="uri"/>
+      <ref name="hash"/>
+    </element>
+  </define>
+  <define name="withdraw_reply">
     <element name="withdraw">
       <optional>
         <ref name="tag"/>
@@ -108,16 +124,25 @@
       <ref name="uri"/>
     </element>
   </define>
-  <define name="withdraw_reply" combine="choice">
-    <element name="withdraw">
+  <!-- <list/> element -->
+  <define name="list_query">
+    <element name="list">
+      <optional>
+        <ref name="tag"/>
+      </optional>
+    </element>
+  </define>
+  <define name="list_reply">
+    <element name="list">
       <optional>
         <ref name="tag"/>
       </optional>
       <ref name="uri"/>
+      <ref name="hash"/>
     </element>
   </define>
   <!-- <report_error/> element -->
-  <define name="report_error_reply">
+  <define name="error_reply">
     <element name="report_error">
       <optional>
         <ref name="tag"/>
