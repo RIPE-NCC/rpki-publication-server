@@ -1,10 +1,10 @@
 package net.ripe.rpki.publicationserver
 
-import java.io.StringReader
+import java.io.{Reader, StringReader}
 import javax.xml.stream.{XMLInputFactory, XMLStreamConstants, XMLStreamReader}
 
 import org.codehaus.stax2.validation.{XMLValidationSchema, XMLValidationSchemaFactory}
-import org.codehaus.stax2.{XMLStreamReader2, XMLInputFactory2}
+import org.codehaus.stax2.{XMLInputFactory2, XMLStreamReader2}
 
 
 class StaxParser(reader: XMLStreamReader) {
@@ -16,24 +16,28 @@ class StaxParser(reader: XMLStreamReader) {
 
 object StaxParser {
 
-    def createFor(xmlString: String, rngString: String): StaxParser = {
-      val xmlif: XMLInputFactory2 = XMLInputFactory.newInstance() match {
-        case x: XMLInputFactory2 => x
-        case _ => throw new ClassCastException
-      }
-      val reader: XMLStreamReader2 = xmlif.createXMLStreamReader(new StringReader(xmlString)) match {
-        case x: XMLStreamReader2 => x
-        case _ => throw new ClassCastException
-      }
+  lazy val xmlif: XMLInputFactory2 = XMLInputFactory.newInstance().asInstanceOf[XMLInputFactory2]
 
-      if (rngString != null) {
-        val sf = XMLValidationSchemaFactory.newInstance(XMLValidationSchema.SCHEMA_ID_RELAXNG)
-        val rnc = sf.createSchema(new StringReader(rngString))
-        reader.validateAgainst(rnc)
-      }
+  def createFor(xmlString: String, rngString: String): StaxParser = createFor(new StringReader(xmlString), rngString)
 
-      new StaxParser(reader)
+  def createFor(xmlSource: Reader, rngString: String): StaxParser = {
+    val reader: XMLStreamReader2 = createReader(xmlSource)
+
+    if (rngString != null) {
+      val sf = XMLValidationSchemaFactory.newInstance(XMLValidationSchema.SCHEMA_ID_RELAXNG)
+      val rnc = sf.createSchema(new StringReader(rngString))
+      reader.validateAgainst(rnc)
     }
+
+    new StaxParser(reader)
+  }
+
+  private def createReader(xmlSource: Reader): XMLStreamReader2 = {
+    xmlif.createXMLStreamReader(xmlSource) match {
+      case x: XMLStreamReader2 => x
+      case _ => throw new scala.ClassCastException
+    }
+  }
 }
 
 trait StaxEvent
