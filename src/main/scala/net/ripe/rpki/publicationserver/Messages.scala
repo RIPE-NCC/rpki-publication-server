@@ -40,7 +40,7 @@ class MsgParser {
       @tailrec
       def parseNext(lastAttributes: Map[String, String], base64: Base64, pduReplies: Seq[ReplyPdu]): Either[MsgError, ReplyMsg] = {
         if (!parser.hasNext) {
-          Left(MsgError("No msg element", "The request does not contain a msg element"))
+          Left(MsgError("No msg element", "The request does not contain a complete msg element"))
         } else {
           parser.next match {
             case ElementStart(label, attrs) =>
@@ -50,7 +50,7 @@ class MsgParser {
                 parseNext(attrs, null, pduReplies)
 
             case ElementEnd(label) =>
-              val newItem = label.toLowerCase match {
+              val msgOrPdu = label.toLowerCase match {
                 case "msg" =>
                   Left(new ReplyMsg(pduReplies))
 
@@ -63,7 +63,7 @@ class MsgParser {
                   Right(pduHandler(pdu))
               }
 
-              newItem match {
+              msgOrPdu match {
                 case Left(msg) => Right(msg)
                 case Right(pdu) => parseNext(null, null, pdu +: pduReplies)
               }
