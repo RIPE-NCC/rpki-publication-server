@@ -6,7 +6,7 @@ import scala.xml.{Elem, Node}
 
 case class SessionId(id: String)
 
-case class Hash(h: String)
+case class Hash(hash: String)
 
 case class SnapshotState(sessionId: SessionId, serial: BigInt, pdus: Map[String, (Base64, Hash)]) {
   def apply(queries: Seq[QueryPdu]): Either[MsgError, SnapshotState] = {
@@ -75,8 +75,8 @@ object SnapshotState {
     state.sessionId,
     state.serial,
     state.pdus.map { e =>
-      val (hash, (uri, base64)) = e
-      <publish uri={uri.toString} hash={hash.toString}>{base64}</publish>
+      val (uri, (base64, hash)) = e
+      <publish uri={uri} hash={hash.hash}>{base64.value}</publish>
     }
   )
 

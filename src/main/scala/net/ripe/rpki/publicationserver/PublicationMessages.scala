@@ -18,7 +18,7 @@ object MsgError extends Enumeration {
 
 case class MsgError(code: MsgError.Code, message: String)
 
-case class Base64(s: String)
+case class Base64(value: String)
 
 trait QueryPdu {
   def uri: String
