@@ -8,12 +8,12 @@ import scala.xml._
 object MsgError extends Enumeration {
   type Code = Value
   // TODO Change them to "codes" instead of textual descriptions
-  val NoMsgElement = Value("No msg element")
-  val WrongQueryType = Value("Wrong query type")
-  val HashForInsert = Value("Hash provided for inserting an object")
-  val NoHashForUpdate = Value("No hash is provided for updating an object")
-  val NoHashForWithdraw = Value("No hash provided for inserting an object")
-  val NonMatchingHash = Value("No hash provided for inserting an object")
+  val NoMsgElement = Value
+  val WrongQueryType = Value
+  val HashForInsert = Value
+  val NoObjectToUpdate = Value
+  val NoObjectForWithdraw = Value
+  val NonMatchingHash = Value
 }
 
 case class MsgError(code: MsgError.Code, message: String)
