@@ -31,7 +31,8 @@ libraryDependencies ++= {
     "org.slf4j"                 % "slf4j-log4j12"     % "1.7.12",
     "com.softwaremill.macwire" %% "macros"            % "1.0.1",
     "com.softwaremill.macwire" %% "runtime"           % "1.0.1",
-    "io.spray"                 %% "spray-json"        % "1.3.2"
+    "io.spray"                 %% "spray-json"        % "1.3.2",
+    "com.google.guava"         %  "guava"             % "18.0"
   )
 }
 
