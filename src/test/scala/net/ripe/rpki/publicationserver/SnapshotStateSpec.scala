@@ -12,4 +12,53 @@ class SnapshotStateSpec extends PublicationServerBaseSpec {
                                   <publish uri="rsync://bla" hash="123">321</publish>
                                 </snapshot>"""))
   }
+
+  private val emptySnapshot = new SnapshotState(SessionId("session1"), BigInt(1), Map.empty)
+
+  test("should add an object with publish") {
+    val s = emptySnapshot(Seq(PublishQ(uri = "rsync://host/zzz.cer", tag = None, hash = None, base64 = Base64("aaaa="))))
+    s.right.get.serial should be(BigInt(2))
+    s.right.get.sessionId should be(SessionId("session1"))
+    s.right.get.pdus should be(Map("rsync://host/zzz.cer" -> (Base64("aaaa="), Hash("BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7"))))
+  }
+
+  test("should update an object with publish and republish") {
+    val snapshot = new SnapshotState(
+      SessionId("session1"),
+      BigInt(1),
+      Map("rsync://host/zzz.cer" -> (Base64("aaaa="), Hash("BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7"))))
+
+    val s = snapshot(Seq(PublishQ(uri = "rsync://host/zzz.cer",
+      tag = None,
+      hash = Some("BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7"),
+      base64 = Base64("cccc="))))
+
+    s.right.get.serial should be(BigInt(2))
+    s.right.get.sessionId should be(SessionId("session1"))
+    s.right.get.pdus should be(Map("rsync://host/zzz.cer" -> (Base64("cccc="), Hash("5DEC005081ED747F172993860AACDD6492B2547BE0EC440CED76649F65188E14"))))
+  }
+
+  test("should fail to update an object without hash provided") {
+    val snapshot = new SnapshotState(
+      SessionId("session1"),
+      BigInt(1),
+      Map("rsync://host/zzz.cer" -> (Base64("aaaa="), Hash("BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7"))))
+
+    val s = snapshot(Seq(PublishQ(uri = "rsync://host/zzz.cer", tag = None, hash = None, base64 = Base64("cccc="))))
+    s.left.get should be(MsgError(MsgError.HashForInsert, "Inserting and existing object [rsync://host/zzz.cer]"))
+  }
+
+  test("should fail to update an object if hashes do not match") {
+
+  }
+
+  test("should fail to withdraw an object without hash provided") {
+
+  }
+
+  test("should fail to withdraw an object if hashes do not match") {
+
+  }
+
+>>>>>>> Add some tests for snapshot updates.
 }

@@ -20,6 +20,10 @@ case class MsgError(code: MsgError.Code, message: String)
 
 case class Base64(value: String)
 
+case class SessionId(id: String)
+
+case class Hash(hash: String)
+
 trait QueryPdu {
   def uri: String
 }

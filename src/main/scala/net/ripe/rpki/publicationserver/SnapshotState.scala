@@ -1,36 +1,36 @@
 package net.ripe.rpki.publicationserver
 
+import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicReference
+import com.google.common.io.BaseEncoding
 
 import scala.xml.{Elem, Node}
 
-case class SessionId(id: String)
+class SnapshotState(val sessionId: SessionId, val serial: BigInt, val pdus: SnapshotState.SnapshotMap) {
 
-case class Hash(hash: String)
-
-case class SnapshotState(sessionId: SessionId, serial: BigInt, pdus: Map[String, (Base64, Hash)]) {
   def apply(queries: Seq[QueryPdu]): Either[MsgError, SnapshotState] = {
-    val newPdus = queries.foldLeft[Either[MsgError, Map[String, (Base64, Hash)]]](Right(pdus)) { (pduMap, query) =>
+
+    val newPdus = queries.foldLeft[Either[MsgError, SnapshotState.SnapshotMap]](Right(pdus)) { (pduMap, query) =>
       pduMap.right.flatMap { m =>
         query match {
           case PublishQ(uri, _, None, base64) =>
             m.get(uri) match {
               case Some((_, h)) =>
-                Left(MsgError(MsgError.HashForInsert, s"Redundant hash provided for inserting the object with uri=$uri"))
+                Left(MsgError(MsgError.HashForInsert, s"Inserting and existing object [$uri]"))
               case None =>
-                Right(m + (uri ->(base64, hash(base64))))
+                Right(m + (uri -> (base64, SnapshotState.hash(base64))))
             }
 
           case PublishQ(uri, _, Some(qHash), base64) =>
             m.get(uri) match {
               case Some((_, h)) =>
                 if (h == Hash(qHash))
-                  Right(m - uri)
+                  Right(m + (uri -> (base64, SnapshotState.hash(base64))))
                 else
-                  Left(MsgError(MsgError.NonMatchingHash, s"Cannot republish the object with uri=$uri, hash doesn't match"))
+                  Left(MsgError(MsgError.NonMatchingHash, s"Cannot republish the object [$uri], hash doesn't match"))
 
               case None =>
-                Left(MsgError(MsgError.NoHashForUpdate, s"uri=$uri"))
+                Left(MsgError(MsgError.NoHashForUpdate, s"No hash provided for updating the object [$uri]"))
             }
 
           case WithdrawQ(uri, _, qHash) =>
@@ -39,10 +39,10 @@ case class SnapshotState(sessionId: SessionId, serial: BigInt, pdus: Map[String,
                 if (h == Hash(qHash))
                   Right(m - uri)
                 else
-                  Left(MsgError(MsgError.NonMatchingHash, s"Cannot withdraw the object with uri=$uri, hash doesn't match"))
+                  Left(MsgError(MsgError.NonMatchingHash, s"Cannot withdraw the object [$uri], hash doesn't match"))
 
               case None =>
-                Left(MsgError(MsgError.NoHashForWithdraw, s"No hash provided for withdrawing the object $uri"))
+                Left(MsgError(MsgError.NoHashForWithdraw, s"No hash provided for withdrawing the object [$uri]"))
             }
         }
       }
@@ -51,12 +51,28 @@ case class SnapshotState(sessionId: SessionId, serial: BigInt, pdus: Map[String,
     newPdus.right.map(new SnapshotState(sessionId, serial + 1, _))
   }
 
-  // TODO Implement hashing
-  def hash(b64: Base64) = Hash("hash!")
 }
 
-object SnapshotState {
-  private val state: AtomicReference[SnapshotState] = new AtomicReference[SnapshotState]()
+trait Hashing {
+  private val base64 = BaseEncoding.base64()
+
+  def stringify(bytes: Array[Byte]) = Option(bytes).map {
+    _.map { b => String.format("%02X", new Integer(b & 0xff)) }.mkString
+  }.getOrElse("")
+
+  def hash(b64: Base64) = {
+    val Base64(b64String) = b64
+    val bytes = base64.decode(b64String)
+    val digest = MessageDigest.getInstance("SHA-256")
+    Hash(stringify(digest.digest(bytes)))
+  }
+}
+
+object SnapshotState extends Hashing {
+
+  type SnapshotMap = Map[String, (Base64, Hash)]
+
+  private val state = new AtomicReference[SnapshotState]()
 
   def get = state.get()
 
