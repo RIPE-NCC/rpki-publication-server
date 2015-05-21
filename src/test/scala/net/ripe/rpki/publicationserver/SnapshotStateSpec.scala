@@ -8,8 +8,8 @@ class SnapshotStateSpec extends PublicationServerBaseSpec {
 
     val xml = SnapshotState.serialize(state).mkString
 
-    trim(xml) should be(trim("""<delta version="1" session_id="s123" serial="123" xmlns="HTTP://www.ripe.net/rpki/rrdp">
+    trim(xml) should be(trim("""<snapshot version="1" session_id="s123" serial="123" xmlns="HTTP://www.ripe.net/rpki/rrdp">
                                   <publish uri="rsync://bla" hash="123">321</publish>
-                                </delta>"""))
+                                </snapshot>"""))
   }
 }

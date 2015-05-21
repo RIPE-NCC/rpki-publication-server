@@ -81,9 +81,9 @@ object SnapshotState {
   )
 
   private def snapshotXml(sessionId: SessionId, serial: BigInt, pdus: => Iterable[Node]): Elem =
-    <delta xmlns="HTTP://www.ripe.net/rpki/rrdp" version="1" session_id={sessionId.id} serial={serial.toString}>
+    <snapshot xmlns="HTTP://www.ripe.net/rpki/rrdp" version="1" session_id={sessionId.id} serial={serial.toString()}>
       {pdus}
-    </delta>
+    </snapshot>
 }
 
 
