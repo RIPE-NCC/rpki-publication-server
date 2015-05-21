@@ -32,7 +32,7 @@ class ReplyMsg(val pdus: Seq[ReplyPdu])
 
 class MsgParser {
 
-  val Schema = Source.fromURL(getClass.getResource("/schema.rng")).mkString
+  val Schema = Source.fromURL(getClass.getResource("/publication-schema.rng")).mkString
 
   def process(xmlString: String, pduHandler: QueryPdu => ReplyPdu): Either[MsgError, ReplyMsg] = {
 
