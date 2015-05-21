@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--  -->
+<!-- RelaxNG schema for RPKI Repository Delta Protocol (RRDP). -->
+<!--  -->
+<define name="version" xmlns="http://relaxng.org/ns/structure/1.0"
+    ns="HTTP://www.ripe.net/rpki/rrdp"
+    datatypeLibrary="http://www.w3.org/2001/XMLSchema-datatypes">
+  <data type="positiveInteger"/>
+</define>
+<define name="serial">
+  <data type="nonNegativeInteger"/>
+</define>
+<define name="uri">
+  <data type="anyURI"/>
+</define>
+<define name="uuid">
+  <data type="string">
+    <param name="pattern">[\-0-9a-fA-F]+</param>
+  </data>
+</define>
+<define name="hash">
+  <data type="string">
+    <param name="pattern">[0-9a-fA-F]+</param>
+  </data>
+</define>
+<define name="base64">
+  <choice>
+    <data type="base64Binary"/>
+    <!-- Notification file: lists current snapshots and deltas -->
+    <ref name="start"/>
+    <element name="notification">
+        <element name="snapshot">
+
+        </element>
+        <zeroOrMore>
+          <element name="delta">
+
+          </element>
+        </zeroOrMore>
+    </element>
+    <!-- Snapshot segment: think DNS AXFR. -->
+    <ref name="start"/>
+    <element name="snapshot">
+        <zeroOrMore>
+          <element name="publish">
+              <ref name="base64"/>
+          </element>
+        </zeroOrMore>
+    </element>
+    <!-- Delta segment: think DNS IXFR. -->
+    <ref name="start"/>
+    <element name="delta">
+        <ref name="delta_element"/>
+    </element>
+    <ref name="delta_element"/>
+    <element name="publish">
+        <ref name="base64"/>
+    </element>
+    <ref name="delta_element"/>
+    <element name="withdraw">
+
+    </element>
+    <!-- Local Variables: -->
+    <!-- indent-tabs-mode: nil -->
+    <!-- comment-start: "# " -->
+    <!-- comment-start-skip: "#[ \t]*" -->
+    <!-- End: -->
+  </choice>
+</define>
