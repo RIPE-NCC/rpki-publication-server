@@ -4,8 +4,8 @@ class Repository {
 
   def update(msg: QueryPdu) : ReplyPdu = {
     msg match {
-      case PublishQ(uri, _) => PublishR(uri)
-      case WithdrawQ(uri) => WithdrawR(uri)
+      case PublishQ(uri, _,  _) => PublishR(uri)
+      case WithdrawQ(uri, _) => WithdrawR(uri)
     }
   }
 

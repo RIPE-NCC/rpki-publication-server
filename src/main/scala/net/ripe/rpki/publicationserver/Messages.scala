@@ -10,9 +10,9 @@ case class Base64(s: String)
 
 class QueryPdu()
 
-case class PublishQ(uri: String, base64: Base64) extends QueryPdu
+case class PublishQ(uri: String, hash: Option[String], base64: Base64) extends QueryPdu
 
-case class WithdrawQ(uri: String) extends QueryPdu
+case class WithdrawQ(uri: String, hash: String) extends QueryPdu
 
 class ReplyPdu()
 
@@ -36,7 +36,7 @@ class MsgParser {
 
   def process(xmlString: String, pduHandler: QueryPdu => ReplyPdu): Either[MsgError, ReplyMsg] = {
 
-    def parseElementStart(label: String, attrs: Map[String, String]): Either[MsgError, String] = {
+    def parseElementStart(label: String, attrs: Map[String, String]): Either[MsgError, (String, Option[String])] = {
       label.toLowerCase match {
         case "msg" =>
           val msgType = attrs("type")
@@ -44,19 +44,19 @@ class MsgParser {
           if (!MsgType.query.toString.equalsIgnoreCase(msgType))
             Left(MsgError("Wrong query type", "Messages of type " + msgType + " are not accepted"))
           else
-            Right(null)
+            Right(null, None)
 
         case "publish" =>
-          Right(attrs("uri"))
+          Right(attrs("uri"), attrs.get("hash"))
 
         case "withdraw" =>
-          Right(attrs("uri"))
+          Right(attrs("uri"), attrs.get("hash"))
       }
     }
 
     def parse(parser: StaxParser): Either[MsgError, ReplyMsg] = {
       @tailrec
-      def parseNext(uri: String, base64: Base64, pduReplies: Seq[ReplyPdu]): Either[MsgError, ReplyMsg] = {
+      def parseNext(uri: String, hash: Option[String], base64: Base64, pduReplies: Seq[ReplyPdu]): Either[MsgError, ReplyMsg] = {
         if (!parser.hasNext) {
           Left(MsgError("No msg element", "The request does not contain a msg element"))
         } else {
@@ -65,7 +65,7 @@ class MsgParser {
               val newItem = parseElementStart(label, attrs)
 
               newItem match {
-                case Right(newUri) => parseNext(newUri, null, pduReplies)
+                case Right((newUri, newHash)) => parseNext(newUri, newHash, null, pduReplies)
                 case Left(errorMsg) => Left(errorMsg)
               }
 
@@ -75,28 +75,28 @@ class MsgParser {
                   Left(new ReplyMsg(pduReplies))
 
                 case "publish" =>
-                  val pdu = new PublishQ(uri, base64)
+                  val pdu = new PublishQ(uri, hash, base64)
                   Right(pduHandler(pdu))
 
                 case "withdraw" =>
-                  val pdu = new WithdrawQ(uri)
+                  val pdu = new WithdrawQ(uri, hash.get)
                   Right(pduHandler(pdu))
               }
 
               newItem match {
                 case Left(msg) => Right(msg)
-                case Right(pdu) => parseNext(null, null, pdu +: pduReplies)
+                case Right(pdu) => parseNext(null, null, null, pdu +: pduReplies)
               }
 
             case ElementText(text) =>
-              parseNext(uri, Base64.apply(text), pduReplies)
+              parseNext(uri, hash, Base64.apply(text), pduReplies)
 
-            case _ => parseNext(uri, base64, pduReplies)
+            case _ => parseNext(uri, hash, base64, pduReplies)
           }
         }
       }
 
-      parseNext(null, null, Seq())
+      parseNext(null, null, null, Seq())
     }
 
     // The StaxParser will make make sure that the message is validated against the schema while we are reading it:

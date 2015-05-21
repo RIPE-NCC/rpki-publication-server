@@ -5,8 +5,8 @@ class MsgParserSpec extends PublicationServerBaseSpec {
   val msgParser = new MsgParser
 
   def dummyRepo(q: QueryPdu): ReplyPdu = q match {
-    case PublishQ(uri, txt) => new PublishR(uri)
-    case WithdrawQ(uri) => new WithdrawR(uri)
+    case PublishQ(uri, _, txt) => new PublishR(uri)
+    case WithdrawQ(uri, _) => new WithdrawR(uri)
   }
 
   test("should parse publish message") {
