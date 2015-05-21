@@ -20,8 +20,8 @@ object StaxParser {
 
   def createFor(xmlString: String, rngString: String): StaxParser = createFor(new StringReader(xmlString), rngString)
 
-  def createFor(xmlSource: Reader, rngString: String): StaxParser = {
-    val reader: XMLStreamReader2 = createReader(xmlSource)
+  def createFor(streamReader: Reader, rngString: String): StaxParser = {
+    val reader: XMLStreamReader2 = createReader(streamReader)
 
     if (rngString != null) {
       val sf = XMLValidationSchemaFactory.newInstance(XMLValidationSchema.SCHEMA_ID_RELAXNG)
@@ -33,10 +33,7 @@ object StaxParser {
   }
 
   private def createReader(xmlSource: Reader): XMLStreamReader2 = {
-    xmlif.createXMLStreamReader(xmlSource) match {
-      case x: XMLStreamReader2 => x
-      case _ => throw new scala.ClassCastException
-    }
+    xmlif.createXMLStreamReader(xmlSource).asInstanceOf[XMLStreamReader2]
   }
 }
 

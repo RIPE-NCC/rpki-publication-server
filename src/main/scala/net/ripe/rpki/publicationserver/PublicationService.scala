@@ -24,7 +24,7 @@ trait PublicationService extends HttpService {
 
   val repository = wire[Repository]
 
-  val msgParser = wire[MsgParser]
+  val msgParser = wire[PublicationMessageParser]
 
   val healthChecks = wire[HealthChecks]
 

@@ -2,7 +2,7 @@ package net.ripe.rpki.publicationserver
 
 class PublicationMsgParserSpec extends PublicationServerBaseSpec {
 
-  val msgParser = new MsgParser
+  val msgParser = new PublicationMessageParser
 
   def dummyRepo(q: QueryPdu): ReplyPdu = q match {
     case PublishQ(uri, tag, _, txt) => new PublishR(uri, tag)

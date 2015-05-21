@@ -1,12 +1,9 @@
 package net.ripe.rpki.publicationserver
 
+
 import scala.annotation.tailrec
 import scala.io.Source
 import scala.xml._
-
-case class MsgError(code: String, message: String)
-
-case class Base64(s: String)
 
 class QueryPdu()
 
@@ -22,15 +19,18 @@ case class WithdrawR(uri: String, tag: Option[String]) extends ReplyPdu
 
 case class ReportError(code: String, message: Option[String]) extends ReplyPdu
 
-object MsgType extends Enumeration {
-  type MsgType = Value
-  val query = Value("query")
-  val reply = Value("reply")
-}
-
 class ReplyMsg(val pdus: Seq[ReplyPdu])
 
-class MsgParser {
+
+class PublicationMessageParser extends MessageParser {
+
+  case class MsgError(code: String, message: String)
+
+  object MsgType extends Enumeration {
+    type MsgType = Value
+    val query = Value("query")
+    val reply = Value("reply")
+  }
 
   val Schema = Source.fromURL(getClass.getResource("/rpki-publication-schema.rng")).mkString
 
@@ -43,6 +43,7 @@ class MsgParser {
           Left(MsgError("No msg element", "The request does not contain a complete msg element"))
         } else {
           parser.next match {
+
             case ElementStart(label, attrs) =>
               if (label.equalsIgnoreCase("msg") && !MsgType.query.toString.equalsIgnoreCase(attrs("type")))
                 Left(MsgError("Wrong query type", "Messages of type " + attrs("type") + " are not accepted"))
