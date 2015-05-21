@@ -1,6 +1,6 @@
 package net.ripe.rpki.publicationserver
 
-class MsgParserSpec extends PublicationServerBaseSpec {
+class PublicationMsgParserSpec extends PublicationServerBaseSpec {
 
   val msgParser = new MsgParser
 
