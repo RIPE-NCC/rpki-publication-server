@@ -15,22 +15,20 @@ class SnapshotState(val sessionId: SessionId, val serial: BigInt, val pdus: Snap
         query match {
           case PublishQ(uri, _, None, base64) =>
             m.get(uri) match {
-              case Some((_, h)) =>
-                Left(MsgError(MsgError.HashForInsert, s"Inserting and existing object [$uri]"))
-              case None =>
-                Right(m + (uri -> (base64, SnapshotState.hash(base64))))
+              case Some(_) => Left(MsgError(MsgError.HashForInsert, s"Tried to insert existing object [$uri]."))
+              case None    => Right(m + (uri ->(base64, SnapshotState.hash(base64))))
             }
 
           case PublishQ(uri, _, Some(qHash), base64) =>
             m.get(uri) match {
               case Some((_, h)) =>
                 if (h == Hash(qHash))
-                  Right(m + (uri -> (base64, SnapshotState.hash(base64))))
+                  Right(m + (uri ->(base64, SnapshotState.hash(base64))))
                 else
                   Left(MsgError(MsgError.NonMatchingHash, s"Cannot republish the object [$uri], hash doesn't match"))
 
               case None =>
-                Left(MsgError(MsgError.NoHashForUpdate, s"No hash provided for updating the object [$uri]"))
+                Left(MsgError(MsgError.NoObjectToUpdate, s"No object [$uri] has been found."))
             }
 
           case WithdrawQ(uri, _, qHash) =>
@@ -39,10 +37,10 @@ class SnapshotState(val sessionId: SessionId, val serial: BigInt, val pdus: Snap
                 if (h == Hash(qHash))
                   Right(m - uri)
                 else
-                  Left(MsgError(MsgError.NonMatchingHash, s"Cannot withdraw the object [$uri], hash doesn't match"))
+                  Left(MsgError(MsgError.NonMatchingHash, s"Cannot withdraw the object [$uri], hash doesn't match."))
 
               case None =>
-                Left(MsgError(MsgError.NoHashForWithdraw, s"No hash provided for withdrawing the object [$uri]"))
+                Left(MsgError(MsgError.NoObjectForWithdraw, s"No object [$uri] found."))
             }
         }
       }
