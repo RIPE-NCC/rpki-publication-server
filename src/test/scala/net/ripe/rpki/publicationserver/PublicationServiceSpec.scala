@@ -47,9 +47,29 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
     }
   }
 
+  test("should return the tag in the response if it was present in the publish request") {
+    val publishXml = getFile("/publishWithTag.xml")
+    val publishXmlResponse = getFile("/publishWithTagResponse.xml")
+
+    Post("/", publishXml.mkString) ~> publicationService.myRoute ~> check {
+      val response = responseAs[String]
+      trim(response) should be(trim(publishXmlResponse.mkString))
+    }
+  }
+
   test("should return an ok response for a valid withdraw request") {
     val withdrawXml = getFile("/withdraw.xml")
     val withdrawXmlResponse = getFile("/withdrawResponse.xml")
+
+    Post("/", withdrawXml.mkString) ~> publicationService.myRoute ~> check {
+      val response = responseAs[String]
+      trim(response) should be(trim(withdrawXmlResponse.mkString))
+    }
+  }
+
+  test("should return the tag in the response if it was present in the withdraw request") {
+    val withdrawXml = getFile("/withdrawWithTag.xml")
+    val withdrawXmlResponse = getFile("/withdrawWithTagResponse.xml")
 
     Post("/", withdrawXml.mkString) ~> publicationService.myRoute ~> check {
       val response = responseAs[String]

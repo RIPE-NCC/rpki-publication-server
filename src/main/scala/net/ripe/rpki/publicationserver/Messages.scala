@@ -88,9 +88,9 @@ class MsgParser {
 
   def serialize(msg: ReplyMsg) = reply {
     msg.pdus.map {
-      case PublishR(uri, Some(tag)) => <publish uri={uri} tag={tag}/>
+      case PublishR(uri, Some(tag)) => <publish tag={tag} uri={uri}/>
       case PublishR(uri, None) => <publish uri={uri}/>
-      case WithdrawR(uri, Some(tag)) => <withdraw uri={uri} tag={tag}/>
+      case WithdrawR(uri, Some(tag)) => <withdraw tag={tag} uri={uri}/>
       case WithdrawR(uri, None) => <withdraw uri={uri}/>
       case ReportError(code, message) =>
         <report_error error_code={code}>
