@@ -1,62 +1,71 @@
-# $Id: rpki-publication.rnc 2698 2013-12-13 23:33:07Z sra $
-# RelaxNG schema for RPKI publication protocol.
+ # $Id: rpki-publication.rnc 3171 2015-02-26 00:09:05Z sra $
+ # RelaxNG schema for RPKI publication protocol.
 
-default namespace = "http://www.hactrn.net/uris/rpki/publication-spec/"
+ default namespace =
+     "http://www.hactrn.net/uris/rpki/publication-spec/"
 
-# This is version 3 of the protocol.
+ # This is version 3 of the protocol.
 
-version = "3"
+ version = "3"
 
-# Top level PDU is either a query or a reply.
+ # Top level PDU is either a query or a reply.
 
-start = element msg {
-  attribute version { version } ,
-  ( ( attribute type { "query" }, query_elt* ) |
-  ( attribute type { "reply" }, reply_elt* ) )
-}
+ start |= element msg {
+   attribute version { version },
+   attribute type    { "query" },
+   query_elt*
+ }
 
-# PDUs allowed in  queries and replies.
+ start |= element msg {
+   attribute version { version },
+   attribute type    { "reply" },
+   reply_elt*
+ }
 
-query_elt = publish_query | withdraw_query
-reply_elt = publish_reply | withdraw_reply | report_error_reply
+ # PDUs allowed in  queries and replies.
 
-# Tag attributes for bulk operations.
+ query_elt = publish_query | withdraw_query | list_query
+ reply_elt = publish_reply | withdraw_reply | list_reply | error_reply
 
-tag = attribute tag { xsd:token { maxLength="1024" } }
+ # Tag attributes for bulk operations.
 
-# Base64 encoded DER stuff.
+ tag = attribute tag { xsd:token { maxLength="1024" } }
 
-base64 = xsd:base64Binary
+ # Base64 encoded DER stuff.
 
-# Publication URIs.
+ base64 = xsd:base64Binary
 
-uri = attribute uri { xsd:anyURI { maxLength="4096" } }
+ # Publication URIs.
 
-# Handles on remote objects (replaces passing raw SQL IDs).
+ uri = attribute uri { xsd:anyURI { maxLength="4096" } }
 
-object_handle = xsd:string {
-  maxLength = "255"
-  pattern="[\-_A-Za-z0-9/]*"
-}
+ # Digest of an existing object (hexadecimal).
 
-# Error codes.
+ hash = attribute hash { xsd:string { pattern = "[0-9a-fA-F]+" } }
 
-error = xsd:token { maxLength="1024" }
+ # Error codes.
 
-# <publish/> element
+ error = xsd:token { maxLength="1024" }
 
-publish_query |= element publish { tag?, uri, base64 }
-publish_reply |= element publish { tag?, uri }
+ # <publish/> element
 
-# <withdraw/> element
+ publish_query = element publish { tag?, uri, hash?, base64 }
+ publish_reply = element publish { tag?, uri }
 
-withdraw_query |= element withdraw { tag?, uri }
-withdraw_reply |= element withdraw { tag?, uri }
+ # <withdraw/> element
 
-# <report_error/> element
+ withdraw_query = element withdraw { tag?, uri, hash }
+ withdraw_reply = element withdraw { tag?, uri }
 
-report_error_reply = element report_error {
-  tag?,
-  attribute error_code { error },
-  xsd:string { maxLength="512000" }?
-}
+ # <list/> element
+
+ list_query = element list { tag? }
+ list_reply = element list { tag?, uri, hash }
+
+ # <report_error/> element
+
+ error_reply = element report_error {
+   tag?,
+   attribute error_code { error },
+   xsd:string { maxLength="512000" }?
+ }
