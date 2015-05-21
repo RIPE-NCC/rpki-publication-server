@@ -4,11 +4,25 @@ import scala.annotation.tailrec
 import scala.io.Source
 import scala.xml._
 
-case class MsgError(code: String, message: String)
+
+object MsgError extends Enumeration {
+  type Code = Value
+  // TODO Change them to "codes" instead of textual descriptions
+  val NoMsgElement = Value("No msg element")
+  val WrongQueryType = Value("Wrong query type")
+  val HashForInsert = Value("Hash provided for inserting an object")
+  val NoHashForUpdate = Value("No hash is provided for updating an object")
+  val NoHashForWithdraw = Value("No hash provided for inserting an object")
+  val NonMatchingHash = Value("No hash provided for inserting an object")
+}
+
+case class MsgError(code: MsgError.Code, message: String)
 
 case class Base64(s: String)
 
-class QueryPdu()
+trait QueryPdu {
+  def uri: String
+}
 
 case class PublishQ(uri: String, tag: Option[String], hash: Option[String], base64: Base64) extends QueryPdu
 
@@ -40,12 +54,12 @@ class MsgParser {
       @tailrec
       def parseNext(lastAttributes: Map[String, String], lastText: String, pduReplies: Seq[ReplyPdu]): Either[MsgError, ReplyMsg] = {
         if (!parser.hasNext) {
-          Left(MsgError("No msg element", "The request does not contain a complete msg element"))
+          Left(MsgError(MsgError.NoMsgElement, "The request does not contain a complete msg element"))
         } else {
           parser.next match {
             case ElementStart(label, attrs) =>
               if (label.equalsIgnoreCase("msg") && !MsgType.query.toString.equalsIgnoreCase(attrs("type")))
-                Left(MsgError("Wrong query type", "Messages of type " + attrs("type") + " are not accepted"))
+                Left(MsgError(MsgError.WrongQueryType, "Messages of type " + attrs("type") + " are not accepted"))
               else
                 parseNext(attrs, null, pduReplies)
 
@@ -55,7 +69,7 @@ class MsgParser {
                   Left(new ReplyMsg(pduReplies))
 
                 case "publish" =>
-                  val pdu = new PublishQ(uri = lastAttributes("uri"), tag = lastAttributes.get("tag"), hash = lastAttributes.get("hash"), base64 = Base64.apply(lastText))
+                  val pdu = new PublishQ(uri = lastAttributes("uri"), tag = lastAttributes.get("tag"), hash = lastAttributes.get("hash"), base64 = Base64(lastText))
                   Right(pduHandler(pdu))
 
                 case "withdraw" =>
@@ -100,7 +114,7 @@ class MsgParser {
   }
 
   def serialize(msgError: MsgError) = reply {
-    <report_error error_code={msgError.code}>
+    <report_error error_code={msgError.code.toString}>
       {msgError.message}
     </report_error>
   }
