@@ -9,30 +9,5 @@ class SnapshotReaderSpec extends PublicationServerBaseSpec {
   // java -jar trang.jar -I rnc -O rng schema.rnc schema.rng
   val schema: String = getFile("/rrdp-schema.rng").mkString
 
-  test("should parse and validate snapshot file") {
-    val publishXml = getFile("/valid-snapshot.xml")
-
-    val parser = StaxParser.createFor(publishXml.bufferedReader(), schema)
-
-    parser should not be null
-
-    while (parser.hasNext) parser.next
-
-    parser.hasNext should be(false)
-  }
-
-  test("should raise an exception when the request is invalid") {
-    val invalidXml = getFile("/snapshot-with-invalid-tag.xml")
-
-    val parser = StaxParser.createFor(invalidXml.mkString, schema)
-
-    parser should not be null
-
-    val thrown = intercept[WstxValidationException] {
-      while (parser.hasNext) parser.next
-    }
-
-    thrown.getMessage should include("tag name \"foo\" is not allowed")
-  }
 
 }
