@@ -52,6 +52,12 @@ trait PublicationService extends HttpService {
     val response = msgParser.process(xmlMessage, repository.update) match {
       case Right(msg) =>
         serviceLogger.info("Request handled successfully")
+
+        // TODO replace these with real values
+        val sessionId = SessionId("test")
+        val uri = "test-uri"
+
+        NotificationState.update(sessionId, uri, SnapshotState.get)
         msgParser.serialize(msg)
       case Left(msgError) =>
         serviceLogger.warn("Error while handling request: {}", msgError)

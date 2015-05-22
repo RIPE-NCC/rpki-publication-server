@@ -6,7 +6,7 @@ class SnapshotStateSpec extends PublicationServerBaseSpec {
     val pdus: Map[String, (Base64, Hash)] = Map("rsync://bla" -> (Base64.apply("321"), Hash("123")))
     val state = new SnapshotState(SessionId("s123"), BigInt(123), pdus)
 
-    val xml = SnapshotState.serialize(state).mkString
+    val xml = state.serialize.mkString
 
     trim(xml) should be(trim("""<snapshot version="1" session_id="s123" serial="123" xmlns="HTTP://www.ripe.net/rpki/rrdp">
                                   <publish uri="rsync://bla" hash="123">321</publish>
