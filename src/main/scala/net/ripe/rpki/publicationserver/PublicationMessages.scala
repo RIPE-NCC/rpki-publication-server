@@ -3,7 +3,7 @@ package net.ripe.rpki.publicationserver
 import scala.annotation.tailrec
 import scala.io.Source
 import scala.xml._
-
+import java.net.URI
 
 object MsgError extends Enumeration {
   type Code = Value
@@ -18,21 +18,19 @@ object MsgError extends Enumeration {
 
 case class MsgError(code: MsgError.Code, message: String)
 
-case class SessionId(id: String)
-
 trait QueryPdu {
-  def uri: String
+  def uri: URI
 }
 
-case class PublishQ(uri: String, tag: Option[String], hash: Option[String], base64: Base64) extends QueryPdu
+case class PublishQ(uri: URI, tag: Option[String], hash: Option[String], base64: Base64) extends QueryPdu
 
-case class WithdrawQ(uri: String, tag: Option[String], hash: String) extends QueryPdu
+case class WithdrawQ(uri: URI, tag: Option[String], hash: String) extends QueryPdu
 
 class ReplyPdu()
 
-case class PublishR(uri: String, tag: Option[String]) extends ReplyPdu
+case class PublishR(uri: URI, tag: Option[String]) extends ReplyPdu
 
-case class WithdrawR(uri: String, tag: Option[String]) extends ReplyPdu
+case class WithdrawR(uri: URI, tag: Option[String]) extends ReplyPdu
 
 case class ReportError(code: String, message: Option[String]) extends ReplyPdu
 
@@ -70,11 +68,11 @@ class PublicationMessageParser extends MessageParser {
                   Left(new ReplyMsg(pduReplies))
 
                 case "publish" =>
-                  val pdu = new PublishQ(uri = lastAttributes("uri"), tag = lastAttributes.get("tag"), hash = lastAttributes.get("hash"), base64 = Base64(lastText))
+                  val pdu = new PublishQ(uri = new URI(lastAttributes("uri")), tag = lastAttributes.get("tag"), hash = lastAttributes.get("hash"), base64 = Base64(lastText))
                   Right(pduHandler(pdu))
 
                 case "withdraw" =>
-                  val pdu = new WithdrawQ(uri = lastAttributes("uri"), tag = lastAttributes.get("tag"), hash = lastAttributes("hash"))
+                  val pdu = new WithdrawQ(uri = new URI(lastAttributes("uri")), tag = lastAttributes.get("tag"), hash = lastAttributes("hash"))
                   Right(pduHandler(pdu))
               }
 
@@ -103,10 +101,10 @@ class PublicationMessageParser extends MessageParser {
 
   def serialize(msg: ReplyMsg) = reply {
     msg.pdus.map {
-      case PublishR(uri, Some(tag)) => <publish tag={tag} uri={uri}/>
-      case PublishR(uri, None) => <publish uri={uri}/>
-      case WithdrawR(uri, Some(tag)) => <withdraw tag={tag} uri={uri}/>
-      case WithdrawR(uri, None) => <withdraw uri={uri}/>
+      case PublishR(uri, Some(tag)) => <publish tag={tag} uri={uri.toString}/>
+      case PublishR(uri, None) => <publish uri={uri.toString}/>
+      case WithdrawR(uri, Some(tag)) => <withdraw tag={tag} uri={uri.toString}/>
+      case WithdrawR(uri, None) => <withdraw uri={uri.toString}/>
       case ReportError(code, message) =>
         <report_error error_code={code}>
           {message}

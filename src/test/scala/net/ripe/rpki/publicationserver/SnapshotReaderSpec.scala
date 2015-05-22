@@ -10,7 +10,7 @@ class SnapshotReaderSpec extends PublicationServerBaseSpec with Inside {
   val schema: String = getFile("/rrdp-schema.rng").mkString
 
   test("should parse valid notification.xml") {
-    var result = new RrdpMessageParser().process(getFile("/valid-snapshot.xml"))
+    val result = new RrdpMessageParser().process(getFile("/valid-snapshot.xml"))
     inside(result) {
       case Snapshot(sessionId, serial,
           List(PublishElement(uri1, None, data1), PublishElement(uri2, None, data2), PublishElement(uri3, None, data3))) =>

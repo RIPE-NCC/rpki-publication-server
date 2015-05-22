@@ -1,5 +1,7 @@
 package net.ripe.rpki.publicationserver
 
+import java.util.UUID
+
 import akka.actor.Actor
 import org.slf4j.LoggerFactory
 import spray.http.HttpHeaders.`Content-Type`
@@ -54,7 +56,7 @@ trait PublicationService extends HttpService {
         serviceLogger.info("Request handled successfully")
 
         // TODO replace these with real values
-        val sessionId = SessionId("test")
+        val sessionId = UUID.randomUUID()
         val uri = "test-uri"
 
         NotificationState.update(sessionId, uri, SnapshotState.get)

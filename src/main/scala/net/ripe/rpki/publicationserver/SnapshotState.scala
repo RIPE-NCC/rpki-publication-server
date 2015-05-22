@@ -1,12 +1,14 @@
 package net.ripe.rpki.publicationserver
 
+import java.net.URI
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
 
 import com.google.common.io.BaseEncoding
 
 import scala.xml.{Elem, Node}
 
-class SnapshotState(val sessionId: SessionId, val serial: BigInt, val pdus: SnapshotState.SnapshotMap) {
+case class SnapshotState(sessionId: UUID, serial: BigInt, pdus: SnapshotState.SnapshotMap) {
 
   def apply(queries: Seq[QueryPdu]): Either[MsgError, SnapshotState] = {
 
@@ -54,12 +56,12 @@ class SnapshotState(val sessionId: SessionId, val serial: BigInt, val pdus: Snap
     serial,
     pdus.map { e =>
       val (uri, (base64, hash)) = e
-      <publish uri={uri} hash={hash.hash}>{base64.value}</publish>
+      <publish uri={uri.toString} hash={hash.hash}>{base64.value}</publish>
     }
   )
 
-  private def snapshotXml(sessionId: SessionId, serial: BigInt, pdus: => Iterable[Node]): Elem =
-    <snapshot xmlns="HTTP://www.ripe.net/rpki/rrdp" version="1" session_id={sessionId.id} serial={serial.toString()}>
+  private def snapshotXml(sessionId: UUID, serial: BigInt, pdus: => Iterable[Node]): Elem =
+    <snapshot xmlns="HTTP://www.ripe.net/rpki/rrdp" version="1" session_id={sessionId.toString} serial={serial.toString()}>
       {pdus}
     </snapshot>
 }
@@ -67,7 +69,7 @@ class SnapshotState(val sessionId: SessionId, val serial: BigInt, val pdus: Snap
 object SnapshotState extends Hashing {
   private val base64 = BaseEncoding.base64()
 
-  type SnapshotMap = Map[String, (Base64, Hash)]
+  type SnapshotMap = Map[URI, (Base64, Hash)]
 
   private val state = new AtomicReference[SnapshotState]()
 

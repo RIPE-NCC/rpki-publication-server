@@ -1,5 +1,6 @@
 package net.ripe.rpki.publicationserver
 
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
 
 import scala.xml.{Elem, Node}
@@ -8,7 +9,7 @@ case class SnapshotLocator(uri: String, hash: Hash)
 
 case class Delta(serial: BigInt, uri: String, hash: Hash)
 
-case class Notification(sessionId: SessionId, serial: BigInt, snapshot: SnapshotLocator, deltas: Seq[Delta]) {
+case class Notification(sessionId: UUID, serial: BigInt, snapshot: SnapshotLocator, deltas: Seq[Delta]) {
 
   def serialize = notificationXml (
     sessionId,
@@ -23,8 +24,8 @@ case class Notification(sessionId: SessionId, serial: BigInt, snapshot: Snapshot
   private def snapshotXml(snapshot: SnapshotLocator): Elem =
       <snapshot uri={snapshot.uri} hash={snapshot.hash.hash}/>
 
-  private def notificationXml(sessionId: SessionId, serial: BigInt, snapshot: Node, deltas: Iterable[Node]): Elem =
-    <notification xmlns="HTTP://www.ripe.net/rpki/rrdp" version="1" session_id={sessionId.id} serial={serial.toString()}>
+  private def notificationXml(sessionId: UUID, serial: BigInt, snapshot: Node, deltas: Iterable[Node]): Elem =
+    <notification xmlns="HTTP://www.ripe.net/rpki/rrdp" version="1" session_id={sessionId.toString} serial={serial.toString()}>
       {snapshot}
       {deltas}
     </notification>
@@ -32,7 +33,7 @@ case class Notification(sessionId: SessionId, serial: BigInt, snapshot: Snapshot
 
 object Notification extends Hashing {
 
-  def fromSnapshot(sessionId: SessionId, uri: String, snapshot: SnapshotState): Notification = {
+  def fromSnapshot(sessionId: UUID, uri: String, snapshot: SnapshotState): Notification = {
     val locator = SnapshotLocator(uri, hash(snapshot.serialize.mkString.getBytes))
     Notification(sessionId, snapshot.serial, locator, Seq())
   }
@@ -43,5 +44,5 @@ object NotificationState {
 
   def get = state.get()
 
-  def update(sessionId: SessionId, uri: String, snapshot: SnapshotState): Unit = state.set(Notification.fromSnapshot(sessionId, uri, snapshot))
+  def update(sessionId: UUID, uri: String, snapshot: SnapshotState): Unit = state.set(Notification.fromSnapshot(sessionId, uri, snapshot))
 }

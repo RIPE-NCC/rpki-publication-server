@@ -7,8 +7,7 @@ import java.util.UUID
 import scala.annotation.tailrec
 import scala.io.{BufferedSource, Source}
 
-case class Snapshot(sessionId: UUID, serial: String, elements: Seq[PublishElement])
-case class PublishElement(uri: URI, hash: Option[String], body: Base64)
+case class PublishElement(uri: URI, hash: Hash, body: Base64)
 
 class RrdpMessageParser extends MessageParser {
 
@@ -16,20 +15,20 @@ class RrdpMessageParser extends MessageParser {
 
   val Schema = Source.fromURL(getClass.getResource("/rrdp-schema.rng")).mkString
 
-  def process(xmlSource: BufferedSource): Snapshot = {
+  def process(xmlSource: BufferedSource): SnapshotState = {
 
     val SNAPSHOT = "snapshot"
     val PUBLISH = "publish"
 
-    def parse(parser: StaxParser): Snapshot = {
+    def parse(parser: StaxParser): SnapshotState = {
 
-      var serial: String = null
+      var serial: BigInt = null
       var sessionId: UUID = null
 
       def captureSnapshotParameters(attrs: Map[String, String]): Unit = {
         assert(attrs("version") == "1", "The version attribute in the notification root element MUST be 1")
         assert(attrs("serial").matches("[1-9][0-9]*"), s"The serial attribute must be an unbounded, unsigned positive integer [${attrs("serial")}]")
-        serial = attrs("serial")
+        serial = BigInt(attrs("serial"))
         sessionId = UUID.fromString(attrs("session_id"))
       }
 
@@ -52,7 +51,9 @@ class RrdpMessageParser extends MessageParser {
                   elements
 
                 case PUBLISH =>
-                  val element = new PublishElement(uri = URI.create(lastAttributes("uri")), hash = lastAttributes.get("hash"), body = Base64.apply(lastText))
+                  val myBody = Base64.apply(lastText)
+                  val myHash = lastAttributes.getOrElse("hash", SnapshotState.hash(myBody).hash)
+                  val element = PublishElement(uri = URI.create(lastAttributes("uri")), hash = Hash(myHash), body = myBody)
                   parseNext(null, null, element +: elements)
               }
 
@@ -64,7 +65,10 @@ class RrdpMessageParser extends MessageParser {
       }
 
       val publishElements: Seq[PublishElement] = parseNext(null, null, Seq())
-      Snapshot(sessionId, serial, publishElements)
+
+      val publishElementsMap = publishElements.map(p => p.uri -> (p.body, p.hash)).toMap
+
+      new SnapshotState(sessionId, serial, publishElementsMap)
     }
 
     val reader: BufferedReader = xmlSource.bufferedReader()
