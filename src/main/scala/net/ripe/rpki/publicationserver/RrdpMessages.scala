@@ -11,8 +11,6 @@ case class PublishElement(uri: URI, hash: Hash, body: Base64)
 
 class RrdpMessageParser extends MessageParser {
 
-  case class MsgError(message: String)
-
   val Schema = Source.fromURL(getClass.getResource("/rrdp-schema.rng")).mkString
 
   def process(xmlSource: BufferedSource): SnapshotState = {
@@ -51,7 +49,7 @@ class RrdpMessageParser extends MessageParser {
                   elements
 
                 case PUBLISH =>
-                  val myBody = Base64.apply(lastText)
+                  val myBody = Base64(normalize(lastText))
                   val myHash = lastAttributes.getOrElse("hash", SnapshotState.hash(myBody).hash)
                   val element = PublishElement(uri = URI.create(lastAttributes("uri")), hash = Hash(myHash), body = myBody)
                   parseNext(null, null, element +: elements)
@@ -82,4 +80,7 @@ class RrdpMessageParser extends MessageParser {
     }
 
   }
+
+  private def normalize(s: String) = s.filterNot(Character.isWhitespace)
+
 }
