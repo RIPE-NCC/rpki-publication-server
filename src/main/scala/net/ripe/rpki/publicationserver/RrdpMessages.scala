@@ -41,7 +41,7 @@ class RrdpMessageParser extends MessageParser {
               if (SNAPSHOT == label.toLowerCase) {
                 captureSnapshotParameters(attrs)
               }
-              parseNext(attrs, null, elements)
+              parseNext(attrs, "", elements)
 
             case ElementEnd(label) =>
               label.toLowerCase match {
@@ -56,7 +56,7 @@ class RrdpMessageParser extends MessageParser {
               }
 
             case ElementText(newText) =>
-              parseNext(lastAttributes, newText, elements)
+              parseNext(lastAttributes, lastText + newText, elements)
 
             case _ => parseNext(lastAttributes, lastText, elements)
           }
