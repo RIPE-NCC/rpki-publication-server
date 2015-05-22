@@ -7,6 +7,7 @@ class NotificationSpec extends PublicationServerBaseSpec {
   test("should serialize a Notification to proper xml") {
     val snapshot = SnapshotLocator("rsync://bla", Hash("2a3s4v"))
     val deltas = Seq(Delta(BigInt(987), "rsync://deltabla", Hash("1234sg")))
+
     val sessionId = UUID.randomUUID()
     val notification = Notification(sessionId, BigInt(234), snapshot, deltas)
 
