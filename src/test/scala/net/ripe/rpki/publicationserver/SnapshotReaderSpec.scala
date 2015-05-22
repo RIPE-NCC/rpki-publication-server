@@ -3,7 +3,6 @@ package net.ripe.rpki.publicationserver
 import java.net.URI
 
 import net.ripe.rpki.publicationserver.SnapshotState.SnapshotMap
-import org.scalatest.Inside
 
 class SnapshotReaderSpec extends PublicationServerBaseSpec {
   // .rnc can't be handled by Woodstox or Stax. And the only schema that the .rnc can be converted to without loss of information, is .rng ...
@@ -13,7 +12,7 @@ class SnapshotReaderSpec extends PublicationServerBaseSpec {
   val schema: String = getFile("/rrdp-schema.rng").mkString
 
   test("should parse valid notification.xml") {
-    val result = new RrdpMessageParser().process(getFile("/valid-snapshot.xml"))
+    val result = new RrdpParser().parseSnapshot(getFile("/valid-snapshot.xml"))
 
     val SnapshotState(sessionId, serial, pdus: SnapshotMap) = result
 
@@ -38,6 +37,7 @@ class SnapshotReaderSpec extends PublicationServerBaseSpec {
         |        gHohkWaosr4R2A7sZOc/PZGtstqpBRTD8RwVJx0pseC6Zp/01WH/FjzNpXahFPgR1QXy3qBGEHRh
         |        xA08g0+QiGSz+QX5PPQ2dBkTRIY=
         |    """.stripMargin))
+
     trim(pdus.get(uri2).get._1.value) should equal(trim(
       """MIAGCSqGSIb3DQEHAqCAMIACAQMxDzANBglghkgBZQMEAgEFADCABgsqhkiG9w0BCRABGqCAJIAE
         |        gd0wgdoCAguWGA8yMDE0MTIwMzE4MDgzMloYDzIwMTQxMjA0MTgwODMyWgYJYIZIAWUDBAIBMIGm
@@ -73,6 +73,7 @@ class SnapshotReaderSpec extends PublicationServerBaseSpec {
         |        SnAX0vo0F1YNrSDe05So3pjjSmNHOuFFnxZMja+lIMMWTFylbKQJNpLIrb9a/uarfiL9BrGODWqE
         |        dzQh+k3QkTAUojq+YADL+ixO0eg2zpPm+eEU1F2+bGP2M5rbaUfqngAAAAAAAA==
         |    """.stripMargin))
+
     trim(pdus.get(uri3).get._1.value) should equal(trim(
       """
         |        MIIFNDCCBBygAwIBAgIBAjANBgkqhkiG9w0BAQsFADANMQswCQYDVQQDEwJUQTAeFw0xNDExMTMw
