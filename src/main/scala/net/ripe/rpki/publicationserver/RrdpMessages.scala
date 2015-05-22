@@ -12,12 +12,11 @@ case class SnapshotAttributes(sessionId: UUID, serial: String) {
   assert(serial.matches("[1-9][0-9]*"), s"The serial attribute must be an unbounded, unsigned positive integer [$serial]")
 }
 
-case class PublishElement(uri: URI, hash: String, content: Base64)
+case class PublishElement(uri: URI, hash: Option[String], body: Base64)
 
 class RrdpMessageParser extends MessageParser {
 
   case class MsgError(message: String)
-  case class PublishElement(uri: URI, hash: Option[String], body: Base64)
 
   val Schema = Source.fromURL(getClass.getResource("/rrdp-schema.rng")).mkString
 
