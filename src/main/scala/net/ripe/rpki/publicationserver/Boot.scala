@@ -2,6 +2,7 @@ package net.ripe.rpki.publicationserver
 
 import akka.actor.{ActorSystem, Props}
 import akka.io.IO
+import net.ripe.rpki.publicationserver.fs.SnapshotReader
 import spray.can.Http
 import akka.pattern.ask
 import akka.util.Timeout
@@ -18,6 +19,8 @@ object Boot extends App {
 
   val conf = ConfigFactory.load()
   val serverPort = conf.getInt("port")
+
+  SnapshotReader.readSnapshot(conf.getString("repository.path"))
 
   IO(Http) ? Http.Bind(service, interface = "::0", port = serverPort)
 }
