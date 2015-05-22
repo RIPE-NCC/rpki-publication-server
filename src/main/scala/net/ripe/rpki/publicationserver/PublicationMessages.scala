@@ -7,7 +7,6 @@ import java.net.URI
 
 object MsgError extends Enumeration {
   type Code = Value
-  // TODO Change them to "codes" instead of textual descriptions
   val NoMsgElement = Value
   val WrongQueryType = Value
   val HashForInsert = Value
@@ -34,7 +33,7 @@ case class PublishR(uri: URI, tag: Option[String]) extends ReplyPdu
 
 case class WithdrawR(uri: URI, tag: Option[String]) extends ReplyPdu
 
-case class ReportError(code: String, message: Option[String]) extends ReplyPdu
+case class ReportError(code: MsgError.Code, message: Option[String]) extends ReplyPdu
 
 object MsgType extends Enumeration {
   type MsgType = Value
@@ -68,7 +67,7 @@ case class ReplyMsg(pdus: Seq[ReplyPdu]) extends Msg {
       case WithdrawR(uri, Some(tag)) => <withdraw tag={tag} uri={uri.toString}/>
       case WithdrawR(uri, None) => <withdraw uri={uri.toString}/>
       case ReportError(code, message) =>
-        <report_error error_code={code}>
+        <report_error error_code={code.toString}>
           {message}
         </report_error>
     }
