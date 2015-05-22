@@ -75,15 +75,19 @@ object SnapshotState extends Hashing {
 
   def get = state.get()
 
-  def transform(t: SnapshotState => SnapshotState): SnapshotState = {
+  def transform(t: SnapshotState => Either[MsgError, SnapshotState]): Either[MsgError, SnapshotState] = {
     var currentState: SnapshotState = null
     var newState: SnapshotState = null
     do {
       currentState = state.get
-      newState = t(currentState)
+      val result: Either[MsgError, SnapshotState] = t(currentState)
+      if (result.isLeft)
+        return result
+      else
+        newState = result.right.get
     }
     while (!state.compareAndSet(currentState, newState))
-    newState
+    Right(newState)
   }
 
   def hash(b64: Base64): Hash = {
