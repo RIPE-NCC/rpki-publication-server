@@ -71,7 +71,9 @@ object SnapshotState extends Hashing {
 
   type SnapshotMap = Map[URI, (Base64, Hash)]
 
-  private val state = new AtomicReference[SnapshotState]()
+  private val state = new AtomicReference[SnapshotState](emptySnapshot)
+
+  def emptySnapshot = new SnapshotState(UUID.randomUUID(), BigInt(1), Map.empty)
 
   def get = state.get()
 
