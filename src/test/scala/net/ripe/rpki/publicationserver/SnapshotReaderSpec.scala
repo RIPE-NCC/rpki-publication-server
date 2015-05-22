@@ -1,11 +1,8 @@
 package net.ripe.rpki.publicationserver
 
-import java.net.URI
-
-import com.ctc.wstx.exc.WstxValidationException
 import org.scalatest.Inside
 
-class SnapshotReaderSpec extends PublicationServerBaseSpec with Inside{
+class SnapshotReaderSpec extends PublicationServerBaseSpec with Inside {
   // .rnc can't be handled by Woodstox or Stax. And the only schema that the .rnc can be converted to without loss of information, is .rng ...
   // To convert the rnc from the publication server draft to rng, download a trang.jar from http://www.thaiopensource.com/relaxng/trang.html
   // and execute it like this:
@@ -15,10 +12,12 @@ class SnapshotReaderSpec extends PublicationServerBaseSpec with Inside{
   test("should parse valid notification.xml") {
     var result = new RrdpMessageParser().process(getFile("/valid-snapshot.xml"))
     inside(result) {
-      case Right(List(
-      PublishElement(uri1, None, data1),
-      PublishElement(uri2, None, data2),
-      PublishElement(uri3, None, data3))) =>
+      case Snapshot(sessionId, serial,
+          List(PublishElement(uri1, None, data1), PublishElement(uri2, None, data2), PublishElement(uri3, None, data3))) =>
+
+        sessionId.toString should be("9df4b597-af9e-4dca-bdda-719cce2c4e28")
+        serial should be("5932")
+
         uri1.toString should be("rsync://bandito.ripe.net/repo/77821ba152e5fbd6c46c3e95ac2b27a910a514d5.crl")
         uri2.toString should be("rsync://bandito.ripe.net/repo/77821ba152e5fbd6c46c3e95ac2b27a910a514d5.mft")
         uri3.toString should be("rsync://bandito.ripe.net/repo/671570f06499fbd2d6ab76c4f22566fe49d5de60.cer")

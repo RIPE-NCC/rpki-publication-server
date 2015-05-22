@@ -1,17 +1,13 @@
 package net.ripe.rpki.publicationserver
 
+import java.io.BufferedReader
 import java.net.URI
 import java.util.UUID
 
 import scala.annotation.tailrec
 import scala.io.{BufferedSource, Source}
-import scala.util.{Failure, Success, Try}
-import scala.xml._
 
-case class SnapshotAttributes(sessionId: UUID, serial: String) {
-  assert(serial.matches("[1-9][0-9]*"), s"The serial attribute must be an unbounded, unsigned positive integer [$serial]")
-}
-
+case class Snapshot(sessionId: UUID, serial: String, elements: Seq[PublishElement])
 case class PublishElement(uri: URI, hash: Option[String], body: Base64)
 
 class RrdpMessageParser extends MessageParser {
@@ -20,36 +16,40 @@ class RrdpMessageParser extends MessageParser {
 
   val Schema = Source.fromURL(getClass.getResource("/rrdp-schema.rng")).mkString
 
-  val RootElement = "snapshot"
-
-  private def parseSnapshotAttributes(attrs: Map[String, String]) = Try[SnapshotAttributes] {
-    assert(attrs("version") == "1", "The version attribute in the notification root element MUST be 1")
-    val sessionId: UUID = UUID.fromString(attrs("session_id"))
-    SnapshotAttributes(sessionId, attrs("serial"))
-  }
-
-  def process(xmlSource: BufferedSource): Either[MsgError, Seq[PublishElement]] = {
-
-    // PublishElement(URI.create(attrs("uri")), attrs("hash"), Base64(text))
+  def process(xmlSource: BufferedSource): Snapshot = {
 
     val SNAPSHOT = "snapshot"
     val PUBLISH = "publish"
 
-    def parse(parser: StaxParser): Either[MsgError, Seq[PublishElement]] = {
+    def parse(parser: StaxParser): Snapshot = {
+
+      var serial: String = null
+      var sessionId: UUID = null
+
+      def captureSnapshotParameters(attrs: Map[String, String]): Unit = {
+        assert(attrs("version") == "1", "The version attribute in the notification root element MUST be 1")
+        assert(attrs("serial").matches("[1-9][0-9]*"), s"The serial attribute must be an unbounded, unsigned positive integer [${attrs("serial")}]")
+        serial = attrs("serial")
+        sessionId = UUID.fromString(attrs("session_id"))
+      }
+
       @tailrec
-      def parseNext(lastAttributes: Map[String, String], lastText: String, elements: Seq[PublishElement]): Either[MsgError, Seq[PublishElement]] = {
-        if (!parser.hasNext) {
-          Left(MsgError(s"The snapshot file does not contain a complete $SNAPSHOT element"))
-        } else {
-          parser.next match {
+      def parseNext(lastAttributes: Map[String, String], lastText: String, elements: Seq[PublishElement]): Seq[PublishElement] = {
+
+        assert(parser.hasNext, s"The snapshot file does not contain a complete $SNAPSHOT element")
+
+        parser.next match {
 
             case ElementStart(label, attrs) =>
+              if (SNAPSHOT == label.toLowerCase) {
+                captureSnapshotParameters(attrs)
+              }
               parseNext(attrs, null, elements)
 
             case ElementEnd(label) =>
               label.toLowerCase match {
                 case SNAPSHOT =>
-                  Right(elements)
+                  elements
 
                 case PUBLISH =>
                   val element = new PublishElement(uri = URI.create(lastAttributes("uri")), hash = lastAttributes.get("hash"), body = Base64.apply(lastText))
@@ -61,16 +61,21 @@ class RrdpMessageParser extends MessageParser {
 
             case _ => parseNext(lastAttributes, lastText, elements)
           }
-        }
       }
 
-      parseNext(null, null, Seq())
+      val publishElements: Seq[PublishElement] = parseNext(null, null, Seq())
+      Snapshot(sessionId, serial, publishElements)
     }
-    // The StaxParser will make make sure that the message is validated against the schema while we are reading it:
-    // this way our parsing code can rely on the assumption that the xml is valid
-    val parser = StaxParser.createFor(xmlSource.bufferedReader(), Schema)
 
-    parse(parser)
+    val reader: BufferedReader = xmlSource.bufferedReader()
+    try {
+      // The StaxParser will make make sure that the message is validated against the schema while we are reading it:
+      // this way our parsing code can rely on the assumption that the xml is valid
+      val parser = StaxParser.createFor(reader, Schema)
+      parse(parser)
+    } finally {
+      reader.close()
+    }
 
   }
 }
