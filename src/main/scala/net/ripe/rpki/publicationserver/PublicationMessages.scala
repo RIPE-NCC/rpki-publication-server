@@ -92,7 +92,7 @@ class PublicationMessageParser extends MessageParser {
               if (label.equalsIgnoreCase("msg") && !MsgType.query.toString.equalsIgnoreCase(attrs("type")))
                 ErrorMsg(MsgError(MsgError.WrongQueryType, "Messages of type " + attrs("type") + " are not accepted"))
               else
-                parseNext(attrs, null, pduReplies)
+                parseNext(attrs, "", pduReplies)
 
             case ElementEnd(label) =>
               val msgOrPdu = label.toLowerCase match {
@@ -114,7 +114,7 @@ class PublicationMessageParser extends MessageParser {
               }
 
             case ElementText(newText) =>
-              parseNext(lastAttributes, newText, pduReplies)
+              parseNext(lastAttributes, lastText + newText, pduReplies)
 
             case _ => parseNext(lastAttributes, lastText, pduReplies)
           }
