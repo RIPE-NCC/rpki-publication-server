@@ -52,7 +52,7 @@ trait PublicationService extends HttpService {
 
   private def processRequest(xmlMessage: String): StandardRoute = {
     val response = msgParser.process(xmlMessage, repository.update) match {
-      case Right(msg) =>
+      case msg : ReplyMsg =>
         serviceLogger.info("Request handled successfully")
 
         // TODO replace these with real values
@@ -60,10 +60,10 @@ trait PublicationService extends HttpService {
         val uri = "test-uri"
 
         NotificationState.update(sessionId, uri, SnapshotState.get)
-        msgParser.serialize(msg)
-      case Left(msgError) =>
+        msg.serialize
+      case errorMsg@ErrorMsg(msgError) =>
         serviceLogger.warn("Error while handling request: {}", msgError)
-        msgParser.serialize(msgError)
+        errorMsg.serialize
     }
     complete(response)
   }

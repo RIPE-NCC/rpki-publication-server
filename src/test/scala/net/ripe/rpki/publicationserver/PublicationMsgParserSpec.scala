@@ -1,5 +1,7 @@
 package net.ripe.rpki.publicationserver
 
+import java.net.URI
+
 class PublicationMsgParserSpec extends PublicationServerBaseSpec {
 
   val msgParser = new PublicationMessageParser
@@ -11,16 +13,16 @@ class PublicationMsgParserSpec extends PublicationServerBaseSpec {
 
   test("should parse publish message") {
     val publishXml = getFile("/publish.xml")
-    val msg = msgParser.process(publishXml.mkString, dummyRepo).right.get
+    val msg = msgParser.process(publishXml.mkString, dummyRepo).asInstanceOf[ReplyMsg]
 
     val publishR = msg.pdus.head.asInstanceOf[PublishR]
-    publishR.uri should be("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer")
+    publishR.uri should equal(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"))
     publishR.tag should be(None)
   }
 
   test("should parse publish message with tag") {
     val publishXml = getFile("/publishWithTag.xml")
-    val msg = msgParser.process(publishXml.mkString, dummyRepo).right.get
+    val msg = msgParser.process(publishXml.mkString, dummyRepo).asInstanceOf[ReplyMsg]
 
     val publishR = msg.pdus.head.asInstanceOf[PublishR]
     publishR.tag should equal(Some("123"))
@@ -28,16 +30,16 @@ class PublicationMsgParserSpec extends PublicationServerBaseSpec {
 
   test("should parse withdraw message") {
     val withdrawXml = getFile("/withdraw.xml")
-    val msg = msgParser.process(withdrawXml.mkString, dummyRepo).right.get
+    val msg = msgParser.process(withdrawXml.mkString, dummyRepo).asInstanceOf[ReplyMsg]
 
     val withdrawR = msg.pdus.head.asInstanceOf[WithdrawR]
-    withdrawR.uri should be("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer")
+    withdrawR.uri should equal(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"))
     withdrawR.tag should be(None)
   }
 
   test("should parse withdraw message with tag") {
     val withdrawXml = getFile("/withdrawWithTag.xml")
-    val msg = msgParser.process(withdrawXml.mkString, dummyRepo).right.get
+    val msg = msgParser.process(withdrawXml.mkString, dummyRepo).asInstanceOf[ReplyMsg]
 
     val withdrawR = msg.pdus.head.asInstanceOf[WithdrawR]
     withdrawR.tag should equal(Some("123"))

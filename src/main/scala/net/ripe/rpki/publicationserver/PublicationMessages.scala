@@ -40,25 +40,57 @@ object MsgType extends Enumeration {
   val reply = Value("reply")
 }
 
-class ReplyMsg(val pdus: Seq[ReplyPdu])
+class Msg {
+
+  protected def reply(pdus: => NodeSeq): Elem =
+    <msg type="reply" version="3" xmlns="http://www.hactrn.net/uris/rpki/publication-spec/">
+      {pdus}
+    </msg>
+}
+
+
+case class ErrorMsg(error: MsgError) extends Msg {
+
+  def serialize = reply {
+    <report_error error_code={error.code.toString}>
+      {error.message}
+    </report_error>
+  }
+}
+
+case class ReplyMsg(pdus: Seq[ReplyPdu]) extends Msg {
+
+  def serialize = reply {
+    pdus.map {
+      case PublishR(uri, Some(tag)) => <publish tag={tag} uri={uri.toString}/>
+      case PublishR(uri, None) => <publish uri={uri.toString}/>
+      case WithdrawR(uri, Some(tag)) => <withdraw tag={tag} uri={uri.toString}/>
+      case WithdrawR(uri, None) => <withdraw uri={uri.toString}/>
+      case ReportError(code, message) =>
+        <report_error error_code={code}>
+          {message}
+        </report_error>
+    }
+  }
+}
 
 class PublicationMessageParser extends MessageParser {
 
   val Schema = Source.fromURL(getClass.getResource("/rpki-publication-schema.rng")).mkString
 
-  def process(xmlString: String, pduHandler: QueryPdu => ReplyPdu): Either[MsgError, ReplyMsg] = {
+  def process(xmlString: String, pduHandler: QueryPdu => ReplyPdu): Msg = {
 
-    def parse(parser: StaxParser): Either[MsgError, ReplyMsg] = {
+    def parse(parser: StaxParser): Msg = {
       @tailrec
-      def parseNext(lastAttributes: Map[String, String], lastText: String, pduReplies: Seq[ReplyPdu]): Either[MsgError, ReplyMsg] = {
+      def parseNext(lastAttributes: Map[String, String], lastText: String, pduReplies: Seq[ReplyPdu]): Msg = {
         if (!parser.hasNext) {
-          Left(MsgError(MsgError.NoMsgElement, "The request does not contain a complete msg element"))
+          ErrorMsg(MsgError(MsgError.NoMsgElement, "The request does not contain a complete msg element"))
         } else {
           parser.next match {
 
             case ElementStart(label, attrs) =>
               if (label.equalsIgnoreCase("msg") && !MsgType.query.toString.equalsIgnoreCase(attrs("type")))
-                Left(MsgError(MsgError.WrongQueryType, "Messages of type " + attrs("type") + " are not accepted"))
+                ErrorMsg(MsgError(MsgError.WrongQueryType, "Messages of type " + attrs("type") + " are not accepted"))
               else
                 parseNext(attrs, null, pduReplies)
 
@@ -77,7 +109,7 @@ class PublicationMessageParser extends MessageParser {
               }
 
               msgOrPdu match {
-                case Left(msg) => Right(msg)
+                case Left(msg) => msg
                 case Right(pdu) => parseNext(null, null, pdu +: pduReplies)
               }
 
@@ -98,29 +130,5 @@ class PublicationMessageParser extends MessageParser {
 
     parse(parser)
   }
-
-  def serialize(msg: ReplyMsg) = reply {
-    msg.pdus.map {
-      case PublishR(uri, Some(tag)) => <publish tag={tag} uri={uri.toString}/>
-      case PublishR(uri, None) => <publish uri={uri.toString}/>
-      case WithdrawR(uri, Some(tag)) => <withdraw tag={tag} uri={uri.toString}/>
-      case WithdrawR(uri, None) => <withdraw uri={uri.toString}/>
-      case ReportError(code, message) =>
-        <report_error error_code={code}>
-          {message}
-        </report_error>
-    }
-  }
-
-  def serialize(msgError: MsgError) = reply {
-    <report_error error_code={msgError.code.toString}>
-      {msgError.message}
-    </report_error>
-  }
-
-  private def reply(pdus: => NodeSeq): Elem =
-    <msg type="reply" version="3" xmlns="http://www.hactrn.net/uris/rpki/publication-spec/">
-      {pdus}
-    </msg>
 
 }
