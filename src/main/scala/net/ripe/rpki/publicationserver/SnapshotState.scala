@@ -48,7 +48,10 @@ case class SnapshotState(sessionId: UUID, serial: BigInt, pdus: SnapshotState.Sn
       }
     }
 
-    newPdus.right.map(SnapshotState(sessionId, serial + 1, _))
+    if (newPdus.isRight)
+      (Seq(), Some(SnapshotState(sessionId, serial + 1, newPdus.right.get)))
+    else
+      (Seq(), None)
   }
 
   def serialize = snapshotXml (
