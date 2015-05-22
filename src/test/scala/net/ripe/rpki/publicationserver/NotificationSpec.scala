@@ -1,12 +1,14 @@
 package net.ripe.rpki.publicationserver
 
+import java.util.UUID
+
 class NotificationSpec extends PublicationServerBaseSpec {
 
   test("should serialize a Notification to proper xml") {
     val snapshot = SnapshotLocator("rsync://bla", Hash("2a3s4v"))
     val deltas = Seq(Delta(BigInt(987), "rsync://deltabla", Hash("1234sg")))
 
-    val notification = Notification(SessionId("s123"), BigInt(234), snapshot, deltas)
+    val notification = Notification(UUID.fromString("s123"), BigInt(234), snapshot, deltas)
 
     val xml = notification.serialize.mkString
 

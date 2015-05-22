@@ -12,8 +12,8 @@ class SnapshotReaderSpec extends PublicationServerBaseSpec with Inside {
   test("should parse valid notification.xml") {
     val result = new RrdpMessageParser().process(getFile("/valid-snapshot.xml"))
     inside(result) {
-      case Snapshot(sessionId, serial,
-          List(PublishElement(uri1, None, data1), PublishElement(uri2, None, data2), PublishElement(uri3, None, data3))) =>
+      case SnapshotState(sessionId, serial,
+          List(PublishElement(uri1, Hash("124uh"), data1), PublishElement(uri2, Hash("125uh"), data2), PublishElement(uri3, Hash("126uh"), data3))) =>
 
         sessionId.toString should be("9df4b597-af9e-4dca-bdda-719cce2c4e28")
         serial should be("5932")
