@@ -1,13 +1,11 @@
 package net.ripe.rpki.publicationserver
 
-import java.util.UUID
-
 import akka.actor.Actor
+import com.softwaremill.macwire.MacwireMacros._
 import org.slf4j.LoggerFactory
 import spray.http.HttpHeaders.`Content-Type`
 import spray.http._
 import spray.routing._
-import com.softwaremill.macwire.MacwireMacros._
 
 class PublicationServiceActor extends Actor with PublicationService {
 
@@ -51,19 +49,15 @@ trait PublicationService extends HttpService {
     }
 
   private def processRequest(xmlMessage: String): StandardRoute = {
-    val response = msgParser.process(xmlMessage, repository.update) match {
-      case msg : ReplyMsg =>
+    val response = msgParser.process(xmlMessage) match {
+      case Right(queryMessage) =>
         serviceLogger.info("Request handled successfully")
+        val elements = SnapshotState.updateWith(queryMessage.pdus)
+        ReplyMsg(elements).serialize  // TODO check for error during upating the snapshot and log it
 
-        // TODO replace these with real values
-        val sessionId = UUID.randomUUID()
-        val uri = "test-uri"
-
-        NotificationState.update(sessionId, uri, SnapshotState.get)
-        msg.serialize
-      case errorMsg@ErrorMsg(msgError) =>
+      case Left(msgError) =>
         serviceLogger.warn("Error while handling request: {}", msgError)
-        errorMsg.serialize
+        ErrorMsg(msgError).serialize
     }
     complete(response)
   }

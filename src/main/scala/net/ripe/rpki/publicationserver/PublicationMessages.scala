@@ -18,6 +18,8 @@ object MsgError extends Enumeration {
 
 case class MsgError(code: MsgError.Code, message: String)
 
+case class QueryMessage(pdus: Seq[QueryPdu])
+
 trait QueryPdu {
   def uri: URI
 }
@@ -48,7 +50,6 @@ class Msg {
     </msg>
 }
 
-
 case class ErrorMsg(error: MsgError) extends Msg {
 
   def serialize = reply {
@@ -78,45 +79,45 @@ class PublicationMessageParser extends MessageParser {
 
   val Schema = Source.fromURL(getClass.getResource("/rpki-publication-schema.rng")).mkString
 
-  def process(xmlString: String, pduHandler: QueryPdu => ReplyPdu): Msg = {
+  def process(xmlString: String): Either[MsgError, QueryMessage] = {
 
-    def parse(parser: StaxParser): Msg = {
+    def parse(parser: StaxParser): Either[MsgError, QueryMessage] = {
       @tailrec
-      def parseNext(lastAttributes: Map[String, String], lastText: String, pduReplies: Seq[ReplyPdu]): Msg = {
+      def parseNext(lastAttributes: Map[String, String], lastText: String, pdus: Seq[QueryPdu]): Either[MsgError, QueryMessage] = {
         if (!parser.hasNext) {
-          ErrorMsg(MsgError(MsgError.NoMsgElement, "The request does not contain a complete msg element"))
+          Left(MsgError(MsgError.NoMsgElement, "The request does not contain a complete msg element"))
         } else {
           parser.next match {
 
             case ElementStart(label, attrs) =>
               if (label.equalsIgnoreCase("msg") && !MsgType.query.toString.equalsIgnoreCase(attrs("type")))
-                ErrorMsg(MsgError(MsgError.WrongQueryType, "Messages of type " + attrs("type") + " are not accepted"))
+                Left(MsgError(MsgError.WrongQueryType, "Messages of type " + attrs("type") + " are not accepted"))
               else
-                parseNext(attrs, "", pduReplies)
+                parseNext(attrs, "", pdus)
 
             case ElementEnd(label) =>
               val msgOrPdu = label.toLowerCase match {
                 case "msg" =>
-                  Left(new ReplyMsg(pduReplies))
+                  Left(QueryMessage(pdus))
 
                 case "publish" =>
                   val pdu = new PublishQ(uri = new URI(lastAttributes("uri")), tag = lastAttributes.get("tag"), hash = lastAttributes.get("hash"), base64 = Base64(lastText))
-                  Right(pduHandler(pdu))
+                  Right(pdu)
 
                 case "withdraw" =>
                   val pdu = new WithdrawQ(uri = new URI(lastAttributes("uri")), tag = lastAttributes.get("tag"), hash = lastAttributes("hash"))
-                  Right(pduHandler(pdu))
+                  Right(pdu)
               }
 
               msgOrPdu match {
-                case Left(msg) => msg
-                case Right(pdu) => parseNext(null, null, pdu +: pduReplies)
+                case Left(msg) => Right(msg)
+                case Right(pdu) => parseNext(null, null, pdu +: pdus)
               }
 
             case ElementText(newText) =>
-              parseNext(lastAttributes, lastText + newText, pduReplies)
+              parseNext(lastAttributes, lastText + newText, pdus)
 
-            case _ => parseNext(lastAttributes, lastText, pduReplies)
+            case _ => parseNext(lastAttributes, lastText, pdus)
           }
         }
       }

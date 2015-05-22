@@ -10,7 +10,7 @@ import scala.xml.{Elem, Node}
 
 case class SnapshotState(sessionId: UUID, serial: BigInt, pdus: SnapshotState.SnapshotMap) {
 
-  def apply(queries: Seq[QueryPdu]): Either[MsgError, SnapshotState] = {
+  def apply(queries: Seq[QueryPdu]): (Seq[ReplyPdu], Option[SnapshotState]) = {
 
     val newPdus = queries.foldLeft[Either[MsgError, SnapshotState.SnapshotMap]](Right(pdus)) { (pduMap, query) =>
       pduMap.right.flatMap { m =>
@@ -77,20 +77,34 @@ object SnapshotState extends Hashing {
 
   def get = state.get()
 
-  def transform(t: SnapshotState => Either[MsgError, SnapshotState]): Either[MsgError, SnapshotState] = {
-    var currentState: SnapshotState = null
-    var newState: SnapshotState = null
-    do {
-      currentState = state.get
-      val result: Either[MsgError, SnapshotState] = t(currentState)
-      if (result.isLeft)
-        return result
-      else
-        newState = result.right.get
+  def updateWith(queries: Seq[QueryPdu]): Seq[ReplyPdu] = {
+    // TODO replace these with real values
+    val sessionId = UUID.randomUUID()
+    val uri = "test-uri"
+
+    val currentState = state.get
+    val (replies, newState) = currentState(queries)
+    if (newState.isDefined) {
+        while (!state.compareAndSet(currentState, newState.get))
+        NotificationState.update(sessionId, uri, newState.get)
     }
-    while (!state.compareAndSet(currentState, newState))
-    Right(newState)
+    replies
   }
+//
+//  def transform(t: SnapshotState => Either[MsgError, SnapshotState]): Either[MsgError, SnapshotState] = {
+//    var currentState: SnapshotState = null
+//    var newState: SnapshotState = null
+//    do {
+//      currentState = state.get
+//      val result: Either[MsgError, SnapshotState] = t(currentState)
+//      if (result.isLeft)
+//        return result
+//      else
+//        newState = result.right.get
+//    }
+//    while (!state.compareAndSet(currentState, newState))
+//    Right(newState)
+//  }
 
   def hash(b64: Base64): Hash = {
     val Base64(b64String) = b64
