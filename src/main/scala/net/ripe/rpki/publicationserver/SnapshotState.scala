@@ -88,9 +88,7 @@ object SnapshotState extends Hashing {
   def initializeWith(initState: SnapshotState) = state.set(initState)
 
   def updateWith(queries: Seq[QueryPdu]): Seq[ReplyPdu] = {
-    // TODO replace this with a real value
-    val sessionId = UUID.randomUUID()
-
+    val sessionId = wire[ConfigWrapper].currentSessionId
     val currentState = state.get
     val (replies, newState) = currentState(queries)
     if (newState.isDefined) {
