@@ -3,6 +3,8 @@ package net.ripe.rpki.publicationserver
 import java.net.URI
 import java.util.UUID
 
+import net.ripe.rpki.publicationserver.fs.SnapshotWriter
+import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.slf4j.Logger
 import spray.http._
@@ -26,6 +28,39 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
 
     Post("/", publishXml.mkString) ~> publicationService.myRoute ~> check {
       contentType.toString() should include("application/rpki-publication")
+    }
+  }
+
+  test("should write a snapshot to the filesystem when a message is succesfully processed") {
+    val snapshotWriterSpy = mock[SnapshotWriter](RETURNS_SMART_NULLS)
+
+    val service = new PublicationService with Context {
+      override val snapshotWriter = snapshotWriterSpy
+    }
+
+    val publishXml = getFile("/publish.xml")
+
+    Post("/", publishXml.mkString) ~> service.myRoute ~> check {
+      verify(snapshotWriterSpy).writeSnapshot(anyString(), any[SnapshotState])
+    }
+  }
+
+  test("should log a warning and should not write a snapshot to the filesystem when a message contained an error") {
+    val logSpy = mock[Logger](RETURNS_SMART_NULLS)
+    val snapshotWriterSpy = mock[SnapshotWriter](RETURNS_SMART_NULLS)
+
+    val service = new PublicationService with Context {
+      override val serviceLogger = logSpy
+      override val snapshotWriter = snapshotWriterSpy
+    }
+
+    // The withdraw will fail because the SnapshotState is empty
+    val withdrawXml = getFile("/withdraw.xml")
+    val contentType = HttpHeaders.`Content-Type`(MediaType.custom("application/rpki-publication"))
+
+    HttpRequest(HttpMethods.POST, "/", List(contentType), withdrawXml.mkString) ~> service.myRoute ~> check {
+      verify(logSpy).warn("Request contained one or more pdu's with errors")
+      verifyNoMoreInteractions(snapshotWriterSpy)
     }
   }
 
