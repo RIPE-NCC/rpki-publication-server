@@ -2,6 +2,7 @@ package net.ripe.rpki.publicationserver
 
 import akka.actor.Actor
 import com.softwaremill.macwire.MacwireMacros._
+import net.ripe.rpki.publicationserver.fs.SnapshotWriter
 import org.slf4j.LoggerFactory
 import spray.http.HttpHeaders.`Content-Type`
 import spray.http._
@@ -27,6 +28,8 @@ trait PublicationService extends HttpService {
   val msgParser = wire[PublicationMessageParser]
 
   val healthChecks = wire[HealthChecks]
+
+  val snapshotWriter = wire[SnapshotWriter]
 
   val myRoute =
     path("") {
@@ -55,6 +58,7 @@ trait PublicationService extends HttpService {
         if (elements.exists(r => r.isInstanceOf[ReportError])) {
           serviceLogger.warn("Request contained one or more pdu's with errors")
         } else {
+          snapshotWriter.writeSnapshot("snapshots", SnapshotState.get)    // TODO get root dir from config
           serviceLogger.info("Request handled successfully")
         }
         ReplyMsg(elements).serialize
