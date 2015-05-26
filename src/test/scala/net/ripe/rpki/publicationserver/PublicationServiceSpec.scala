@@ -17,7 +17,8 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
     def actorRefFactory = system
   }
 
-  def publicationService = new PublicationService with Context
+  def publicationService = new PublicationService with Context {
+  }
 
   before {
     SnapshotState.initializeWith(SnapshotState.emptySnapshot)
@@ -26,7 +27,7 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
   test("should return a response with content-type application/rpki-publication") {
     val publishXml = getFile("/publish.xml")
 
-    Post("/", publishXml.mkString) ~> publicationService.myRoute ~> check {
+    Post("/", publishXml.mkString) ~> publicationService.publicationRoutes ~> check {
       contentType.toString() should include("application/rpki-publication")
     }
   }
@@ -40,7 +41,7 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
 
     val publishXml = getFile("/publish.xml")
 
-    Post("/", publishXml.mkString) ~> service.myRoute ~> check {
+    Post("/", publishXml.mkString) ~> service.publicationRoutes ~> check {
       verify(snapshotWriterSpy).writeSnapshot(anyString(), any[SnapshotState])
     }
   }
@@ -58,7 +59,7 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
     val withdrawXml = getFile("/withdraw.xml")
     val contentType = HttpHeaders.`Content-Type`(MediaType.custom("application/rpki-publication"))
 
-    HttpRequest(HttpMethods.POST, "/", List(contentType), withdrawXml.mkString) ~> service.myRoute ~> check {
+    HttpRequest(HttpMethods.POST, "/", List(contentType), withdrawXml.mkString) ~> service.publicationRoutes ~> check {
       verify(logSpy).warn("Request contained one or more pdu's with errors")
       verifyNoMoreInteractions(snapshotWriterSpy)
     }
@@ -74,7 +75,7 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
     val publishXml = getFile("/publish.xml")
     val contentType = HttpHeaders.`Content-Type`(ContentType(MediaTypes.`application/xml`))
 
-    HttpRequest(HttpMethods.POST, "/", List(contentType), publishXml.mkString) ~> service.myRoute ~> check {
+    HttpRequest(HttpMethods.POST, "/", List(contentType), publishXml.mkString) ~> service.publicationRoutes ~> check {
       verify(logSpy).warn("Request uses wrong media type: {}", "application/xml")
     }
   }
@@ -83,7 +84,7 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
     val publishXml = getFile("/publish.xml")
     val publishXmlResponse = getFile("/publishResponse.xml")
 
-    Post("/", publishXml.mkString) ~> publicationService.myRoute ~> check {
+    Post("/", publishXml.mkString) ~> publicationService.publicationRoutes ~> check {
       val response = responseAs[String]
       trim(response) should be(trim(publishXmlResponse.mkString))
     }
@@ -93,7 +94,7 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
     val publishXml = getFile("/publishWithTag.xml")
     val publishXmlResponse = getFile("/publishWithTagResponse.xml")
 
-    Post("/", publishXml.mkString) ~> publicationService.myRoute ~> check {
+    Post("/", publishXml.mkString) ~> publicationService.publicationRoutes ~> check {
       val response = responseAs[String]
       trim(response) should be(trim(publishXmlResponse.mkString))
     }
@@ -107,7 +108,7 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
     val withdrawXml = getFile("/withdraw.xml")
     val withdrawXmlResponse = getFile("/withdrawResponse.xml")
 
-    Post("/", withdrawXml.mkString) ~> publicationService.myRoute ~> check {
+    Post("/", withdrawXml.mkString) ~> publicationService.publicationRoutes ~> check {
       val response = responseAs[String]
       trim(response) should be(trim(withdrawXmlResponse.mkString))
     }
@@ -121,7 +122,7 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
     val withdrawXml = getFile("/withdrawWithTag.xml")
     val withdrawXmlResponse = getFile("/withdrawWithTagResponse.xml")
 
-    Post("/", withdrawXml.mkString) ~> publicationService.myRoute ~> check {
+    Post("/", withdrawXml.mkString) ~> publicationService.publicationRoutes ~> check {
       val response = responseAs[String]
       trim(response) should be(trim(withdrawXmlResponse.mkString))
     }
@@ -131,20 +132,20 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
     val invalidPublishXml = getFile("/publishResponse.xml")
     val publishError = getFile("/errorResponse.xml")
 
-    Post("/", invalidPublishXml.mkString) ~> publicationService.myRoute ~> check {
+    Post("/", invalidPublishXml.mkString) ~> publicationService.publicationRoutes ~> check {
       val response = responseAs[String]
       trim(response) should be(trim(publishError.mkString))
     }
   }
 
   test("should leave POST requests to other paths unhandled") {
-    Post("/kermit") ~> publicationService.myRoute ~> check {
+    Post("/kermit") ~> publicationService.publicationRoutes ~> check {
       handled should be(false)
     }
   }
 
   test("should return a health check response") {
-    Get("/monitoring/healthcheck") ~> publicationService.myRoute ~> check {
+    Get("/monitoring/healthcheck") ~> publicationService.publicationRoutes ~> check {
       val response = responseAs[String]
       response should include ("buildNumber")
     }
