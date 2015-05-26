@@ -12,46 +12,48 @@ case class SnapshotState(sessionId: UUID, serial: BigInt, pdus: SnapshotState.Sn
 
   def apply(queries: Seq[QueryPdu]): (Seq[ReplyPdu], Option[SnapshotState]) = {
 
-    val newPdus = queries.foldLeft[Either[MsgError, SnapshotState.SnapshotMap]](Right(pdus)) { (pduMap, query) =>
-      pduMap.right.flatMap { m =>
-        query match {
-          case PublishQ(uri, _, None, base64) =>
-            m.get(uri) match {
-              case Some(_) => Left(MsgError(MsgError.HashForInsert, s"Tried to insert existing object [$uri]."))
-              case None    => Right(m + (uri ->(base64, SnapshotState.hash(base64))))
-            }
+    var newPdus = pdus
+    val replies = queries.map({
+        case PublishQ(uri, tag, None, base64) =>
+          newPdus.get(uri) match {
+            case Some(_) => ReportError(MsgError.HashForInsert, Some(s"Tried to insert existing object [$uri]."))
+            case None    =>
+              newPdus += (uri ->(base64, SnapshotState.hash(base64)))
+              PublishR(uri, tag)
+          }
 
-          case PublishQ(uri, _, Some(qHash), base64) =>
-            m.get(uri) match {
-              case Some((_, h)) =>
-                if (h == Hash(qHash))
-                  Right(m + (uri ->(base64, SnapshotState.hash(base64))))
-                else
-                  Left(MsgError(MsgError.NonMatchingHash, s"Cannot republish the object [$uri], hash doesn't match"))
+        case PublishQ(uri, tag, Some(qHash), base64) =>
+          newPdus.get(uri) match {
+            case Some((_, h)) =>
+              if (h == Hash(qHash)) {
+                newPdus += (uri ->(base64, SnapshotState.hash(base64)))
+                PublishR(uri, tag)
+              } else
+                ReportError(MsgError.NonMatchingHash, Some(s"Cannot republish the object [$uri], hash doesn't match"))
 
-              case None =>
-                Left(MsgError(MsgError.NoObjectToUpdate, s"No object [$uri] has been found."))
-            }
+            case None =>
+              ReportError(MsgError.NoObjectToUpdate, Some(s"No object [$uri] has been found."))
+          }
 
-          case WithdrawQ(uri, _, qHash) =>
-            m.get(uri) match {
-              case Some((_, h)) =>
-                if (h == Hash(qHash))
-                  Right(m - uri)
-                else
-                  Left(MsgError(MsgError.NonMatchingHash, s"Cannot withdraw the object [$uri], hash doesn't match."))
+        case WithdrawQ(uri, tag, qHash) =>
+          newPdus.get(uri) match {
+            case Some((_, h)) =>
+              if (h == Hash(qHash)) {
+                newPdus -= uri
+                WithdrawR(uri, tag)
+              } else
+                ReportError(MsgError.NonMatchingHash, Some(s"Cannot withdraw the object [$uri], hash doesn't match."))
 
-              case None =>
-                Left(MsgError(MsgError.NoObjectForWithdraw, s"No object [$uri] found."))
-            }
-        }
+            case None =>
+              ReportError(MsgError.NoObjectForWithdraw, Some(s"No object [$uri] found."))
+          }
       }
-    }
+    )
 
-    if (newPdus.isRight)
-      (Seq(), Some(SnapshotState(sessionId, serial + 1, newPdus.right.get)))
+    if (replies.exists(r => r.isInstanceOf[ReportError]))
+      (replies, None)
     else
-      (Seq(), None)
+      (replies, Some(SnapshotState(sessionId, serial + 1, newPdus)))
   }
 
   def serialize = snapshotXml (
@@ -79,6 +81,8 @@ object SnapshotState extends Hashing {
   def emptySnapshot = new SnapshotState(UUID.randomUUID(), BigInt(1), Map.empty)
 
   def get = state.get()
+
+  def reset = state.set(emptySnapshot)
 
   def updateWith(queries: Seq[QueryPdu]): Seq[ReplyPdu] = {
     // TODO replace these with real values

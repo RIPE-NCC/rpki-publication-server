@@ -53,7 +53,7 @@ trait PublicationService extends HttpService {
       case Right(queryMessage) =>
         serviceLogger.info("Request handled successfully")
         val elements = SnapshotState.updateWith(queryMessage.pdus)
-        ReplyMsg(elements).serialize  // TODO check for error during upating the snapshot and log it
+        ReplyMsg(elements).serialize  // TODO check for errors during updating the snapshot and log them
 
       case Left(msgError) =>
         serviceLogger.warn("Error while handling request: {}", msgError)

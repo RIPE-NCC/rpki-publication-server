@@ -14,6 +14,10 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
 
   def publicationService = new PublicationService with Context
 
+  before {
+    SnapshotState.reset
+  }
+
   test("should return a response with content-type application/rpki-publication") {
     val publishXml = getFile("/publish.xml")
 
