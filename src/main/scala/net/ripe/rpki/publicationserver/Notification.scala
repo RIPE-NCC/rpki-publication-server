@@ -25,7 +25,7 @@ case class Notification(sessionId: UUID, serial: BigInt, snapshot: SnapshotLocat
       <snapshot uri={snapshot.uri} hash={snapshot.hash.hash}/>
 
   private def notificationXml(sessionId: UUID, serial: BigInt, snapshot: Node, deltas: Iterable[Node]): Elem =
-    <notification xmlns="HTTP://www.ripe.net/rpki/rrdp" version="1" session_id={sessionId.toString} serial={serial.toString()}>
+    <notification xmlns="http://www.ripe.net/rpki/rrdp" version="1" session_id={sessionId.toString} serial={serial.toString()}>
       {snapshot}
       {deltas}
     </notification>

@@ -2,7 +2,7 @@
 # RelaxNG schema for RPKI Repository Delta Protocol (RRDP).
 #
 
-default namespace = "HTTP://www.ripe.net/rpki/rrdp"
+default namespace = "http://www.ripe.net/rpki/rrdp"
 
 version = xsd:positiveInteger   { maxInclusive="1" }
 serial  = xsd:nonNegativeInteger

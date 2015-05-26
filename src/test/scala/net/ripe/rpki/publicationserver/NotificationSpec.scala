@@ -13,7 +13,7 @@ class NotificationSpec extends PublicationServerBaseSpec {
 
     val xml = notification.serialize.mkString
 
-    trim(xml) should be(trim(s"""<notification version="1" session_id="${sessionId.toString}" serial="234" xmlns="HTTP://www.ripe.net/rpki/rrdp">
+    trim(xml) should be(trim(s"""<notification version="1" session_id="${sessionId.toString}" serial="234" xmlns="http://www.ripe.net/rpki/rrdp">
                                   <snapshot uri="rsync://bla" hash="2a3s4v"/>
                                   <delta serial="987" uri="rsync://deltabla" hash="1234sg"/>
                                 </notification>"""))
