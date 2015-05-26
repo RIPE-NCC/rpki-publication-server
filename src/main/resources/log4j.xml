@@ -10,7 +10,7 @@
     </layout>
   </appender>
   <appender name="FILE" class="org.apache.log4j.RollingFileAppender">
-    <param name="File" value="publication-server.log"/>
+    <param name="File" value="${LOG_FILE}"/>
     <param name="MaxFileSize" value="20MB"/>
     <param name="MaxBackupIndex" value="1"/>
     <layout class="org.apache.log4j.PatternLayout">
