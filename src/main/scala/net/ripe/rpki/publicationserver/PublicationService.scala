@@ -28,8 +28,6 @@ trait PublicationService extends HttpService with RepositoryPath {
 
   val serviceLogger = LoggerFactory.getLogger("PublicationService")
 
-  val repository = wire[Repository]
-
   val msgParser = wire[PublicationMessageParser]
 
   val healthChecks = wire[HealthChecks]
