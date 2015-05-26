@@ -5,7 +5,6 @@ import akka.io.IO
 import akka.pattern.ask
 import akka.util.Timeout
 import com.softwaremill.macwire.MacwireMacros._
-import com.typesafe.config._
 import net.ripe.rpki.publicationserver.fs.SnapshotReader
 import spray.can.Http
 
@@ -13,7 +12,7 @@ import scala.concurrent.duration._
 
 object Boot extends App {
 
-  val conf = wire[ConfigWrapper].getConfig
+  val conf = wire[ConfigWrapper]
 
   implicit val system = ActorSystem("on-spray-can")
 
@@ -21,16 +20,14 @@ object Boot extends App {
 
   implicit val timeout = Timeout(5.seconds)
 
-  val serverPort = conf.getInt("port")
+  setupLogging()
 
-  setupLogging(conf)
+  SnapshotReader.readSnapshot(conf.locationRepositoryPath)
 
-  SnapshotReader.readSnapshot(conf.getString("locations.repository.path"))
-
-  IO(Http) ? Http.Bind(service, interface = "::0", port = serverPort)
+  IO(Http) ? Http.Bind(service, interface = "::0", port = conf.port)
 
 
-  def setupLogging(conf: Config) = {
-    System.setProperty("LOG_FILE", conf.getString("locations.logfile"))
+  def setupLogging() = {
+    System.setProperty("LOG_FILE", conf.locationLogfile)
   }
 }

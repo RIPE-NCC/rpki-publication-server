@@ -73,7 +73,7 @@ case class SnapshotState(sessionId: UUID, serial: BigInt, pdus: SnapshotState.Sn
 
 object SnapshotState extends Hashing {
 
-  val repositoryUri = wire[ConfigWrapper].getConfig.getString("locations.repository.uri")
+  val repositoryUri = wire[ConfigWrapper].locationRepositoryUri
 
   private val base64 = BaseEncoding.base64()
 
