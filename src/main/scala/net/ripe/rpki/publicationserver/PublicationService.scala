@@ -31,6 +31,8 @@ trait PublicationService extends HttpService {
 
   val snapshotWriter = wire[SnapshotWriter]
 
+  val repositoryPath = wire[ConfigWrapper].getConfig.getString("repository.path")
+
   val myRoute =
     path("") {
       post {
@@ -58,7 +60,7 @@ trait PublicationService extends HttpService {
         if (elements.exists(r => r.isInstanceOf[ReportError])) {
           serviceLogger.warn("Request contained one or more pdu's with errors")
         } else {
-          snapshotWriter.writeSnapshot("snapshots", SnapshotState.get)    // TODO get root dir from config
+          snapshotWriter.writeSnapshot(repositoryPath, SnapshotState.get)
           serviceLogger.info("Request handled successfully")
         }
         ReplyMsg(elements).serialize
