@@ -8,7 +8,7 @@ import scala.io.Source
 object SnapshotReader {
   def readSnapshot(repositoryPath: String) : Either[MsgError, SnapshotState] = {
     // read notification.xml first
-    val lines = Source.fromFile("notification.xml").mkString
+//    val lines = Source.fromFile("notification.xml").mkString
 
     null
 
