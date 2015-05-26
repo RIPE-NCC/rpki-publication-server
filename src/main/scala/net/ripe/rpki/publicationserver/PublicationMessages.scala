@@ -78,6 +78,8 @@ class PublicationMessageParser extends MessageParser {
 
   val Schema = Source.fromURL(getClass.getResource("/rpki-publication-schema.rng")).mkString
 
+  def trim(s: String): String = s.filterNot(c => c == ' ' || c == '\n')
+
   def process(xmlString: String): Either[MsgError, QueryMessage] = {
 
     def parse(parser: StaxParser): Either[MsgError, QueryMessage] = {
@@ -100,7 +102,8 @@ class PublicationMessageParser extends MessageParser {
                   Left(QueryMessage(pdus))
 
                 case "publish" =>
-                  val pdu = new PublishQ(uri = new URI(lastAttributes("uri")), tag = lastAttributes.get("tag"), hash = lastAttributes.get("hash"), base64 = Base64(lastText))
+                  val trimmedText = trim(lastText)
+                  val pdu = new PublishQ(uri = new URI(lastAttributes("uri")), tag = lastAttributes.get("tag"), hash = lastAttributes.get("hash"), base64 = Base64(trimmedText))
                   Right(pdu)
 
                 case "withdraw" =>
