@@ -51,9 +51,13 @@ trait PublicationService extends HttpService {
   private def processRequest(xmlMessage: String): StandardRoute = {
     val response = msgParser.process(xmlMessage) match {
       case Right(queryMessage) =>
-        serviceLogger.info("Request handled successfully")
         val elements = SnapshotState.updateWith(queryMessage.pdus)
-        ReplyMsg(elements).serialize  // TODO check for errors during updating the snapshot and log them
+        if (elements.exists(r => r.isInstanceOf[ReportError])) {
+          serviceLogger.warn("Request contained one or more pdu's with errors")
+        } else {
+          serviceLogger.info("Request handled successfully")
+        }
+        ReplyMsg(elements).serialize
 
       case Left(msgError) =>
         serviceLogger.warn("Error while handling request: {}", msgError)
