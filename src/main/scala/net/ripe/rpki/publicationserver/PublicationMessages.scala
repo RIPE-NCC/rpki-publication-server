@@ -80,7 +80,7 @@ class PublicationMessageParser extends MessageParser[Either[MsgError, QueryMessa
 
   def trim(s: String): String = s.filterNot(c => c == ' ' || c == '\n')
 
-  override def parse(parser: StaxParser): Either[MsgError, QueryMessage] = {
+  override protected def parse(parser: StaxParser): Either[MsgError, QueryMessage] = {
     @tailrec
     def parseNext(lastAttributes: Map[String, String], lastText: String, pdus: Seq[QueryPdu]): Either[MsgError, QueryMessage] = {
       if (!parser.hasNext) {

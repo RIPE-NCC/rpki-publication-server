@@ -55,7 +55,7 @@ object NotificationParser extends MessageParser[Notification] {
 
   override val Schema = Source.fromURL(getClass.getResource("/rrdp-schema.rng")).mkString
 
-  override def parse(parser: StaxParser): Notification = {
+  override protected def parse(parser: StaxParser): Notification = {
 
     def captureNotificationParameters(attrs: Map[String, String]): (UUID, BigInt) = {
       assert(attrs("version") == "1", "The version attribute in the notification root element MUST be 1")
