@@ -9,7 +9,7 @@ import scala.io.{BufferedSource, Source}
 
 case class PublishElement(uri: URI, hash: Hash, body: Base64)
 
-class RrdpParser extends MessageParser {
+object RrdpParser extends MessageParser {
 
   val Schema = Source.fromURL(getClass.getResource("/rrdp-schema.rng")).mkString
 
@@ -21,7 +21,7 @@ class RrdpParser extends MessageParser {
     doParse(xmlSource, Schema, parseSnapshot)
 
 
-  def captureSnapshotParameters(attrs: Map[String, String]) = {
+  private def captureSnapshotParameters(attrs: Map[String, String]) = {
     assert(attrs("version") == "1", "The version attribute in the notification root element MUST be 1")
     assert(attrs("serial").matches("[1-9][0-9]*"), s"The serial attribute [${attrs("serial")}] must be an unbounded, unsigned positive integer")
     (BigInt(attrs("serial")), UUID.fromString(attrs("session_id")))

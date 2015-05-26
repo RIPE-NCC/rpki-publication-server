@@ -12,7 +12,7 @@ class SnapshotReaderSpec extends PublicationServerBaseSpec {
   val schema: String = getFile("/rrdp-schema.rng").mkString
 
   test("should parse valid notification.xml") {
-    val result = new RrdpParser().parseSnapshot(getFile("/valid-snapshot.xml"))
+    val result = RrdpParser.parseSnapshot(getFile("/valid-snapshot.xml"))
 
     val SnapshotState(sessionId, serial, pdus: SnapshotMap) = result
 
