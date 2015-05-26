@@ -5,17 +5,22 @@ import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver.fs.SnapshotWriter
 import org.slf4j.LoggerFactory
 import spray.http.HttpHeaders.`Content-Type`
+import spray.http.MediaTypes._
 import spray.http._
 import spray.routing._
 
-class PublicationServiceActor extends Actor with PublicationService {
+class PublicationServiceActor extends Actor with PublicationService with RRDPService {
 
   def actorRefFactory = context
 
-  def receive = runRoute(myRoute)
+  def receive = runRoute(publicationRoutes ~ rrdpRoutes)
 }
 
-trait PublicationService extends HttpService {
+trait RepositoryPath {
+  val repositoryPath = wire[ConfigWrapper].locationRepositoryPath
+}
+
+trait PublicationService extends HttpService with RepositoryPath {
 
   val MediaTypeString = "application/rpki-publication"
   val RpkiPublicationType = MediaType.custom(MediaTypeString)
@@ -31,9 +36,7 @@ trait PublicationService extends HttpService {
 
   val snapshotWriter = wire[SnapshotWriter]
 
-  val repositoryPath = wire[ConfigWrapper].getConfig.getString("locations.repository.path")
-
-  val myRoute =
+  val publicationRoutes =
     path("") {
       post {
         optionalHeaderValue(checkContentType) { ct =>
@@ -47,11 +50,11 @@ trait PublicationService extends HttpService {
         }
       }
     } ~
-    path("monitoring" / "healthcheck") {
-      get {
-        complete(healthChecks.healthString)
+      path("monitoring" / "healthcheck") {
+        get {
+          complete(healthChecks.healthString)
+        }
       }
-    }
 
   private def processRequest(xmlMessage: String): StandardRoute = {
     val response = msgParser.process(xmlMessage) match {
@@ -81,3 +84,31 @@ trait PublicationService extends HttpService {
     case _ => None
   }
 }
+
+
+trait RRDPService extends HttpService with RepositoryPath {
+
+  val rrdpRoutes =
+    path("notification.xml") {
+      get {
+        respondWithMediaType(`application/xhtml+xml`) {
+          getFromFile(repositoryPath + "/" + "notification.xml")
+        }
+      }
+    } ~
+      path(JavaUUID / IntNumber / "snapshot.xml") { (sessionId, serial) =>
+        get {
+          respondWithMediaType(`application/xhtml+xml`) {
+            getFromFile( s"""$repositoryPath/$JavaUUID/$serial/snapshot.xml""")
+          }
+        }
+      } ~
+      path(JavaUUID / IntNumber / "delta.xml") { (sessionId, serial) =>
+        get {
+          respondWithMediaType(`application/xhtml+xml`) {
+            getFromFile( s"""$repositoryPath/$JavaUUID/$serial/delta.xml""")
+          }
+        }
+      }
+}
+
