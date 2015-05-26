@@ -4,12 +4,7 @@ import java.net.URI
 
 import net.ripe.rpki.publicationserver.SnapshotState.SnapshotMap
 
-class SnapshotReaderSpec extends PublicationServerBaseSpec {
-  // .rnc can't be handled by Woodstox or Stax. And the only schema that the .rnc can be converted to without loss of information, is .rng ...
-  // To convert the rnc from the publication server draft to rng, download a trang.jar from http://www.thaiopensource.com/relaxng/trang.html
-  // and execute it like this:
-  // java -jar trang.jar -I rnc -O rng schema.rnc schema.rng
-  val schema: String = getFile("/rrdp-schema.rng").mkString
+class SnapshotParserSpec extends PublicationServerBaseSpec {
 
   test("should parse valid notification.xml") {
     val result = RrdpParser.parseSnapshot(getFile("/valid-snapshot.xml"))
