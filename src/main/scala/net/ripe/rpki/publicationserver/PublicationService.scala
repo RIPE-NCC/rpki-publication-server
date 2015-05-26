@@ -88,25 +88,20 @@ trait RRDPService extends HttpService with RepositoryPath {
 
   val rrdpRoutes =
     path("notification.xml") {
-      get {
-        respondWithMediaType(`application/xhtml+xml`) {
-          getFromFile(repositoryPath + "/" + "notification.xml")
-        }
-      }
+      serve( s"""$repositoryPath/notification.xml""")
     } ~
-      path(JavaUUID / IntNumber / "snapshot.xml") { (sessionId, serial) =>
-        get {
-          respondWithMediaType(`application/xhtml+xml`) {
-            getFromFile( s"""$repositoryPath/$JavaUUID/$serial/snapshot.xml""")
-          }
-        }
-      } ~
-      path(JavaUUID / IntNumber / "delta.xml") { (sessionId, serial) =>
-        get {
-          respondWithMediaType(`application/xhtml+xml`) {
-            getFromFile( s"""$repositoryPath/$JavaUUID/$serial/delta.xml""")
-          }
-        }
-      }
+    path(JavaUUID / IntNumber / "snapshot.xml") { (sessionId, serial) =>
+      serve( s"""$repositoryPath/$sessionId/$serial/snapshot.xml""")
+    } ~
+    path(JavaUUID / IntNumber / "delta.xml") { (sessionId, serial) =>
+      serve( s"""$repositoryPath/$sessionId/$serial/delta.xml""")
+    }
+
+  private def serve(filename: => String) = get {
+    respondWithMediaType(`application/xhtml+xml`) {
+      getFromFile(filename)
+    }
+  }
+
 }
 
