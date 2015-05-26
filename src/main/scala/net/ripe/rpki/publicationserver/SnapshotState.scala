@@ -13,42 +13,41 @@ case class SnapshotState(sessionId: UUID, serial: BigInt, pdus: SnapshotState.Sn
   def apply(queries: Seq[QueryPdu]): (Seq[ReplyPdu], Option[SnapshotState]) = {
 
     var newPdus = pdus
-    val replies = queries.map({
-        case PublishQ(uri, tag, None, base64) =>
-          newPdus.get(uri) match {
-            case Some(_) => ReportError(MsgError.HashForInsert, Some(s"Tried to insert existing object [$uri]."))
-            case None    =>
+    val replies = queries.map {
+      case PublishQ(uri, tag, None, base64) =>
+        newPdus.get(uri) match {
+          case Some(_) => ReportError(MsgError.HashForInsert, Some(s"Tried to insert existing object [$uri]."))
+          case None =>
+            newPdus += (uri ->(base64, SnapshotState.hash(base64)))
+            PublishR(uri, tag)
+        }
+
+      case PublishQ(uri, tag, Some(qHash), base64) =>
+        newPdus.get(uri) match {
+          case Some((_, h)) =>
+            if (h == Hash(qHash)) {
               newPdus += (uri ->(base64, SnapshotState.hash(base64)))
               PublishR(uri, tag)
-          }
+            } else
+              ReportError(MsgError.NonMatchingHash, Some(s"Cannot republish the object [$uri], hash doesn't match"))
 
-        case PublishQ(uri, tag, Some(qHash), base64) =>
-          newPdus.get(uri) match {
-            case Some((_, h)) =>
-              if (h == Hash(qHash)) {
-                newPdus += (uri ->(base64, SnapshotState.hash(base64)))
-                PublishR(uri, tag)
-              } else
-                ReportError(MsgError.NonMatchingHash, Some(s"Cannot republish the object [$uri], hash doesn't match"))
+          case None =>
+            ReportError(MsgError.NoObjectToUpdate, Some(s"No object [$uri] has been found."))
+        }
 
-            case None =>
-              ReportError(MsgError.NoObjectToUpdate, Some(s"No object [$uri] has been found."))
-          }
+      case WithdrawQ(uri, tag, qHash) =>
+        newPdus.get(uri) match {
+          case Some((_, h)) =>
+            if (h == Hash(qHash)) {
+              newPdus -= uri
+              WithdrawR(uri, tag)
+            } else
+              ReportError(MsgError.NonMatchingHash, Some(s"Cannot withdraw the object [$uri], hash doesn't match."))
 
-        case WithdrawQ(uri, tag, qHash) =>
-          newPdus.get(uri) match {
-            case Some((_, h)) =>
-              if (h == Hash(qHash)) {
-                newPdus -= uri
-                WithdrawR(uri, tag)
-              } else
-                ReportError(MsgError.NonMatchingHash, Some(s"Cannot withdraw the object [$uri], hash doesn't match."))
-
-            case None =>
-              ReportError(MsgError.NoObjectForWithdraw, Some(s"No object [$uri] found."))
-          }
-      }
-    )
+          case None =>
+            ReportError(MsgError.NoObjectForWithdraw, Some(s"No object [$uri] found."))
+        }
+    }
 
     if (replies.exists(r => r.isInstanceOf[ReportError]))
       (replies, None)
