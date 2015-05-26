@@ -1,18 +1,21 @@
 package net.ripe.rpki.publicationserver.fs
 
-import java.io.File
-import java.nio.file.Paths
-
-import net.ripe.rpki.publicationserver.{Notification, RrdpParser, SnapshotState}
+import net.ripe.rpki.publicationserver.{Notification, NotificationParser, RrdpParser, SnapshotState}
 
 import scala.io.Source
 
 object SnapshotReader {
-  def readSnapshot(repositoryPath: String) : SnapshotState = {
+  def readSnapshot(repositoryPath: String, repositoryUri: String) : SnapshotState = {
+
+    def composeSnapshotPath(notification: Notification): String = {
+      assert(notification.snapshot.uri.startsWith(repositoryUri), s"Snapshot URI [${notification.snapshot.uri}] in notification.xml does not start with configured repository URI [$repositoryUri]")
+      val relativePath = notification.snapshot.uri.stripPrefix(repositoryUri)
+      s"$repositoryPath/$relativePath"
+    }
+
     // read notification.xml first
-    val lines = Source.fromFile("notification.xml").mkString
+    val notification: Notification = NotificationParser.parse(Source.fromFile(s"$repositoryPath/notification.xml"))
 
-    null
-
+    RrdpParser.parse(Source.fromFile(composeSnapshotPath(notification)))
   }
 }
