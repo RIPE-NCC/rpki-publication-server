@@ -7,8 +7,11 @@ import net.ripe.rpki.publicationserver.fs.SnapshotWriter
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.slf4j.Logger
+import spray.http.HttpHeaders.RawHeader
 import spray.http._
 import spray.testkit.ScalatestRouteTest
+
+import scala.io.Source
 
 class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRouteTest {
   def actorRefFactory = system
@@ -25,9 +28,7 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
   }
 
   test("should return a response with content-type application/rpki-publication") {
-    val publishXml = getFile("/publish.xml")
-
-    Post("/", publishXml.mkString) ~> publicationService.publicationRoutes ~> check {
+    POST("/", getFile("/publish.xml")) ~> publicationService.publicationRoutes ~> check {
       contentType.toString() should include("application/rpki-publication")
     }
   }
@@ -41,7 +42,7 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
 
     val publishXml = getFile("/publish.xml")
 
-    Post("/", publishXml.mkString) ~> service.publicationRoutes ~> check {
+    POST("/", publishXml) ~> service.publicationRoutes ~> check {
       verify(snapshotWriterSpy).writeSnapshot(anyString(), any[SnapshotState])
     }
   }
@@ -59,7 +60,7 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
     val withdrawXml = getFile("/withdraw.xml")
     val contentType = HttpHeaders.`Content-Type`(MediaType.custom("application/rpki-publication"))
 
-    HttpRequest(HttpMethods.POST, "/", List(contentType), withdrawXml.mkString) ~> service.publicationRoutes ~> check {
+    POST("/", withdrawXml) ~> service.publicationRoutes ~> check {
       verify(logSpy).warn("Request contained one or more pdu's with errors")
       verifyNoMoreInteractions(snapshotWriterSpy)
     }
@@ -84,7 +85,7 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
     val publishXml = getFile("/publish.xml")
     val publishXmlResponse = getFile("/publishResponse.xml")
 
-    Post("/", publishXml.mkString) ~> publicationService.publicationRoutes ~> check {
+    POST("/", publishXml) ~> publicationService.publicationRoutes ~> check {
       val response = responseAs[String]
       trim(response) should be(trim(publishXmlResponse.mkString))
     }
@@ -94,7 +95,7 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
     val publishXml = getFile("/publishWithTag.xml")
     val publishXmlResponse = getFile("/publishWithTagResponse.xml")
 
-    Post("/", publishXml.mkString) ~> publicationService.publicationRoutes ~> check {
+    POST("/", publishXml) ~> publicationService.publicationRoutes ~> check {
       val response = responseAs[String]
       trim(response) should be(trim(publishXmlResponse.mkString))
     }
@@ -108,7 +109,7 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
     val withdrawXml = getFile("/withdraw.xml")
     val withdrawXmlResponse = getFile("/withdrawResponse.xml")
 
-    Post("/", withdrawXml.mkString) ~> publicationService.publicationRoutes ~> check {
+    POST("/", withdrawXml) ~> publicationService.publicationRoutes ~> check {
       val response = responseAs[String]
       trim(response) should be(trim(withdrawXmlResponse.mkString))
     }
@@ -122,7 +123,7 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
     val withdrawXml = getFile("/withdrawWithTag.xml")
     val withdrawXmlResponse = getFile("/withdrawWithTagResponse.xml")
 
-    Post("/", withdrawXml.mkString) ~> publicationService.publicationRoutes ~> check {
+    POST("/", withdrawXml) ~> publicationService.publicationRoutes ~> check {
       val response = responseAs[String]
       trim(response) should be(trim(withdrawXmlResponse.mkString))
     }
@@ -132,7 +133,7 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
     val invalidPublishXml = getFile("/publishResponse.xml")
     val publishError = getFile("/errorResponse.xml")
 
-    Post("/", invalidPublishXml.mkString) ~> publicationService.publicationRoutes ~> check {
+    POST("/", invalidPublishXml) ~> publicationService.publicationRoutes ~> check {
       val response = responseAs[String]
       trim(response) should be(trim(publishError.mkString))
     }
@@ -150,4 +151,11 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
       response should include ("buildNumber")
     }
   }
+
+  private def POST(uriString: String, content: Source) = HttpRequest(
+    method = HttpMethods.POST,
+    uri = uriString,
+    headers = List(RawHeader("Content-type", "application/rpki-publication")),
+    entity = content.mkString)
+
 }

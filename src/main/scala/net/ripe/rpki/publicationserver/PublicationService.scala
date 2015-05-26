@@ -1,5 +1,7 @@
 package net.ripe.rpki.publicationserver
 
+import java.io.ByteArrayInputStream
+
 import akka.actor.Actor
 import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver.fs.SnapshotWriter
@@ -7,7 +9,10 @@ import org.slf4j.LoggerFactory
 import spray.http.HttpHeaders.`Content-Type`
 import spray.http.MediaTypes._
 import spray.http._
+import spray.httpx.unmarshalling._
 import spray.routing._
+
+import scala.io.{BufferedSource, Source}
 
 class PublicationServiceActor extends Actor with PublicationService with RRDPService {
 
@@ -34,16 +39,23 @@ trait PublicationService extends HttpService with RepositoryPath {
 
   val snapshotWriter = wire[SnapshotWriter]
 
+  implicit val BufferedSourceUnmarshaller =
+    Unmarshaller[BufferedSource](spray.http.ContentTypeRange.*) {
+      case HttpEntity.NonEmpty(contentType, data) =>
+        Source.fromInputStream(new ByteArrayInputStream(data.toByteArray), contentType.charset.nioCharset.toString)
+      case HttpEntity.Empty => Source.fromInputStream(new ByteArrayInputStream(Array[Byte]()))
+    }
+
   val publicationRoutes =
     path("") {
       post {
         optionalHeaderValue(checkContentType) { ct =>
           serviceLogger.info("Post request received")
-          if (!ct.isDefined) {
+          if (ct.isEmpty) {
             serviceLogger.warn("Request does not specify content-type")
           }
           respondWithMediaType(RpkiPublicationType) {
-            entity(as[String])(processRequest)
+            entity(as[BufferedSource])(processRequest)
           }
         }
       }
@@ -54,8 +66,8 @@ trait PublicationService extends HttpService with RepositoryPath {
         }
       }
 
-  private def processRequest(xmlMessage: String): StandardRoute = {
-    val response = msgParser.process(xmlMessage) match {
+  private def processRequest(xmlMessage: BufferedSource): StandardRoute = {
+    val response = msgParser.parse(xmlMessage) match {
       case Right(queryMessage) =>
         val elements = SnapshotState.updateWith(queryMessage.pdus)
         if (elements.exists(r => r.isInstanceOf[ReportError])) {

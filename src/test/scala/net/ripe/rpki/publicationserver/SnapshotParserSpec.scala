@@ -6,8 +6,8 @@ import net.ripe.rpki.publicationserver.SnapshotState.SnapshotMap
 
 class SnapshotParserSpec extends PublicationServerBaseSpec {
 
-  test("should parse valid notification.xml") {
-    val result = RrdpParser.parseSnapshot(getFile("/valid-snapshot.xml"))
+  test("should parse valid snapshot xml") {
+    val result = RrdpParser.parse(getFile("/valid-snapshot.xml"))
 
     val SnapshotState(sessionId, serial, pdus: SnapshotMap) = result
 
