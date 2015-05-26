@@ -1,5 +1,8 @@
 package net.ripe.rpki.publicationserver
 
+import java.net.URI
+import java.util.UUID
+
 import org.mockito.Mockito._
 import org.slf4j.Logger
 import spray.http._
@@ -15,7 +18,7 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
   def publicationService = new PublicationService with Context
 
   before {
-    SnapshotState.reset
+    SnapshotState.initializeWith(SnapshotState.emptySnapshot)
   }
 
   test("should return a response with content-type application/rpki-publication") {
@@ -62,6 +65,10 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
   }
 
   test("should return an ok response for a valid withdraw request") {
+    val pdus = Map(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer") -> (Base64("bla"), Hash("deadf00d")))
+    val state0 = SnapshotState(UUID.randomUUID(), BigInt(1), pdus)
+    SnapshotState.initializeWith(state0)
+
     val withdrawXml = getFile("/withdraw.xml")
     val withdrawXmlResponse = getFile("/withdrawResponse.xml")
 
@@ -72,6 +79,10 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
   }
 
   test("should return the tag in the response if it was present in the withdraw request") {
+    val pdus = Map(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer") -> (Base64("bla"), Hash("deadf00d")))
+    val state0 = SnapshotState(UUID.randomUUID(), BigInt(1), pdus)
+    SnapshotState.initializeWith(state0)
+
     val withdrawXml = getFile("/withdrawWithTag.xml")
     val withdrawXmlResponse = getFile("/withdrawWithTagResponse.xml")
 

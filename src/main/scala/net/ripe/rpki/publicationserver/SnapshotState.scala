@@ -82,7 +82,7 @@ object SnapshotState extends Hashing {
 
   def get = state.get()
 
-  def reset = state.set(emptySnapshot)
+  def initializeWith(initState: SnapshotState) = state.set(initState)
 
   def updateWith(queries: Seq[QueryPdu]): Seq[ReplyPdu] = {
     // TODO replace these with real values
@@ -97,21 +97,6 @@ object SnapshotState extends Hashing {
     }
     replies
   }
-//
-//  def transform(t: SnapshotState => Either[MsgError, SnapshotState]): Either[MsgError, SnapshotState] = {
-//    var currentState: SnapshotState = null
-//    var newState: SnapshotState = null
-//    do {
-//      currentState = state.get
-//      val result: Either[MsgError, SnapshotState] = t(currentState)
-//      if (result.isLeft)
-//        return result
-//      else
-//        newState = result.right.get
-//    }
-//    while (!state.compareAndSet(currentState, newState))
-//    Right(newState)
-//  }
 
   def hash(b64: Base64): Hash = {
     val Base64(b64String) = b64
