@@ -3,6 +3,8 @@ package net.ripe.rpki.publicationserver
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
 
+import com.softwaremill.macwire.MacwireMacros._
+
 import scala.xml.{Elem, Node}
 
 case class SnapshotLocator(uri: String, hash: Hash)

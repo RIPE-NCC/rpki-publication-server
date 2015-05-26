@@ -31,7 +31,7 @@ trait PublicationService extends HttpService {
 
   val snapshotWriter = wire[SnapshotWriter]
 
-  val repositoryPath = wire[ConfigWrapper].getConfig.getString("repository.path")
+  val repositoryPath = wire[ConfigWrapper].getConfig.getString("locations.repository.path")
 
   val myRoute =
     path("") {

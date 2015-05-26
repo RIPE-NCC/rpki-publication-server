@@ -5,6 +5,7 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
 
 import com.google.common.io.BaseEncoding
+import com.softwaremill.macwire.MacwireMacros._
 
 import scala.xml.{Elem, Node}
 
@@ -71,6 +72,9 @@ case class SnapshotState(sessionId: UUID, serial: BigInt, pdus: SnapshotState.Sn
 }
 
 object SnapshotState extends Hashing {
+
+  val repositoryUri = wire[ConfigWrapper].getConfig.getString("locations.repository.uri")
+
   private val base64 = BaseEncoding.base64()
 
   type SnapshotMap = Map[URI, (Base64, Hash)]
@@ -84,15 +88,14 @@ object SnapshotState extends Hashing {
   def initializeWith(initState: SnapshotState) = state.set(initState)
 
   def updateWith(queries: Seq[QueryPdu]): Seq[ReplyPdu] = {
-    // TODO replace these with real values
+    // TODO replace this with a real value
     val sessionId = UUID.randomUUID()
-    val uri = "test-uri"
 
     val currentState = state.get
     val (replies, newState) = currentState(queries)
     if (newState.isDefined) {
         while (!state.compareAndSet(currentState, newState.get))
-        NotificationState.update(sessionId, uri, newState.get)
+        NotificationState.update(sessionId, repositoryUri, newState.get)
     }
     replies
   }
