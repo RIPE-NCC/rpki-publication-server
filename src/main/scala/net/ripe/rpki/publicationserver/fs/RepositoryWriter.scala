@@ -6,8 +6,7 @@ import net.ripe.rpki.publicationserver.{Notification, SnapshotState}
 
 class RepositoryWriter {
   def writeSnapshot(rootDir: String, snapshot: SnapshotState) = {
-    val root = new File(rootDir)
-    if (!root.exists()) root.mkdir()
+    val root = getRootFolder(rootDir)
 
     val sessionDir = new File(root, snapshot.sessionId.toString)
     if (!sessionDir.exists()) sessionDir.mkdir()
@@ -22,12 +21,17 @@ class RepositoryWriter {
   }
 
   def writeNotification(rootDir: String, notification: Notification) = {
-    val root = new File(rootDir)
-    if (!root.exists()) root.mkdir()
+    val root = getRootFolder(rootDir)
 
     val notificationFile = new File(root, "notification.xml")
     val writer = new FileWriter(notificationFile)
     try writer.write(notification.serialize.mkString)
     finally writer.close()
+  }
+
+  private def getRootFolder(rootDir: String): File = {
+    val root = new File(rootDir)
+    if (!root.exists()) root.mkdir()
+    root
   }
 }

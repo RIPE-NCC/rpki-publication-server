@@ -23,6 +23,7 @@ libraryDependencies ++= {
     "io.spray"                 %% "spray-testkit"     % sprayV    % "test",
     "com.typesafe.akka"        %% "akka-actor"        % akkaV,
     "com.typesafe.akka"        %% "akka-testkit"      % akkaV     % "test",
+    "com.typesafe.akka"        %% "akka-slf4j"        % akkaV,
     "org.scalatest"            %% "scalatest"         % "2.2.4"   % "test",
     "org.mockito"               % "mockito-all"       % "1.9.5"   % "test",
     "org.codehaus.woodstox"     % "woodstox-core-asl" % "4.4.1",

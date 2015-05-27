@@ -16,13 +16,13 @@ object Boot extends App {
 
   val conf = wire[ConfigWrapper]
 
+  setupLogging()
+
   implicit val system = ActorSystem("on-spray-can")
 
   val service = system.actorOf(Props[PublicationServiceActor], "publication-service")
 
   implicit val timeout = Timeout(5.seconds)
-
-  setupLogging()
 
   val logger = LoggerFactory.getLogger(this.getClass)
 
