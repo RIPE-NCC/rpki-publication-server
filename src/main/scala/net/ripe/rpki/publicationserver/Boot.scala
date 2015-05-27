@@ -29,7 +29,7 @@ object Boot extends App {
   private val initialSnapshot = Try {
     SnapshotReader.readSnapshot(repositoryPath = conf.locationRepositoryPath, repositoryUri = conf.locationRepositoryUri)
   } getOrElse {
-    logger.warn(s"No previous notification.xml found in $repositoryPath. Starting with empty snapshot")
+    logger.warn(s"No previous notification.xml found in ${conf.locationRepositoryPath}. Starting with empty snapshot")
     SnapshotState.emptySnapshot
   }
   SnapshotState.initializeWith(initialSnapshot)
