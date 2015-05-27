@@ -73,7 +73,9 @@ case class SnapshotState(sessionId: UUID, serial: BigInt, pdus: SnapshotState.Sn
 
 object SnapshotState extends Hashing {
 
-  val repositoryUri = wire[ConfigWrapper].locationRepositoryUri
+  lazy val conf = wire[ConfigWrapper]
+
+  lazy val repositoryUri = conf.locationRepositoryUri
 
   private val base64 = BaseEncoding.base64()
 
@@ -81,18 +83,18 @@ object SnapshotState extends Hashing {
 
   private val state = new AtomicReference[SnapshotState](emptySnapshot)
 
-  def emptySnapshot = new SnapshotState(UUID.randomUUID(), BigInt(1), Map.empty)
+  def emptySnapshot = new SnapshotState(conf.currentSessionId, BigInt(1), Map.empty)
 
   def get = state.get()
 
   def initializeWith(initState: SnapshotState) = state.set(initState)
 
   def updateWith(queries: Seq[QueryPdu]): Seq[ReplyPdu] = {
-    val sessionId = wire[ConfigWrapper].currentSessionId
+    val sessionId = conf.currentSessionId
     val currentState = state.get
     val (replies, newState) = currentState(queries)
     if (newState.isDefined) {
-        while (!state.compareAndSet(currentState, newState.get))
+        while (!state.compareAndSet(currentState, newState.get)) {}
         NotificationState.update(sessionId, repositoryUri, newState.get)
     }
     replies
