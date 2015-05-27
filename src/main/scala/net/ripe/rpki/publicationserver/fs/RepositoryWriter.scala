@@ -4,7 +4,7 @@ import java.io.{FileWriter, File}
 
 import net.ripe.rpki.publicationserver.SnapshotState
 
-class SnapshotWriter {
+class RepositoryWriter {
   def writeSnapshot(rootDir: String, snapshot: SnapshotState) = {
     val root = new File(rootDir)
     if (!root.exists()) root.mkdir()
@@ -17,6 +17,7 @@ class SnapshotWriter {
 
     val snapshotFile = new File(serialDir, "snapshot.xml")
     val writer = new FileWriter(snapshotFile)
-    try writer.write(snapshot.serialize.mkString) finally writer.close()
+    try writer.write(snapshot.serialize.mkString)
+    finally writer.close()
   }
 }
