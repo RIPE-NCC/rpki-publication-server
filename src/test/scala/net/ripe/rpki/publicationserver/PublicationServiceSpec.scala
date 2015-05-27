@@ -3,7 +3,7 @@ package net.ripe.rpki.publicationserver
 import java.net.URI
 import java.util.UUID
 
-import net.ripe.rpki.publicationserver.fs.SnapshotWriter
+import net.ripe.rpki.publicationserver.fs.RepositoryWriter
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.slf4j.Logger
@@ -34,10 +34,10 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
   }
 
   test("should write a snapshot to the filesystem when a message is succesfully processed") {
-    val snapshotWriterSpy = mock[SnapshotWriter](RETURNS_SMART_NULLS)
+    val snapshotWriterSpy = mock[RepositoryWriter](RETURNS_SMART_NULLS)
 
     val service = new PublicationService with Context {
-      override val snapshotWriter = snapshotWriterSpy
+      override val repositoryWriter = snapshotWriterSpy
     }
 
     val publishXml = getFile("/publish.xml")
@@ -49,11 +49,11 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
 
   test("should log a warning and should not write a snapshot to the filesystem when a message contained an error") {
     val logSpy = mock[Logger](RETURNS_SMART_NULLS)
-    val snapshotWriterSpy = mock[SnapshotWriter](RETURNS_SMART_NULLS)
+    val snapshotWriterSpy = mock[RepositoryWriter](RETURNS_SMART_NULLS)
 
     val service = new PublicationService with Context {
       override val serviceLogger = logSpy
-      override val snapshotWriter = snapshotWriterSpy
+      override val repositoryWriter = snapshotWriterSpy
     }
 
     // The withdraw will fail because the SnapshotState is empty
