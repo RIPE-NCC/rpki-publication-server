@@ -39,6 +39,12 @@ trait PublicationService extends HttpService with RepositoryPath {
 
   val repositoryWriter = wire[RepositoryWriter]
 
+  lazy val conf = wire[ConfigWrapper]
+
+  val sessionId = conf.currentSessionId
+
+  lazy val repositoryUri = conf.locationRepositoryUri
+
   implicit val BufferedSourceUnmarshaller =
     Unmarshaller[BufferedSource](spray.http.ContentTypeRange.*) {
       case HttpEntity.NonEmpty(contentType, data) =>
@@ -66,6 +72,8 @@ trait PublicationService extends HttpService with RepositoryPath {
         }
       }
 
+  private def notificationUrl(snapshot: SnapshotState) = repositoryUri + "/" + sessionId + "/" + snapshot.serial + "/snapshot.xml"
+
   private def processRequest(xmlMessage: BufferedSource): StandardRoute = {
     val response = msgParser.parse(xmlMessage) match {
       case Right(queryMessage) =>
@@ -73,9 +81,7 @@ trait PublicationService extends HttpService with RepositoryPath {
         if (elements.exists(r => r.isInstanceOf[ReportError])) {
           serviceLogger.warn("Request contained one or more pdu's with errors")
         } else {
-          // TODO Write them atomically
-          repositoryWriter.writeSnapshot(repositoryPath, SnapshotState.get)
-          repositoryWriter.writeNotification(repositoryPath, NotificationState.get)
+          writeSnapshotAndNotification
           serviceLogger.info("Request handled successfully")
         }
         ReplyMsg(elements).serialize
@@ -85,6 +91,14 @@ trait PublicationService extends HttpService with RepositoryPath {
         ErrorMsg(msgError).serialize
     }
     complete(response)
+  }
+
+  def writeSnapshotAndNotification = {
+    val newSnapshot = SnapshotState.get
+    repositoryWriter.writeSnapshot(repositoryPath, newSnapshot)
+    NotificationState.update(sessionId, notificationUrl(newSnapshot), newSnapshot)
+    // TODO If the following fails we'd like to roll back the updating of the snapshot and the notification state somehow ..
+    repositoryWriter.writeNotification(repositoryPath, NotificationState.get)
   }
 
   private def checkContentType(header: HttpHeader): Option[ContentType] = header match {

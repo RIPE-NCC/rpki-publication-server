@@ -75,8 +75,6 @@ object SnapshotState extends Hashing {
 
   lazy val conf = wire[ConfigWrapper]
 
-  lazy val repositoryUri = conf.locationRepositoryUri
-
   private val base64 = BaseEncoding.base64()
 
   type SnapshotMap = Map[URI, (Base64, Hash)]
@@ -90,12 +88,10 @@ object SnapshotState extends Hashing {
   def initializeWith(initState: SnapshotState) = state.set(initState)
 
   def updateWith(queries: Seq[QueryPdu]): Seq[ReplyPdu] = {
-    val sessionId = conf.currentSessionId
     val currentState = state.get
     val (replies, newState) = currentState(queries)
     if (newState.isDefined) {
         while (!state.compareAndSet(currentState, newState.get)) {}
-        NotificationState.update(sessionId, repositoryUri, newState.get)
     }
     replies
   }

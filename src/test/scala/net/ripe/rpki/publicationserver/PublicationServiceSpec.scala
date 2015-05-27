@@ -33,7 +33,7 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
     }
   }
 
-  test("should write a snapshot to the filesystem when a message is succesfully processed") {
+  test("should write a snapshot to the filesystem when a message is successfully processed") {
     val snapshotWriterSpy = mock[RepositoryWriter](RETURNS_SMART_NULLS)
 
     val service = new PublicationService with Context {
@@ -60,7 +60,7 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
     val withdrawXml = getFile("/withdraw.xml")
     val contentType = HttpHeaders.`Content-Type`(MediaType.custom("application/rpki-publication"))
 
-    POST("/", withdrawXml) ~> service.publicationRoutes ~> check {
+    HttpRequest(HttpMethods.POST, "/", List(contentType), withdrawXml.mkString) ~> service.publicationRoutes ~> check {
       verify(logSpy).warn("Request contained one or more pdu's with errors")
       verifyNoMoreInteractions(snapshotWriterSpy)
     }
