@@ -17,21 +17,29 @@ object MsgError extends Enumeration {
 
 case class MsgError(code: MsgError.Code, message: String)
 
-case class QueryMessage(pdus: Seq[QueryPdu])
 
-trait QueryPdu {
-  def uri: URI
-}
+sealed trait Message
+
+case class QueryMessage(pdus: Seq[QueryPdu]) extends Message
+
+case class ListMessage() extends Message
+
+
+sealed trait QueryPdu
 
 case class PublishQ(uri: URI, tag: Option[String], hash: Option[String], base64: Base64) extends QueryPdu
 
 case class WithdrawQ(uri: URI, tag: Option[String], hash: String) extends QueryPdu
+
+case class ListQ() extends QueryPdu
 
 class ReplyPdu()
 
 case class PublishR(uri: URI, tag: Option[String]) extends ReplyPdu
 
 case class WithdrawR(uri: URI, tag: Option[String]) extends ReplyPdu
+
+case class ListR(uri: URI, hash: String, tag: Option[String]) extends ReplyPdu
 
 case class ReportError(code: MsgError.Code, message: Option[String]) extends ReplyPdu
 
@@ -42,7 +50,6 @@ object MsgType extends Enumeration {
 }
 
 class Msg {
-
   protected def reply(pdus: => NodeSeq): Elem =
     <msg type="reply" version="3" xmlns="http://www.hactrn.net/uris/rpki/publication-spec/">
       {pdus}
@@ -50,7 +57,6 @@ class Msg {
 }
 
 case class ErrorMsg(error: MsgError) extends Msg {
-
   def serialize = reply {
     <report_error error_code={error.code.toString}>
       {error.message}
@@ -66,6 +72,8 @@ case class ReplyMsg(pdus: Seq[ReplyPdu]) extends Msg {
       case PublishR(uri, None) => <publish uri={uri.toString}/>
       case WithdrawR(uri, Some(tag)) => <withdraw tag={tag} uri={uri.toString}/>
       case WithdrawR(uri, None) => <withdraw uri={uri.toString}/>
+      case ListR(uri, hash, Some(tag)) => <list tag={tag} uri={uri.toString} hash={hash}/>
+      case ListR(uri, hash, None) => <list uri={uri.toString} hash={hash}/>
       case ReportError(code, message) =>
         <report_error error_code={code.toString}>
           {message}
@@ -74,15 +82,15 @@ case class ReplyMsg(pdus: Seq[ReplyPdu]) extends Msg {
   }
 }
 
-class PublicationMessageParser extends MessageParser[Either[MsgError, QueryMessage]] {
+class PublicationMessageParser extends MessageParser[Either[MsgError, Message]] {
 
   override val Schema = Source.fromURL(getClass.getResource("/rpki-publication-schema.rng")).mkString
 
-  def trim(s: String): String = s.filterNot(c => c == ' ' || c == '\n')
+  def trim(s: String): String = s.filterNot(_.isWhitespace)
 
-  override protected def parse(parser: StaxParser): Either[MsgError, QueryMessage] = {
+  override protected def parse(parser: StaxParser): Either[MsgError, Message] = {
     @tailrec
-    def parseNext(lastAttributes: Map[String, String], lastText: String, pdus: Seq[QueryPdu]): Either[MsgError, QueryMessage] = {
+    def parseNext(lastAttributes: Map[String, String], lastText: String, pdus: Seq[QueryPdu]): Either[MsgError, Message] = {
       if (!parser.hasNext) {
         Left(MsgError(MsgError.NoMsgElement, "The request does not contain a complete msg element"))
       } else {
@@ -107,6 +115,9 @@ class PublicationMessageParser extends MessageParser[Either[MsgError, QueryMessa
               case "withdraw" =>
                 val pdu = new WithdrawQ(uri = new URI(lastAttributes("uri")), tag = lastAttributes.get("tag"), hash = lastAttributes("hash"))
                 Right(pdu)
+
+              case "list" =>
+                Left(ListMessage())
             }
 
             msgOrPdu match {

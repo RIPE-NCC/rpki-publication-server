@@ -1,0 +1,7 @@
+<msg
+        type="reply"
+        version="3"
+        xmlns="http://www.hactrn.net/uris/rpki/publication-spec/">
+    <list uri="rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"
+          hash="6D776A0A90EA55F479F63C15B3BFC8E91CFBEA549439CF9C474AAB738D741223"/>
+</msg>

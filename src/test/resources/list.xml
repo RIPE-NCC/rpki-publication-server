@@ -1,0 +1,6 @@
+<msg
+    type="query"
+    version="3"
+    xmlns="http://www.hactrn.net/uris/rpki/publication-spec/">
+  <list/>
+</msg>

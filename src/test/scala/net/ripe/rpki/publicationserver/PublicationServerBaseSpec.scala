@@ -9,5 +9,5 @@ abstract class PublicationServerBaseSpec extends FunSuite with BeforeAndAfter wi
 
   def getFile(fileName: String) = Source.fromURL(getClass.getResource(fileName))
 
-  def trim(s: String): String = s.filterNot(c => c == ' ' || c == '\n')
+  def trim(s: String): String = s.filterNot(_.isWhitespace)
 }

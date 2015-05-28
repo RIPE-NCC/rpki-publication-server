@@ -48,6 +48,9 @@ case class SnapshotState(sessionId: UUID, serial: BigInt, pdus: SnapshotState.Sn
           case None =>
             ReportError(MsgError.NoObjectForWithdraw, Some(s"No object [$uri] found."))
         }
+
+      case pdu@_ =>
+        ReportError(MsgError.NoObjectForWithdraw, Some(s"Incorrect pdu: $pdu"))
     }
 
     if (replies.exists(r => r.isInstanceOf[ReportError]))
@@ -55,6 +58,11 @@ case class SnapshotState(sessionId: UUID, serial: BigInt, pdus: SnapshotState.Sn
     else
       (replies, Some(SnapshotState(sessionId, serial + 1, newPdus)))
   }
+
+  def list = pdus.map { pdu =>
+    val (uri, (_, hash)) = pdu
+    ListR(uri, hash.hash, None)
+  }.toSeq
 
   def serialize = snapshotXml (
     sessionId,
@@ -95,6 +103,8 @@ object SnapshotState extends Hashing {
     }
     replies
   }
+
+  def listReply = get.list
 
   def hash(b64: Base64): Hash = {
     val Base64(b64String) = b64

@@ -76,15 +76,19 @@ trait PublicationService extends HttpService with RepositoryPath {
 
   private def processRequest(xmlMessage: BufferedSource): StandardRoute = {
     val response = msgParser.parse(xmlMessage) match {
-      case Right(queryMessage) =>
-        val elements = SnapshotState.updateWith(queryMessage.pdus)
-        if (elements.exists(r => r.isInstanceOf[ReportError])) {
-          serviceLogger.warn("Request contained one or more pdu's with errors")
-        } else {
-          writeSnapshotAndNotification
-          serviceLogger.info("Request handled successfully")
+      case Right(QueryMessage(pdus)) =>
+        val elements = SnapshotState.updateWith(pdus)
+        elements.filter(_.isInstanceOf[ReportError]) match {
+          case Seq() =>
+            writeSnapshotAndNotification
+            serviceLogger.info("Request handled successfully")
+          case errors =>
+            serviceLogger.warn(s"Request contained one or more pdus with errors: $errors")
         }
         ReplyMsg(elements).serialize
+
+      case Right(ListMessage()) =>
+        ReplyMsg(SnapshotState.listReply).serialize
 
       case Left(msgError) =>
         serviceLogger.warn("Error while handling request: {}", msgError)

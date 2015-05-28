@@ -61,7 +61,7 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
     val contentType = HttpHeaders.`Content-Type`(MediaType.custom("application/rpki-publication"))
 
     HttpRequest(HttpMethods.POST, "/", List(contentType), withdrawXml.mkString) ~> service.publicationRoutes ~> check {
-      verify(logSpy).warn("Request contained one or more pdu's with errors")
+      verify(logSpy).warn("Request contained one or more pdus with errors: List(ReportError(NoObjectForWithdraw,Some(No object [rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer] found.)))")
       verifyNoMoreInteractions(snapshotWriterSpy)
     }
   }
@@ -136,6 +136,29 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
     POST("/", invalidPublishXml) ~> publicationService.publicationRoutes ~> check {
       val response = responseAs[String]
       trim(response) should be(trim(publishError.mkString))
+    }
+  }
+
+  test("should return a list response for list request request") {
+    POST("/", getFile("/publish.xml")) ~> publicationService.publicationRoutes
+
+    val listXml = getFile("/list.xml")
+    val listXmlResponse = getFile("/listResponse.xml")
+    POST("/", listXml) ~> publicationService.publicationRoutes ~> check {
+      val response = responseAs[String]
+      trim(response) should be(trim(listXmlResponse.mkString))
+    }
+  }
+
+  test("should execute list query even if <list/> doesn't go first") {
+    POST("/", getFile("/publish.xml")) ~> publicationService.publicationRoutes
+
+    val publishXml = getFile("/dubiousListRequest.xml")
+    val listXmlResponse = getFile("/listResponse.xml")
+
+    POST("/", publishXml) ~> publicationService.publicationRoutes ~> check {
+      val response = responseAs[String]
+      trim(response) should be(trim(listXmlResponse.mkString))
     }
   }
 
