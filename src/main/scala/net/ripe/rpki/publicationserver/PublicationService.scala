@@ -75,6 +75,13 @@ trait PublicationService extends HttpService with RepositoryPath {
   private def notificationUrl(snapshot: SnapshotState) = repositoryUri + "/" + sessionId + "/" + snapshot.serial + "/snapshot.xml"
 
   private def processRequest(xmlMessage: BufferedSource): StandardRoute = {
+    def logErrors(errors: Seq[ReplyPdu]): Unit = {
+      serviceLogger.warn(s"Request contained ${errors.size} PDU(s) with errors:")
+      errors.foreach { e =>
+        serviceLogger.info(e.asInstanceOf[ReportError].message.getOrElse(s"Error code: ${e.asInstanceOf[ReportError].code.toString}"))
+      }
+    }
+
     val response = msgParser.parse(xmlMessage) match {
       case Right(QueryMessage(pdus)) =>
         val elements = SnapshotState.updateWith(pdus)
@@ -83,7 +90,7 @@ trait PublicationService extends HttpService with RepositoryPath {
             writeSnapshotAndNotification
             serviceLogger.info("Request handled successfully")
           case errors =>
-            serviceLogger.warn(s"Request contained one or more pdus with errors: $errors")
+            logErrors(errors)
         }
         ReplyMsg(elements).serialize
 
