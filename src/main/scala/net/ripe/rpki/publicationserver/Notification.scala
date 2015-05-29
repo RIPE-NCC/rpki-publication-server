@@ -3,8 +3,6 @@ package net.ripe.rpki.publicationserver
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
 
-import com.softwaremill.macwire.MacwireMacros._
-
 import scala.annotation.tailrec
 import scala.io.Source
 import scala.xml.{Elem, Node}
@@ -48,7 +46,7 @@ object NotificationState {
 
   def get = state.get()
 
-  def update(sessionId: UUID, uri: String, snapshot: SnapshotState): Unit = state.set(Notification.fromSnapshot(sessionId, uri, snapshot))
+  def update(notification: Notification): Unit = state.set(notification)
 }
 
 object NotificationParser extends MessageParser[Notification] {

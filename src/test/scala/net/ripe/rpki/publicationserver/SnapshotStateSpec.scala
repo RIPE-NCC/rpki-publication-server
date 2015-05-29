@@ -16,6 +16,8 @@ class SnapshotStateSpec extends PublicationServerBaseSpec {
   before {
     sessionId = UUID.randomUUID
     emptySnapshot = new SnapshotState(sessionId, BigInt(1), Map.empty)
+    val notification = Notification.fromSnapshot(sessionId, SnapshotState.notificationUrl(emptySnapshot, sessionId), emptySnapshot)
+    NotificationState.update(notification)
   }
   
   test("should serialize a SnapshotState to proper xml") {

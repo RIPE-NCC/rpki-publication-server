@@ -92,9 +92,9 @@ trait SnapshotStateUpdater {
 
   lazy val repositoryUri = conf.locationRepositoryUri
 
-  val sessionId = conf.currentSessionId
+  def notificationUrl(snapshot: SnapshotState, sessionId: UUID) = repositoryUri + "/" + sessionId + "/" + snapshot.serial + "/snapshot.xml"
 
-  private def notificationUrl(snapshot: SnapshotState, sessionId: UUID) = repositoryUri + "/" + sessionId + "/" + snapshot.serial + "/snapshot.xml"
+  val sessionId = conf.currentSessionId
 
   val repositoryWriter = wire[RepositoryWriter]
 
@@ -119,8 +119,9 @@ trait SnapshotStateUpdater {
 
   def writeSnapshotAndNotification(newSnapshot: SnapshotState) = {
     repositoryWriter.writeSnapshot(conf.locationRepositoryPath, newSnapshot)
-    NotificationState.update(sessionId, notificationUrl(newSnapshot, sessionId), newSnapshot)
-    repositoryWriter.writeNotification(conf.locationRepositoryPath, NotificationState.get)
+    val newNotification = Notification.fromSnapshot(sessionId, notificationUrl(newSnapshot, sessionId), newSnapshot)
+    repositoryWriter.writeNotification(conf.locationRepositoryPath, newNotification)
+    NotificationState.update(newNotification)
   }
 }
 
