@@ -72,7 +72,6 @@ if [ -z $JAVA_CMD ]; then
     error_exit "Cannot find java on path. Make sure java is installed and/or set JAVA_HOME"
 fi
 
-
 # See how we're called
 FIRST_ARG="$1"
 shift
@@ -81,38 +80,31 @@ if [[ -n $MODE ]]; then
    exit
 fi
 
+
+
 # Determine config file location
 getopts ":c:" OPT_NAME
 CONFIG_FILE=${OPTARG:-conf/rpki-publication-server.conf}
 
-if [[ ! $CONFIG_FILE =~ .*conf$ ]]; then
-    error_exit "Configuration file name must end with .conf"
-fi
+function check_config_location {
+    if [[ ! $CONFIG_FILE =~ .*conf$ ]]; then
+        error_exit "Configuration file name must end with .conf"
+    fi
 
-if [[ ! -r $CONFIG_FILE ]]; then
-    error_exit "Can't read config file: $CONFIG_FILE"
-fi
-
-function parse_optional_config_line {
-    local CONFIG_KEY=$1
-    local VALUE=`grep "^$CONFIG_KEY" $CONFIG_FILE | sed 's/#.*//g' | awk -F "=" '{ print $2 }'`
-    eval "$2=$VALUE"
+    if [[ ! -r $CONFIG_FILE ]]; then
+        error_exit "Can't read config file: $CONFIG_FILE"
+    fi
 }
 
 function parse_config_line {
     local CONFIG_KEY=$1
-    local VALUE=`grep "^$CONFIG_KEY" $CONFIG_FILE | sed 's/#.*//g' | awk -F "=" '{ print $2 }'`
+    local VALUE=`grep "^$CONFIG_KEY" "$CONFIG_FILE" | sed 's/#.*//g' | awk -F "=" '{ print $2 }'`
 
     if [ -z $VALUE ]; then
         error_exit "Cannot find value for: $CONFIG_KEY in config-file: $CONFIG_FILE"
     fi
     eval "$2=$VALUE"
 }
-
-parse_config_line "locations.pidfile" PID_FILE
-
-parse_config_line "jvm.memory.initial" JVM_XMS
-parse_config_line "jvm.memory.maximum" JVM_XMX
 
 #
 # Determine if the application is already running
@@ -132,9 +124,16 @@ case ${FIRST_ARG} in
             error_exit "${APP_NAME} is already running"
         fi
 
+        check_config_location
+
+        parse_config_line "locations.pidfile" PID_FILE
+
+        parse_config_line "jvm.memory.initial" JVM_XMS
+        parse_config_line "jvm.memory.maximum" JVM_XMX
+
         info "Starting ${APP_NAME}..."
         info "writing logs under log directory"
-        info "Publication server is available on port 8090"
+        info "Publication server is available on port 7788"
 
         # in the beginning of the script we do "cd <path>/bin",
         # so "lib" will always be next to it
@@ -182,4 +181,3 @@ case ${FIRST_ARG} in
 esac
 
 exit $?
-
