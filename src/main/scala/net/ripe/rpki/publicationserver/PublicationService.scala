@@ -13,7 +13,6 @@ import spray.httpx.unmarshalling._
 import spray.routing._
 
 import scala.io.{BufferedSource, Source}
-import scala.util.Try
 
 class PublicationServiceActor extends Actor with PublicationService with RRDPService {
 
@@ -22,18 +21,15 @@ class PublicationServiceActor extends Actor with PublicationService with RRDPSer
   def receive = runRoute(publicationRoutes ~ rrdpRoutes)
 
   override def preStart() = {
-    val initialSnapshot = Try {
-      // TODO this fails?!
-      SnapshotReader.readSnapshot(repositoryPath = conf.locationRepositoryPath, repositoryUri = conf.locationRepositoryUri)
-    } getOrElse {
-      serviceLogger.warn(s"No previous notification.xml found in ${conf.locationRepositoryPath}. Starting with empty snapshot")
+    val initialSnapshot = SnapshotReader.readSnapshotFromNotification(repositoryPath = conf.locationRepositoryPath, repositoryUri = conf.locationRepositoryUri)
+    if (!initialSnapshot.isDefined) {
       val snapshot = SnapshotState.emptySnapshot
       SnapshotState.writeSnapshotAndNotification(snapshot)
-      snapshot
+      SnapshotState.initializeWith(snapshot)
+    } else {
+      SnapshotState.initializeWith(initialSnapshot.get)
     }
-    SnapshotState.initializeWith(initialSnapshot)
   }
-
 }
 
 trait RepositoryPath {

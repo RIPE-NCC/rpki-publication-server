@@ -104,7 +104,11 @@ trait SnapshotStateUpdater {
 
   def get = state
 
-  def initializeWith(initState: SnapshotState) = state = initState
+  def initializeWith(initState: SnapshotState) = {
+    state = initState
+    val newNotification = Notification.fromSnapshot(sessionId, notificationUrl(initState, sessionId), initState)
+    NotificationState.update(newNotification)
+  }
 
   def updateWith(queries: Seq[QueryPdu]): Seq[ReplyPdu] = synchronized {
     val (replies, newState) = state(queries)
