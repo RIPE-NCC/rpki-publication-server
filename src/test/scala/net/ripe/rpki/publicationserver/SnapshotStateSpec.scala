@@ -1,7 +1,11 @@
 package net.ripe.rpki.publicationserver
 
-import java.util.UUID
 import java.net.URI
+import java.util.UUID
+
+import net.ripe.rpki.publicationserver.fs.RepositoryWriter
+import org.mockito.Matchers._
+import org.mockito.Mockito._
 
 class SnapshotStateSpec extends PublicationServerBaseSpec {
 
@@ -108,4 +112,71 @@ class SnapshotStateSpec extends PublicationServerBaseSpec {
     s._1.head should be(ReportError(MsgError.NonMatchingHash, Some("Cannot withdraw the object [rsync://host/zzz.cer], hash doesn't match.")))
   }
 
+  test("should update the snapshot and the notification and write them to the filesystem when a message is successfully processed") {
+    val repositoryWriterSpy = mock[RepositoryWriter](RETURNS_SMART_NULLS)
+    val snapshotStateUpdater = new SnapshotStateUpdater {
+      override val repositoryWriter = repositoryWriterSpy
+    }
+
+    val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
+    val snapshotStateBefore = snapshotStateUpdater.get
+    val notificationStateBefore = NotificationState.get
+
+    snapshotStateUpdater.updateWith(Seq(publish))
+
+    verify(repositoryWriterSpy).writeSnapshot(anyString(), any[SnapshotState])
+    verify(repositoryWriterSpy).writeNotification(anyString(), any[Notification])
+    snapshotStateUpdater.get should not equal(snapshotStateBefore)
+    NotificationState.get should not equal(notificationStateBefore)
+  }
+
+  test("should not write a snapshot to the filesystem when a message contained an error") {
+    val repositoryWriterSpy = mock[RepositoryWriter](RETURNS_SMART_NULLS)
+    val snapshotStateUpdater = new SnapshotStateUpdater {
+      override val repositoryWriter = repositoryWriterSpy
+    }
+
+    val withdraw = WithdrawQ(new URI("rsync://host/zzz.cer"), None, "BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7")
+
+    // The withdraw will fail because the SnapshotState is still empty
+    snapshotStateUpdater.updateWith(Seq(withdraw))
+
+    verifyNoMoreInteractions(repositoryWriterSpy)
+  }
+
+  test("should not update the snapshot state when writing it to the filesystem throws an error") {
+    val snapshotWriterMock = mock[RepositoryWriter](RETURNS_SMART_NULLS)
+    when(snapshotWriterMock.writeSnapshot(anyString(), any[SnapshotState])).thenThrow(new IllegalArgumentException())
+
+    val snapshotStateUpdater = new SnapshotStateUpdater {
+      override val repositoryWriter = snapshotWriterMock
+    }
+
+    val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
+    val stateBefore = snapshotStateUpdater.get
+
+    an[IllegalArgumentException] should be thrownBy  {
+      snapshotStateUpdater.updateWith(Seq(publish))
+    }
+    snapshotStateUpdater.get should equal(stateBefore)
+  }
+
+  test("should not update the snapshot state or the notification state when updating the notification throws an error") {
+    val snapshotWriterMock = mock[RepositoryWriter](RETURNS_SMART_NULLS)
+    when(snapshotWriterMock.writeNotification(anyString(), any[Notification])).thenThrow(new IllegalArgumentException())
+
+    val snapshotStateUpdater = new SnapshotStateUpdater {
+      override val repositoryWriter = snapshotWriterMock
+    }
+
+    val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
+    val snapshotStateBefore = snapshotStateUpdater.get
+    val notificationStateBefore = NotificationState.get
+
+    an[IllegalArgumentException] should be thrownBy  {
+      snapshotStateUpdater.updateWith(Seq(publish))
+    }
+    snapshotStateUpdater.get should equal(snapshotStateBefore)
+    NotificationState.get should equal(notificationStateBefore)
+  }
 }

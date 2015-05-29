@@ -4,7 +4,7 @@ import java.io.ByteArrayInputStream
 
 import akka.actor.Actor
 import com.softwaremill.macwire.MacwireMacros._
-import net.ripe.rpki.publicationserver.fs.RepositoryWriter
+import net.ripe.rpki.publicationserver.fs.SnapshotReader
 import org.slf4j.LoggerFactory
 import spray.http.HttpHeaders.{`Cache-Control`, `Content-Type`}
 import spray.http.MediaTypes._
@@ -13,12 +13,27 @@ import spray.httpx.unmarshalling._
 import spray.routing._
 
 import scala.io.{BufferedSource, Source}
+import scala.util.Try
 
 class PublicationServiceActor extends Actor with PublicationService with RRDPService {
 
   def actorRefFactory = context
 
   def receive = runRoute(publicationRoutes ~ rrdpRoutes)
+
+  override def preStart() = {
+    val initialSnapshot = Try {
+      // TODO this fails?!
+      SnapshotReader.readSnapshot(repositoryPath = conf.locationRepositoryPath, repositoryUri = conf.locationRepositoryUri)
+    } getOrElse {
+      serviceLogger.warn(s"No previous notification.xml found in ${conf.locationRepositoryPath}. Starting with empty snapshot")
+      val snapshot = SnapshotState.emptySnapshot
+      SnapshotState.writeSnapshotAndNotification(snapshot)
+      snapshot
+    }
+    SnapshotState.initializeWith(initialSnapshot)
+  }
+
 }
 
 trait RepositoryPath {
@@ -37,13 +52,7 @@ trait PublicationService extends HttpService with RepositoryPath {
 
   val healthChecks = wire[HealthChecks]
 
-  val repositoryWriter = wire[RepositoryWriter]
-
   lazy val conf = wire[ConfigWrapper]
-
-  val sessionId = conf.currentSessionId
-
-  lazy val repositoryUri = conf.locationRepositoryUri
 
   implicit val BufferedSourceUnmarshaller =
     Unmarshaller[BufferedSource](spray.http.ContentTypeRange.*) {
@@ -72,8 +81,6 @@ trait PublicationService extends HttpService with RepositoryPath {
         }
       }
 
-  private def notificationUrl(snapshot: SnapshotState) = repositoryUri + "/" + sessionId + "/" + snapshot.serial + "/snapshot.xml"
-
   private def processRequest(xmlMessage: BufferedSource): StandardRoute = {
     def logErrors(errors: Seq[ReplyPdu]): Unit = {
       serviceLogger.warn(s"Request contained ${errors.size} PDU(s) with errors:")
@@ -87,7 +94,6 @@ trait PublicationService extends HttpService with RepositoryPath {
         val elements = SnapshotState.updateWith(pdus)
         elements.filter(_.isInstanceOf[ReportError]) match {
           case Seq() =>
-            writeSnapshotAndNotification
             serviceLogger.info("Request handled successfully")
           case errors =>
             logErrors(errors)
@@ -102,14 +108,6 @@ trait PublicationService extends HttpService with RepositoryPath {
         ErrorMsg(msgError).serialize
     }
     complete(response)
-  }
-
-  def writeSnapshotAndNotification = {
-    val newSnapshot = SnapshotState.get
-    repositoryWriter.writeSnapshot(repositoryPath, newSnapshot)
-    NotificationState.update(sessionId, notificationUrl(newSnapshot), newSnapshot)
-    // TODO If the following fails we'd like to roll back the updating of the snapshot and the notification state somehow ..
-    repositoryWriter.writeNotification(repositoryPath, NotificationState.get)
   }
 
   private def checkContentType(header: HttpHeader): Option[ContentType] = header match {

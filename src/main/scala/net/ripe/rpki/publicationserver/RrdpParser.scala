@@ -8,7 +8,7 @@ import scala.io.Source
 
 case class PublishElement(uri: URI, hash: Hash, body: Base64)
 
-object RrdpParser extends MessageParser[SnapshotState] {
+object RrdpParser extends MessageParser[SnapshotState] with Hashing {
 
   override val Schema = Source.fromURL(getClass.getResource("/rrdp-schema.rng")).mkString
 
@@ -47,7 +47,7 @@ object RrdpParser extends MessageParser[SnapshotState] {
 
             case PUBLISH =>
               val myBody = Base64(normalize(lastText))
-              val myHash = lastAttributes.getOrElse("hash", SnapshotState.hash(myBody).hash)
+              val myHash = lastAttributes.getOrElse("hash", hash(myBody).hash)
               val element = PublishElement(uri = URI.create(lastAttributes("uri")), hash = Hash(myHash), body = myBody)
               parseNext(null, null, element +: elements)
           }

@@ -26,14 +26,6 @@ object Boot extends App {
 
   val logger = LoggerFactory.getLogger(this.getClass)
 
-  private val initialSnapshot = Try {
-    SnapshotReader.readSnapshot(repositoryPath = conf.locationRepositoryPath, repositoryUri = conf.locationRepositoryUri)
-  } getOrElse {
-    logger.warn(s"No previous notification.xml found in ${conf.locationRepositoryPath}. Starting with empty snapshot")
-    SnapshotState.emptySnapshot
-  }
-  SnapshotState.initializeWith(initialSnapshot)
-
   IO(Http) ? Http.Bind(service, interface = "::0", port = conf.port)
 
 

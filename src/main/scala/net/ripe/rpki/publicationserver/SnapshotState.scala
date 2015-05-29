@@ -2,14 +2,13 @@ package net.ripe.rpki.publicationserver
 
 import java.net.URI
 import java.util.UUID
-import java.util.concurrent.atomic.AtomicReference
 
-import com.google.common.io.BaseEncoding
 import com.softwaremill.macwire.MacwireMacros._
+import net.ripe.rpki.publicationserver.fs.RepositoryWriter
 
 import scala.xml.{Elem, Node}
 
-case class SnapshotState(sessionId: UUID, serial: BigInt, pdus: SnapshotState.SnapshotMap) {
+case class SnapshotState(sessionId: UUID, serial: BigInt, pdus: SnapshotState.SnapshotMap) extends Hashing {
 
   def apply(queries: Seq[QueryPdu]): (Seq[ReplyPdu], Option[SnapshotState]) = {
 
@@ -19,7 +18,7 @@ case class SnapshotState(sessionId: UUID, serial: BigInt, pdus: SnapshotState.Sn
         newPdus.get(uri) match {
           case Some(_) => ReportError(MsgError.HashForInsert, Some(s"Tried to insert existing object [$uri]."))
           case None =>
-            newPdus += (uri ->(base64, SnapshotState.hash(base64)))
+            newPdus += (uri ->(base64, hash(base64)))
             PublishR(uri, tag)
         }
 
@@ -27,7 +26,7 @@ case class SnapshotState(sessionId: UUID, serial: BigInt, pdus: SnapshotState.Sn
         newPdus.get(uri) match {
           case Some((_, h)) =>
             if (h == Hash(qHash)) {
-              newPdus += (uri ->(base64, SnapshotState.hash(base64)))
+              newPdus += (uri ->(base64, hash(base64)))
               PublishR(uri, tag)
             } else
               ReportError(MsgError.NonMatchingHash, Some(s"Cannot republish the object [$uri], hash doesn't match"))
@@ -79,38 +78,51 @@ case class SnapshotState(sessionId: UUID, serial: BigInt, pdus: SnapshotState.Sn
     </snapshot>
 }
 
-object SnapshotState extends Hashing {
-
-  lazy val conf = wire[ConfigWrapper]
-
-  private val base64 = BaseEncoding.base64()
+/**
+ * Holds the global snapshot state
+ */
+object SnapshotState extends SnapshotStateUpdater {
 
   type SnapshotMap = Map[URI, (Base64, Hash)]
 
-  private val state = new AtomicReference[SnapshotState](emptySnapshot)
+}
+
+trait SnapshotStateUpdater {
+  lazy val conf = wire[ConfigWrapper]
+
+  lazy val repositoryUri = conf.locationRepositoryUri
+
+  val sessionId = conf.currentSessionId
+
+  private def notificationUrl(snapshot: SnapshotState, sessionId: UUID) = repositoryUri + "/" + sessionId + "/" + snapshot.serial + "/snapshot.xml"
+
+  val repositoryWriter = wire[RepositoryWriter]
+
+  private var state = emptySnapshot
 
   def emptySnapshot = new SnapshotState(conf.currentSessionId, BigInt(1), Map.empty)
 
-  def get = state.get()
+  def get = state
 
-  def initializeWith(initState: SnapshotState) = state.set(initState)
+  def initializeWith(initState: SnapshotState) = state = initState
 
-  def updateWith(queries: Seq[QueryPdu]): Seq[ReplyPdu] = {
-    val currentState = state.get
-    val (replies, newState) = currentState(queries)
+  def updateWith(queries: Seq[QueryPdu]): Seq[ReplyPdu] = synchronized {
+    val (replies, newState) = state(queries)
     if (newState.isDefined) {
-        while (!state.compareAndSet(currentState, newState.get)) {}
+      writeSnapshotAndNotification(newState.get)
+      state = newState.get
     }
     replies
   }
 
   def listReply = get.list
 
-  def hash(b64: Base64): Hash = {
-    val Base64(b64String) = b64
-    val bytes = base64.decode(b64String)
-    hash(bytes)
+  def writeSnapshotAndNotification(newSnapshot: SnapshotState) = {
+    repositoryWriter.writeSnapshot(conf.locationRepositoryPath, newSnapshot)
+    NotificationState.update(sessionId, notificationUrl(newSnapshot, sessionId), newSnapshot)
+    repositoryWriter.writeNotification(conf.locationRepositoryPath, NotificationState.get)
   }
 }
+
 
 
