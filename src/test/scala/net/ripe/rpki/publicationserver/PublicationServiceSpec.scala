@@ -61,7 +61,8 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
     val contentType = HttpHeaders.`Content-Type`(MediaType.custom("application/rpki-publication"))
 
     HttpRequest(HttpMethods.POST, "/", List(contentType), withdrawXml.mkString) ~> service.publicationRoutes ~> check {
-      verify(logSpy).warn("Request contained one or more pdus with errors: List(ReportError(NoObjectForWithdraw,Some(No object [rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer] found.)))")
+      verify(logSpy).warn("Request contained 1 PDU(s) with errors:")
+      verify(logSpy).info("No object [rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer] found.")
       verifyNoMoreInteractions(snapshotWriterSpy)
     }
   }
