@@ -66,7 +66,7 @@ class SnapshotStateSpec extends PublicationServerBaseSpec {
       hash = Some("BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7"),
       base64 = Base64("cccc="))))
 
-    s._1.head should be(ReportError(MsgError.NoObjectToUpdate, Some("No object [rsync://host/not-existing.cer] has been found.")))
+    s._1.head should be(ReportError(BaseError.NoObjectToUpdate, Some("No object [rsync://host/not-existing.cer] has been found.")))
   }
 
   test("should fail to update an object without hash provided") {
@@ -76,7 +76,7 @@ class SnapshotStateSpec extends PublicationServerBaseSpec {
       Map(new URI("rsync://host/zzz.cer") -> (Base64("aaaa="), Hash("BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7"))))
 
     val s = snapshot(Seq(PublishQ(uri = new URI("rsync://host/zzz.cer"), tag = None, hash = None, base64 = Base64("cccc="))))
-    s._1.head should be(ReportError(MsgError.HashForInsert, Some("Tried to insert existing object [rsync://host/zzz.cer].")))
+    s._1.head should be(ReportError(BaseError.HashForInsert, Some("Tried to insert existing object [rsync://host/zzz.cer].")))
   }
 
   test("should fail to update an object if hashes do not match") {
@@ -91,7 +91,7 @@ class SnapshotStateSpec extends PublicationServerBaseSpec {
       hash = Some("WRONGHASH"),
       base64 = Base64("cccc="))))
 
-    s._1.head should be(ReportError(MsgError.NonMatchingHash, Some("Cannot republish the object [rsync://host/zzz.cer], hash doesn't match")))
+    s._1.head should be(ReportError(BaseError.NonMatchingHash, Some("Cannot republish the object [rsync://host/zzz.cer], hash doesn't match")))
   }
 
   test("should fail to withdraw an object if there's no such object") {
@@ -101,7 +101,7 @@ class SnapshotStateSpec extends PublicationServerBaseSpec {
       Map(new URI("rsync://host/zzz.cer") -> (Base64("aaaa="), Hash("BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7"))))
 
     val s = snapshot(Seq(WithdrawQ(uri = new URI("rsync://host/not-existing-uri.cer"), tag = None, hash = "whatever")))
-    s._1.head should be(ReportError(MsgError.NoObjectForWithdraw, Some("No object [rsync://host/not-existing-uri.cer] found.")))
+    s._1.head should be(ReportError(BaseError.NoObjectForWithdraw, Some("No object [rsync://host/not-existing-uri.cer] found.")))
   }
 
   test("should fail to withdraw an object if hashes do not match") {
@@ -111,7 +111,7 @@ class SnapshotStateSpec extends PublicationServerBaseSpec {
       Map(new URI("rsync://host/zzz.cer") -> (Base64("aaaa="), Hash("BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7"))))
 
     val s = snapshot(Seq(WithdrawQ(uri = new URI("rsync://host/zzz.cer"), tag = None, hash = "WRONGHASH")))
-    s._1.head should be(ReportError(MsgError.NonMatchingHash, Some("Cannot withdraw the object [rsync://host/zzz.cer], hash doesn't match.")))
+    s._1.head should be(ReportError(BaseError.NonMatchingHash, Some("Cannot withdraw the object [rsync://host/zzz.cer], hash doesn't match.")))
   }
 
   test("should update the snapshot and the notification and write them to the filesystem when a message is successfully processed") {

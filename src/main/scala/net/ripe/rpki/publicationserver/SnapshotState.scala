@@ -16,7 +16,7 @@ case class SnapshotState(sessionId: UUID, serial: BigInt, pdus: SnapshotState.Sn
     val replies = queries.map {
       case PublishQ(uri, tag, None, base64) =>
         newPdus.get(uri) match {
-          case Some(_) => ReportError(MsgError.HashForInsert, Some(s"Tried to insert existing object [$uri]."))
+          case Some(_) => ReportError(BaseError.HashForInsert, Some(s"Tried to insert existing object [$uri]."))
           case None =>
             newPdus += (uri ->(base64, hash(base64)))
             PublishR(uri, tag)
@@ -29,10 +29,10 @@ case class SnapshotState(sessionId: UUID, serial: BigInt, pdus: SnapshotState.Sn
               newPdus += (uri ->(base64, hash(base64)))
               PublishR(uri, tag)
             } else
-              ReportError(MsgError.NonMatchingHash, Some(s"Cannot republish the object [$uri], hash doesn't match"))
+              ReportError(BaseError.NonMatchingHash, Some(s"Cannot republish the object [$uri], hash doesn't match"))
 
           case None =>
-            ReportError(MsgError.NoObjectToUpdate, Some(s"No object [$uri] has been found."))
+            ReportError(BaseError.NoObjectToUpdate, Some(s"No object [$uri] has been found."))
         }
 
       case WithdrawQ(uri, tag, qHash) =>
@@ -42,14 +42,14 @@ case class SnapshotState(sessionId: UUID, serial: BigInt, pdus: SnapshotState.Sn
               newPdus -= uri
               WithdrawR(uri, tag)
             } else
-              ReportError(MsgError.NonMatchingHash, Some(s"Cannot withdraw the object [$uri], hash doesn't match."))
+              ReportError(BaseError.NonMatchingHash, Some(s"Cannot withdraw the object [$uri], hash doesn't match."))
 
           case None =>
-            ReportError(MsgError.NoObjectForWithdraw, Some(s"No object [$uri] found."))
+            ReportError(BaseError.NoObjectForWithdraw, Some(s"No object [$uri] found."))
         }
 
       case pdu@_ =>
-        ReportError(MsgError.NoObjectForWithdraw, Some(s"Incorrect pdu: $pdu"))
+        ReportError(BaseError.NoObjectForWithdraw, Some(s"Incorrect pdu: $pdu"))
     }
 
     if (replies.exists(r => r.isInstanceOf[ReportError]))

@@ -5,9 +5,10 @@ import scala.io.{BufferedSource, Source}
 import scala.xml._
 import java.net.URI
 
-object MsgError extends Enumeration {
+object BaseError extends Enumeration {
   type Code = Value
   val NoMsgElement = Value
+  val ParseError = Value
   val WrongQueryType = Value
   val HashForInsert = Value
   val NoObjectToUpdate = Value
@@ -15,7 +16,7 @@ object MsgError extends Enumeration {
   val NonMatchingHash = Value
 }
 
-case class MsgError(code: MsgError.Code, message: String)
+case class BaseError(code: BaseError.Code, message: String)
 
 
 sealed trait Message
@@ -41,7 +42,7 @@ case class WithdrawR(uri: URI, tag: Option[String]) extends ReplyPdu
 
 case class ListR(uri: URI, hash: String, tag: Option[String]) extends ReplyPdu
 
-case class ReportError(code: MsgError.Code, message: Option[String]) extends ReplyPdu
+case class ReportError(code: BaseError.Code, message: Option[String]) extends ReplyPdu
 
 object MsgType extends Enumeration {
   type MsgType = Value
@@ -56,7 +57,7 @@ class Msg {
     </msg>
 }
 
-case class ErrorMsg(error: MsgError) extends Msg {
+case class ErrorMsg(error: BaseError) extends Msg {
   def serialize = reply {
     <report_error error_code={error.code.toString}>
       {error.message}
@@ -82,23 +83,23 @@ case class ReplyMsg(pdus: Seq[ReplyPdu]) extends Msg {
   }
 }
 
-class PublicationMessageParser extends MessageParser[Either[MsgError, Message]] {
+class PublicationMessageParser extends MessageParser[Message] {
 
   override val Schema = Source.fromURL(getClass.getResource("/rpki-publication-schema.rng")).mkString
 
   def trim(s: String): String = s.filterNot(_.isWhitespace)
 
-  override protected def parse(parser: StaxParser): Either[MsgError, Message] = {
+  override protected def parse(parser: StaxParser): Either[BaseError, Message] = {
     @tailrec
-    def parseNext(lastAttributes: Map[String, String], lastText: String, pdus: Seq[QueryPdu]): Either[MsgError, Message] = {
+    def parseNext(lastAttributes: Map[String, String], lastText: String, pdus: Seq[QueryPdu]): Either[BaseError, Message] = {
       if (!parser.hasNext) {
-        Left(MsgError(MsgError.NoMsgElement, "The request does not contain a complete msg element"))
+        Left(BaseError(BaseError.NoMsgElement, "The request does not contain a complete msg element"))
       } else {
         parser.next match {
 
           case ElementStart(label, attrs) =>
             if (label.equalsIgnoreCase("msg") && !MsgType.query.toString.equalsIgnoreCase(attrs("type")))
-              Left(MsgError(MsgError.WrongQueryType, "Messages of type " + attrs("type") + " are not accepted"))
+              Left(BaseError(BaseError.WrongQueryType, "Messages of type " + attrs("type") + " are not accepted"))
             else
               parseNext(attrs, "", pdus)
 

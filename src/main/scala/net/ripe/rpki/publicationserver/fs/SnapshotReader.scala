@@ -2,7 +2,7 @@ package net.ripe.rpki.publicationserver.fs
 
 import java.io.File
 
-import net.ripe.rpki.publicationserver.{Notification, NotificationParser, RrdpParser, SnapshotState}
+import net.ripe.rpki.publicationserver._
 import org.slf4j.LoggerFactory
 
 import scala.io.Source
@@ -10,7 +10,7 @@ import scala.io.Source
 object SnapshotReader {
   val logger = LoggerFactory.getLogger("SnapshotReader")
   
-  def readSnapshotFromNotification(repositoryPath: String, repositoryUri: String) : Option[SnapshotState] = {
+  def readSnapshotFromNotification(repositoryPath: String, repositoryUri: String) : Either[BaseError, Option[SnapshotState]] = {
 
     def composeSnapshotPath(notification: Notification): String = {
       assert(notification.snapshot.uri.startsWith(repositoryUri), s"Snapshot URI [${notification.snapshot.uri}] in notification.xml does not start with configured repository URI [$repositoryUri]")
@@ -22,11 +22,13 @@ object SnapshotReader {
     val notificationFile = new File(notificationPath) 
     if (!notificationFile.exists()) {
       logger.warn(s"No previous notification.xml found in $notificationPath.")
-      None
+      Right(None)
     } else {
-      val notification: Notification = NotificationParser.parse(Source.fromFile(s"$repositoryPath/notification.xml"))
+      val notification = NotificationParser.parse(Source.fromFile(s"$repositoryPath/notification.xml"))
 
-      Some(RrdpParser.parse(Source.fromFile(composeSnapshotPath(notification))))
+      notification.right.flatMap { n =>
+        RrdpParser.parse(Source.fromFile(composeSnapshotPath(n)))
+      }.right.map(Some(_))
     }
   }
 }

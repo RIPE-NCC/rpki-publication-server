@@ -21,7 +21,7 @@ object RrdpParser extends MessageParser[SnapshotState] with Hashing {
     (BigInt(attrs("serial")), UUID.fromString(attrs("session_id")))
   }
 
-  override protected def parse(parser: StaxParser): SnapshotState = {
+  override protected def parse(parser: StaxParser): Either[BaseError, SnapshotState] = {
     var serial: BigInt = null
     var sessionId: UUID = null
 
@@ -63,7 +63,7 @@ object RrdpParser extends MessageParser[SnapshotState] with Hashing {
 
     val publishElementsMap = publishElements.map(p => p.uri -> (p.body, p.hash)).toMap
 
-    new SnapshotState(sessionId, serial, publishElementsMap)
+    Right(new SnapshotState(sessionId, serial, publishElementsMap))
   }
 
   private def normalize(s: String) = s.filterNot(Character.isWhitespace)

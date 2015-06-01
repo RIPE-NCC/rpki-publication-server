@@ -3,7 +3,7 @@ package net.ripe.rpki.publicationserver
 class NotificationParserSpec extends PublicationServerBaseSpec {
 
   test("should parse valid notification.xml") {
-    val Notification(sessionId, serial, SnapshotLocator(uri, hash), _) = NotificationParser.parse(getFile("/notification-valid.xml"))
+    val Right(Notification(sessionId, serial, SnapshotLocator(uri, hash), _)) = NotificationParser.parse(getFile("/notification-valid.xml"))
 
     sessionId.toString should be("9df4b597-af9e-4dca-bdda-719cce2c4e28")
     serial should be(BigInt(2))

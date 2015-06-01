@@ -53,7 +53,7 @@ object NotificationParser extends MessageParser[Notification] {
 
   override val Schema = Source.fromURL(getClass.getResource("/rrdp-schema.rng")).mkString
 
-  override protected def parse(parser: StaxParser): Notification = {
+  override protected def parse(parser: StaxParser): Either[BaseError, Notification] = {
 
     def captureNotificationParameters(attrs: Map[String, String]): (UUID, BigInt) = {
       assert(attrs("version") == "1", "The version attribute in the notification root element MUST be 1")
@@ -64,7 +64,7 @@ object NotificationParser extends MessageParser[Notification] {
     }
 
     @tailrec
-    def parseNext(sessionId: UUID, serial: BigInt, snapshotLocator: SnapshotLocator): Notification = {
+    def parseNext(sessionId: UUID, serial: BigInt, snapshotLocator: SnapshotLocator): Either[BaseError, Notification] = {
 
       assert(parser.hasNext, s"The notification.xml file does not contain a complete 'notification' element")
 
@@ -82,7 +82,7 @@ object NotificationParser extends MessageParser[Notification] {
           }
 
         case ElementEnd(label) =>
-          if ("notification" == label.toLowerCase) Notification(sessionId, serial, snapshotLocator, Seq())
+          if ("notification" == label.toLowerCase) Right(Notification(sessionId, serial, snapshotLocator, Seq()))
           else parseNext(sessionId, serial, snapshotLocator)
 
         case _ =>

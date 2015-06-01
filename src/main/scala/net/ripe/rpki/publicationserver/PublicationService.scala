@@ -22,12 +22,15 @@ class PublicationServiceActor extends Actor with PublicationService with RRDPSer
 
   override def preStart() = {
     val initialSnapshot = SnapshotReader.readSnapshotFromNotification(repositoryPath = conf.locationRepositoryPath, repositoryUri = conf.locationRepositoryUri)
-    if (!initialSnapshot.isDefined) {
-      val snapshot = SnapshotState.emptySnapshot
-      SnapshotState.writeSnapshotAndNotification(snapshot)
-      SnapshotState.initializeWith(snapshot)
-    } else {
-      SnapshotState.initializeWith(initialSnapshot.get)
+    initialSnapshot match {
+      case Left(err@BaseError(_, _)) =>
+        serviceLogger.error(s"Error occured while reading initial snapshot: $err")
+      case Right(None) =>
+        val snapshot = SnapshotState.emptySnapshot
+        SnapshotState.writeSnapshotAndNotification(snapshot)
+        SnapshotState.initializeWith(snapshot)
+      case Right(Some(initialSnapshot)) =>
+        SnapshotState.initializeWith(initialSnapshot)
     }
   }
 }
