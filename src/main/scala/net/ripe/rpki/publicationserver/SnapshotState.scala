@@ -4,11 +4,12 @@ import java.net.URI
 import java.util.UUID
 
 import com.softwaremill.macwire.MacwireMacros._
+import net.ripe.rpki.publicationserver.SnapshotState
 import net.ripe.rpki.publicationserver.fs.RepositoryWriter
 
 import scala.xml.{Elem, Node}
 
-case class SnapshotState(sessionId: UUID, serial: BigInt, pdus: SnapshotState.SnapshotMap) extends Hashing {
+case class SnapshotState(sessionId: UUID, serial: BigInt, pdus: SnapshotState.SnapshotMap, deltas: Map[BigInt, Delta]) extends Hashing {
 
   def apply(queries: Seq[QueryPdu]): (Seq[ReplyPdu], Option[SnapshotState]) = {
 
@@ -54,8 +55,15 @@ case class SnapshotState(sessionId: UUID, serial: BigInt, pdus: SnapshotState.Sn
 
     if (replies.exists(r => r.isInstanceOf[ReportError]))
       (replies, None)
-    else
-      (replies, Some(SnapshotState(sessionId, serial + 1, newPdus)))
+    else {
+      val newSerial = serial + 1
+      val newDeltas = deltas + (newSerial -> Delta(sessionId, newSerial, queries))
+      (replies, Some(SnapshotState(sessionId, newSerial, newPdus, newDeltas)))
+    }
+  }
+
+  def latestDelta = {
+    deltas.get(serial)
   }
 
   def list = pdus.map { pdu =>
@@ -63,12 +71,14 @@ case class SnapshotState(sessionId: UUID, serial: BigInt, pdus: SnapshotState.Sn
     ListR(uri, hash.hash, None)
   }.toSeq
 
-  def serialize = snapshotXml (
+  def serialize = snapshotXml(
     sessionId,
     serial,
     pdus.map { e =>
       val (uri, (base64, hash)) = e
-      <publish uri={uri.toString} hash={hash.hash}>{base64.value}</publish>
+      <publish uri={uri.toString} hash={hash.hash}>
+        {base64.value}
+      </publish>
     }
   )
 
@@ -76,6 +86,29 @@ case class SnapshotState(sessionId: UUID, serial: BigInt, pdus: SnapshotState.Sn
     <snapshot xmlns="HTTP://www.ripe.net/rpki/rrdp" version="1" session_id={sessionId.toString} serial={serial.toString()}>
       {pdus}
     </snapshot>
+}
+
+case class Delta(sessionId: UUID, serial: BigInt, pdus: Seq[QueryPdu]) extends Hashing {
+
+  def serialize = deltaXml(
+    sessionId,
+    serial,
+    pdus.map {
+      case PublishQ(uri, _, None, base64) => <publish uri={uri.toString}>
+        {base64.value}
+      </publish>
+      case PublishQ(uri, _, Some(hash), base64) => <publish uri={uri.toString} hash={hash}>
+        {base64.value}
+      </publish>
+      case WithdrawQ(uri, _, hash) => <withdraw uri={uri.toString} hash={hash}/>
+    }
+  )
+
+  private def deltaXml(sessionId: UUID, serial: BigInt, pdus: => Iterable[Node]): Elem =
+    <delta xmlns="HTTP://www.ripe.net/rpki/rrdp" version="1" session_id={sessionId.toString} serial={serial.toString()}>
+      {pdus}
+    </delta>
+
 }
 
 /**
@@ -87,12 +120,7 @@ object SnapshotState extends SnapshotStateUpdater {
 
 }
 
-trait SnapshotStateUpdater {
-  lazy val conf = wire[ConfigWrapper]
-
-  lazy val repositoryUri = conf.locationRepositoryUri
-
-  def notificationUrl(snapshot: SnapshotState, sessionId: UUID) = repositoryUri + "/" + sessionId + "/" + snapshot.serial + "/snapshot.xml"
+trait SnapshotStateUpdater extends Urls {
 
   val sessionId = conf.currentSessionId
 
@@ -100,13 +128,13 @@ trait SnapshotStateUpdater {
 
   private var state = emptySnapshot
 
-  def emptySnapshot = new SnapshotState(conf.currentSessionId, BigInt(1), Map.empty)
+  def emptySnapshot = new SnapshotState(conf.currentSessionId, BigInt(1), Map.empty, Map.empty)
 
   def get = state
 
   def initializeWith(initState: SnapshotState) = {
     state = initState
-    val newNotification = Notification.fromSnapshot(sessionId, notificationUrl(initState, sessionId), initState)
+    val newNotification = Notification.create(sessionId, initState)
     NotificationState.update(newNotification)
   }
 
@@ -123,7 +151,19 @@ trait SnapshotStateUpdater {
 
   def writeSnapshotAndNotification(newSnapshot: SnapshotState) = {
     repositoryWriter.writeSnapshot(conf.locationRepositoryPath, newSnapshot)
-    val newNotification = Notification.fromSnapshot(sessionId, notificationUrl(newSnapshot, sessionId), newSnapshot)
+    newSnapshot.latestDelta match {
+      case Some(d) => repositoryWriter.writeDelta(conf.locationRepositoryPath, d)
+      case None => // TODO That's unlikely, but still log it
+    }
+    val newNotification = Notification.create(sessionId, newSnapshot)
+    repositoryWriter.writeNotification(conf.locationRepositoryPath, newNotification)
+    NotificationState.update(newNotification)
+  }
+
+  def writeSnapshotAndNotification(newSnapshot: SnapshotState, delta: Delta) = {
+    repositoryWriter.writeSnapshot(conf.locationRepositoryPath, newSnapshot)
+    repositoryWriter.writeDelta(conf.locationRepositoryPath, delta)
+    val newNotification = Notification.create(sessionId, newSnapshot, Seq(delta))
     repositoryWriter.writeNotification(conf.locationRepositoryPath, newNotification)
     NotificationState.update(newNotification)
   }

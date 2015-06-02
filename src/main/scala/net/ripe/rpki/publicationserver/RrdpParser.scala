@@ -63,7 +63,7 @@ object RrdpParser extends MessageParser[SnapshotState] with Hashing {
 
     val publishElementsMap = publishElements.map(p => p.uri -> (p.body, p.hash)).toMap
 
-    Right(new SnapshotState(sessionId, serial, publishElementsMap))
+    Right(new SnapshotState(sessionId, serial, publishElementsMap, Map.empty))
   }
 
   private def normalize(s: String) = s.filterNot(Character.isWhitespace)

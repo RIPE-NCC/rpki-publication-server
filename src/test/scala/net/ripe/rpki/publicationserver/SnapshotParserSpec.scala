@@ -9,7 +9,7 @@ class SnapshotParserSpec extends PublicationServerBaseSpec {
   test("should parse valid snapshot xml") {
     val result = RrdpParser.parse(getFile("/valid-snapshot.xml"))
 
-    val Right(SnapshotState(sessionId, serial, pdus: SnapshotMap)) = result
+    val Right(SnapshotState(sessionId, serial, pdus: SnapshotMap, _)) = result
 
     sessionId.toString should be("9df4b597-af9e-4dca-bdda-719cce2c4e28")
     serial should be(BigInt(5932))

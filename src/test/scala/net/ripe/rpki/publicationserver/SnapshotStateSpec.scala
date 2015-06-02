@@ -7,7 +7,7 @@ import net.ripe.rpki.publicationserver.fs.RepositoryWriter
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 
-class SnapshotStateSpec extends PublicationServerBaseSpec {
+class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
 
   private var sessionId: UUID = _
 
@@ -15,14 +15,14 @@ class SnapshotStateSpec extends PublicationServerBaseSpec {
   
   before {
     sessionId = UUID.randomUUID
-    emptySnapshot = new SnapshotState(sessionId, BigInt(1), Map.empty)
-    val notification = Notification.fromSnapshot(sessionId, SnapshotState.notificationUrl(emptySnapshot, sessionId), emptySnapshot)
+    emptySnapshot = new SnapshotState(sessionId, BigInt(1), Map.empty, Map.empty)
+    val notification = Notification.create(sessionId, emptySnapshot)
     NotificationState.update(notification)
   }
   
   test("should serialize a SnapshotState to proper xml") {
     val pdus: Map[URI, (Base64, Hash)] = Map(new URI("rsync://bla") -> (Base64.apply("321"), Hash("123")))
-    val state = new SnapshotState(sessionId, BigInt(123), pdus)
+    val state = new SnapshotState(sessionId, BigInt(123), pdus, Map.empty)
 
     val xml = state.serialize.mkString
 
@@ -42,7 +42,8 @@ class SnapshotStateSpec extends PublicationServerBaseSpec {
     val snapshot = new SnapshotState(
       sessionId,
       BigInt(1),
-      Map(new URI("rsync://host/zzz.cer") -> (Base64("aaaa="), Hash("BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7"))))
+      Map(new URI("rsync://host/zzz.cer") -> (Base64("aaaa="), Hash("BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7"))),
+      Map.empty)
 
     val s = snapshot(Seq(PublishQ(uri = new URI("rsync://host/zzz.cer"),
       tag = None,
@@ -58,7 +59,8 @@ class SnapshotStateSpec extends PublicationServerBaseSpec {
     val snapshot = new SnapshotState(
       sessionId,
       BigInt(1),
-      Map(new URI("rsync://host/zzz.cer") -> (Base64("aaaa="), Hash("BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7"))))
+      Map(new URI("rsync://host/zzz.cer") -> (Base64("aaaa="), Hash("BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7"))),
+      Map.empty)
 
     val s = snapshot(Seq(PublishQ(
       uri = new URI("rsync://host/not-existing.cer"),
@@ -73,7 +75,8 @@ class SnapshotStateSpec extends PublicationServerBaseSpec {
     val snapshot = new SnapshotState(
       sessionId,
       BigInt(1),
-      Map(new URI("rsync://host/zzz.cer") -> (Base64("aaaa="), Hash("BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7"))))
+      Map(new URI("rsync://host/zzz.cer") -> (Base64("aaaa="), Hash("BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7"))),
+      Map.empty)
 
     val s = snapshot(Seq(PublishQ(uri = new URI("rsync://host/zzz.cer"), tag = None, hash = None, base64 = Base64("cccc="))))
     s._1.head should be(ReportError(BaseError.HashForInsert, Some("Tried to insert existing object [rsync://host/zzz.cer].")))
@@ -83,7 +86,8 @@ class SnapshotStateSpec extends PublicationServerBaseSpec {
     val snapshot = new SnapshotState(
       sessionId,
       BigInt(1),
-      Map(new URI("rsync://host/zzz.cer") -> (Base64("aaaa="), Hash("BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7"))))
+      Map(new URI("rsync://host/zzz.cer") -> (Base64("aaaa="), Hash("BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7"))),
+      Map.empty)
 
     val s = snapshot(Seq(PublishQ(
       uri = new URI("rsync://host/zzz.cer"),
@@ -98,7 +102,8 @@ class SnapshotStateSpec extends PublicationServerBaseSpec {
     val snapshot = new SnapshotState(
       sessionId,
       BigInt(1),
-      Map(new URI("rsync://host/zzz.cer") -> (Base64("aaaa="), Hash("BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7"))))
+      Map(new URI("rsync://host/zzz.cer") -> (Base64("aaaa="), Hash("BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7"))),
+      Map.empty)
 
     val s = snapshot(Seq(WithdrawQ(uri = new URI("rsync://host/not-existing-uri.cer"), tag = None, hash = "whatever")))
     s._1.head should be(ReportError(BaseError.NoObjectForWithdraw, Some("No object [rsync://host/not-existing-uri.cer] found.")))
@@ -108,7 +113,8 @@ class SnapshotStateSpec extends PublicationServerBaseSpec {
     val snapshot = new SnapshotState(
       sessionId,
       BigInt(1),
-      Map(new URI("rsync://host/zzz.cer") -> (Base64("aaaa="), Hash("BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7"))))
+      Map(new URI("rsync://host/zzz.cer") -> (Base64("aaaa="), Hash("BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7"))),
+      Map.empty)
 
     val s = snapshot(Seq(WithdrawQ(uri = new URI("rsync://host/zzz.cer"), tag = None, hash = "WRONGHASH")))
     s._1.head should be(ReportError(BaseError.NonMatchingHash, Some("Cannot withdraw the object [rsync://host/zzz.cer], hash doesn't match.")))
@@ -128,8 +134,8 @@ class SnapshotStateSpec extends PublicationServerBaseSpec {
 
     verify(repositoryWriterSpy).writeSnapshot(anyString(), any[SnapshotState])
     verify(repositoryWriterSpy).writeNotification(anyString(), any[Notification])
-    snapshotStateUpdater.get should not equal(snapshotStateBefore)
-    NotificationState.get should not equal(notificationStateBefore)
+    snapshotStateUpdater.get should not equal snapshotStateBefore
+    NotificationState.get should not equal notificationStateBefore
   }
 
   test("should not write a snapshot to the filesystem when a message contained an error") {

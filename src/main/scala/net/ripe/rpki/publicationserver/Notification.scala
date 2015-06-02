@@ -3,22 +3,24 @@ package net.ripe.rpki.publicationserver
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
 
+import com.softwaremill.macwire.MacwireMacros._
+
 import scala.annotation.tailrec
 import scala.io.Source
 import scala.xml.{Elem, Node}
 
 case class SnapshotLocator(uri: String, hash: Hash)
 
-case class Delta(serial: BigInt, uri: String, hash: Hash)
+case class DeltaLocator(serial: BigInt, uri: String, hash: Hash)
 
-case class Notification(sessionId: UUID, serial: BigInt, snapshot: SnapshotLocator, deltas: Seq[Delta]) {
+case class Notification(sessionId: UUID, serial: BigInt, snapshot: SnapshotLocator, deltas: Seq[DeltaLocator]) {
 
   def serialize = notificationXml (
     sessionId,
     serial,
     snapshotXml(snapshot),
     deltas.map { d =>
-      val Delta(serial, uri, hash) = d
+      val DeltaLocator(serial, uri, hash) = d
         <delta serial={serial.toString()} uri={uri} hash={hash.hash}/>
     }
   )
@@ -33,11 +35,28 @@ case class Notification(sessionId: UUID, serial: BigInt, snapshot: SnapshotLocat
     </notification>
 }
 
-object Notification extends Hashing {
 
-  def fromSnapshot(sessionId: UUID, uri: String, snapshot: SnapshotState): Notification = {
-    val locator = SnapshotLocator(uri, hash(snapshot.serialize.mkString.getBytes))
-    Notification(sessionId, snapshot.serial, locator, Seq())
+trait Urls {
+  lazy val conf = wire[ConfigWrapper]
+
+  lazy val repositoryUri = conf.locationRepositoryUri
+  
+  def snapshotUrl(snapshot: SnapshotState) = repositoryUri + "/" + snapshot.sessionId + "/" + snapshot.serial + "/snapshot.xml"
+  def deltaUrl(delta: Delta) = repositoryUri + "/" + delta.sessionId + "/" + delta.serial + "/delta.xml"
+}
+
+object Notification extends Hashing with Urls {
+
+  def create(sessionId: UUID, snapshot: SnapshotState): Notification = {
+    create(sessionId, snapshot, Seq())
+  }
+
+  def create(sessionId: UUID, snapshot: SnapshotState, deltas: Seq[Delta]): Notification = {
+    val snapshotLocator = SnapshotLocator(snapshotUrl(snapshot), hash(snapshot.serialize.mkString.getBytes))
+    val deltaLocators = deltas.map { d =>
+      DeltaLocator(d.serial, deltaUrl(d), hash(d.serialize.mkString.getBytes))
+    }
+    Notification(snapshot.sessionId, snapshot.serial, snapshotLocator, deltaLocators)
   }
 }
 
