@@ -36,6 +36,13 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
     s._2.get.serial should be(BigInt(2))
     s._2.get.sessionId should be(sessionId)
     s._2.get.pdus should be(Map(new URI("rsync://host/zzz.cer") -> (Base64("aaaa="), Hash("BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7"))))
+    s._2.get.deltas should be(Map(
+      BigInt(2) -> Delta(
+        sessionId,
+        BigInt(2),
+        Seq(PublishQ(uri = new URI("rsync://host/zzz.cer"), tag = None, hash = None, base64 = Base64("aaaa=")))
+      )
+    ))
   }
 
   test("should update an object with publish and republish") {
@@ -53,6 +60,16 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
     s._2.get.serial should be(BigInt(2))
     s._2.get.sessionId should be(sessionId)
     s._2.get.pdus should be(Map(new URI("rsync://host/zzz.cer") -> (Base64("cccc="), Hash("5DEC005081ED747F172993860AACDD6492B2547BE0EC440CED76649F65188E14"))))
+    s._2.get.deltas should be(Map(
+      BigInt(2) -> Delta(
+        sessionId,
+        BigInt(2),
+        Seq(PublishQ(uri = new URI("rsync://host/zzz.cer"),
+          tag = None,
+          hash = Some("BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7"),
+          base64 = Base64("cccc=")))
+      )
+    ))
   }
 
   test("should fail to update an object which is not in the snashot") {
@@ -118,6 +135,24 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
 
     val s = snapshot(Seq(WithdrawQ(uri = new URI("rsync://host/zzz.cer"), tag = None, hash = "WRONGHASH")))
     s._1.head should be(ReportError(BaseError.NonMatchingHash, Some("Cannot withdraw the object [rsync://host/zzz.cer], hash doesn't match.")))
+  }
+
+  test("should create 2 entries in delta map after 2 updates") {
+    val s1 = emptySnapshot(Seq(PublishQ(uri = new URI("rsync://host/cert1.cer"), tag = None, hash = None, base64 = Base64("cccc="))))
+    val s2 = s1._2.get(Seq(PublishQ(uri = new URI("rsync://host/cert2.cer"), tag = None, hash = None, base64 = Base64("bbbb="))))
+
+    s2._2.get.deltas should be(Map(
+      BigInt(2) -> Delta(
+        sessionId,
+        BigInt(2),
+        Seq(PublishQ(uri = new URI("rsync://host/cert1.cer"), tag = None, hash = None, base64 = Base64("cccc=")))
+      ),
+      BigInt(3) -> Delta(
+        sessionId,
+        BigInt(3),
+        Seq(PublishQ(uri = new URI("rsync://host/cert2.cer"), tag = None, hash = None, base64 = Base64("bbbb=")))
+      )
+    ))
   }
 
   test("should update the snapshot and the notification and write them to the filesystem when a message is successfully processed") {
