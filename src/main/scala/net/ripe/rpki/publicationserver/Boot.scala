@@ -12,7 +12,7 @@ import spray.can.Http
 import scala.concurrent.duration._
 import scala.util.Try
 
-object Boot extends App {
+object Boot extends App with Logging {
 
   val conf = wire[ConfigWrapper]
 
@@ -24,10 +24,7 @@ object Boot extends App {
 
   implicit val timeout = Timeout(5.seconds)
 
-  val logger = LoggerFactory.getLogger(this.getClass)
-
   IO(Http) ? Http.Bind(service, interface = "::0", port = conf.port)
-
 
   def setupLogging() = {
     System.setProperty("LOG_FILE", conf.locationLogfile)
