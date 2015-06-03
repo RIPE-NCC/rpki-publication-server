@@ -6,6 +6,7 @@ import java.util.concurrent.atomic.AtomicReference
 import com.softwaremill.macwire.MacwireMacros._
 
 import scala.annotation.tailrec
+import scala.collection.immutable
 import scala.io.Source
 import scala.xml.{Elem, Node}
 
@@ -13,7 +14,7 @@ case class SnapshotLocator(uri: String, hash: Hash)
 
 case class DeltaLocator(serial: BigInt, uri: String, hash: Hash)
 
-case class Notification(sessionId: UUID, serial: BigInt, snapshot: SnapshotLocator, deltas: Seq[DeltaLocator]) {
+case class Notification(sessionId: UUID, serial: BigInt, snapshot: SnapshotLocator, deltas: Iterable[DeltaLocator]) {
 
   def serialize = notificationXml (
     sessionId,
@@ -48,12 +49,8 @@ trait Urls {
 object Notification extends Hashing with Urls {
 
   def create(sessionId: UUID, snapshot: SnapshotState): Notification = {
-    create(sessionId, snapshot, Seq())
-  }
-
-  def create(sessionId: UUID, snapshot: SnapshotState, deltas: Seq[Delta]): Notification = {
     val snapshotLocator = SnapshotLocator(snapshotUrl(snapshot), hash(snapshot.serialize.mkString.getBytes))
-    val deltaLocators = deltas.map { d =>
+    val deltaLocators = snapshot.deltas.values.map { d =>
       DeltaLocator(d.serial, deltaUrl(d), hash(d.serialize.mkString.getBytes))
     }
     Notification(snapshot.sessionId, snapshot.serial, snapshotLocator, deltaLocators)

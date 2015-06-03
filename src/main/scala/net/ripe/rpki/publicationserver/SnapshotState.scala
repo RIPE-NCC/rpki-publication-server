@@ -120,7 +120,7 @@ object SnapshotState extends SnapshotStateUpdater {
 
 }
 
-trait SnapshotStateUpdater extends Urls {
+trait SnapshotStateUpdater extends Urls with Logging {
 
   val sessionId = conf.currentSessionId
 
@@ -152,21 +152,14 @@ trait SnapshotStateUpdater extends Urls {
   def writeSnapshotAndNotification(newSnapshot: SnapshotState) = {
     repositoryWriter.writeSnapshot(conf.locationRepositoryPath, newSnapshot)
     newSnapshot.latestDelta match {
-      case Some(d) => repositoryWriter.writeDelta(conf.locationRepositoryPath, d)
-      case None => // TODO That's unlikely, but still log it
+      case None => logger.error(s"Could not find the latest delta, sessionId=${newSnapshot.sessionId}, serial=${newSnapshot.serial}")
+      case Some(delta) => repositoryWriter.writeDelta(conf.locationRepositoryPath, delta)
     }
     val newNotification = Notification.create(sessionId, newSnapshot)
     repositoryWriter.writeNotification(conf.locationRepositoryPath, newNotification)
     NotificationState.update(newNotification)
   }
 
-  def writeSnapshotAndNotification(newSnapshot: SnapshotState, delta: Delta) = {
-    repositoryWriter.writeSnapshot(conf.locationRepositoryPath, newSnapshot)
-    repositoryWriter.writeDelta(conf.locationRepositoryPath, delta)
-    val newNotification = Notification.create(sessionId, newSnapshot, Seq(delta))
-    repositoryWriter.writeNotification(conf.locationRepositoryPath, newNotification)
-    NotificationState.update(newNotification)
-  }
 }
 
 
