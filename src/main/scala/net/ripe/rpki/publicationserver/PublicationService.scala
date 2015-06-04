@@ -29,8 +29,8 @@ class PublicationServiceActor extends Actor with PublicationService with RRDPSer
         val snapshot = SnapshotState.emptySnapshot
         SnapshotState.writeSnapshotAndNotification(snapshot)
         SnapshotState.initializeWith(snapshot)
-      case Right(Some(initialSnapshot)) =>
-        SnapshotState.initializeWith(initialSnapshot)
+      case Right(Some(is)) =>
+        SnapshotState.initializeWith(is)
     }
   }
 }
