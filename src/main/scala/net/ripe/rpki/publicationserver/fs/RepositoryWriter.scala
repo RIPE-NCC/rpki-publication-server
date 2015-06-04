@@ -2,50 +2,37 @@ package net.ripe.rpki.publicationserver.fs
 
 import java.io.{FileWriter, File}
 import java.nio.file._
+import java.util.UUID
 
 import net.ripe.rpki.publicationserver.{Delta, DeltaLocator, Notification, SnapshotState}
 
+import scala.xml.Elem
+
 class RepositoryWriter {
   def writeSnapshot(rootDir: String, snapshot: SnapshotState) = {
-    val root = getRootFolder(rootDir)
+    val stateDir = getStateDir(rootDir, snapshot.sessionId, snapshot.serial)
+    writeFile(snapshot.serialize, new File(stateDir, "snapshot.xml"))
+  }
 
-    val sessionDir = new File(root, snapshot.sessionId.toString)
-    if (!sessionDir.exists()) sessionDir.mkdir()
-
-    val serialDir = new File(sessionDir, snapshot.serial.toString())
-    serialDir.mkdir()
-
-    val snapshotFile = new File(serialDir, "snapshot.xml")
-    val writer = new FileWriter(snapshotFile)
-    try writer.write(snapshot.serialize.mkString)
-    finally writer.close()
+  def writeDelta(rootDir: String, delta: Delta) = {
+    val stateDir = getStateDir(rootDir, delta.sessionId, delta.serial)
+    writeFile(delta.serialize, new File(stateDir, "delta.xml"))
   }
 
   def writeNotification(rootDir: String, notification: Notification) = {
     val root = getRootFolder(rootDir)
 
-    val notificationFile = new File(root, "notification_tmp.xml")
-    val writer = new FileWriter(notificationFile)
-    try writer.write(notification.serialize.mkString)
-    finally writer.close()
+    val tmpFile = new File(root, "notification_tmp.xml")
+    writeFile(notification.serialize, tmpFile)
 
-    val source = Paths.get(notificationFile.toURI)
+    val source = Paths.get(tmpFile.toURI)
     val target = Paths.get(new File(root, "notification.xml").toURI)
     Files.move(source, target, StandardCopyOption.REPLACE_EXISTING)
   }
 
-  def writeDelta(rootDir: String, delta: Delta) = {
-    val root = getRootFolder(rootDir)
-
-    val sessionDir = new File(root, delta.sessionId.toString)
-    if (!sessionDir.exists()) sessionDir.mkdir()
-
-    val serialDir = new File(sessionDir, delta.serial.toString())
-    serialDir.mkdir()
-
-    val snapshotFile = new File(serialDir, "delta.xml")
-    val writer = new FileWriter(snapshotFile)
-    try writer.write(delta.serialize.mkString)
+  private def writeFile(elem: Elem, file: File) = {
+    val writer = new FileWriter(file)
+    try writer.write(elem.mkString)
     finally writer.close()
   }
 
@@ -54,4 +41,16 @@ class RepositoryWriter {
     if (!root.exists()) root.mkdir()
     root
   }
+
+  private def getStateDir(rootDir: String, sessionId: UUID, serial: BigInt): File = {
+    val root = getRootFolder(rootDir)
+    dir(dir(root, sessionId.toString), serial.toString())
+  }
+
+  private def dir(d: File, name: String) = {
+    val _dir = new File(d, name)
+    if (!_dir.exists()) _dir.mkdir()
+    _dir
+  }
+
 }
