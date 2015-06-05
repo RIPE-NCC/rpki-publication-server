@@ -7,22 +7,22 @@ import net.ripe.rpki.publicationserver.fs.RepositoryWriter
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 
-class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
+class RepositoryStateSpec extends PublicationServerBaseSpec with Urls {
 
   private var sessionId: UUID = _
 
-  private var emptySnapshot: SnapshotState = _
+  private var emptySnapshot: RepositoryState = _
   
   before {
     sessionId = UUID.randomUUID
-    emptySnapshot = new SnapshotState(sessionId, BigInt(1), Map.empty, Map.empty)
+    emptySnapshot = new RepositoryState(sessionId, BigInt(1), Map.empty, Map.empty)
     val notification = Notification.create(sessionId, emptySnapshot)
     NotificationState.update(notification)
   }
   
   test("should serialize a SnapshotState to proper xml") {
     val pdus: Map[URI, (Base64, Hash)] = Map(new URI("rsync://bla") -> (Base64.apply("321"), Hash("123")))
-    val state = new SnapshotState(sessionId, BigInt(123), pdus, Map.empty)
+    val state = new RepositoryState(sessionId, BigInt(123), pdus, Map.empty)
 
     val xml = state.serialize.mkString
 
@@ -46,7 +46,7 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
   }
 
   test("should update an object with publish and republish") {
-    val snapshot = new SnapshotState(
+    val snapshot = new RepositoryState(
       sessionId,
       BigInt(1),
       Map(new URI("rsync://host/zzz.cer") -> (Base64("aaaa="), Hash("BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7"))),
@@ -73,7 +73,7 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
   }
 
   test("should fail to update an object which is not in the snashot") {
-    val snapshot = new SnapshotState(
+    val snapshot = new RepositoryState(
       sessionId,
       BigInt(1),
       Map(new URI("rsync://host/zzz.cer") -> (Base64("aaaa="), Hash("BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7"))),
@@ -89,7 +89,7 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
   }
 
   test("should fail to update an object without hash provided") {
-    val snapshot = new SnapshotState(
+    val snapshot = new RepositoryState(
       sessionId,
       BigInt(1),
       Map(new URI("rsync://host/zzz.cer") -> (Base64("aaaa="), Hash("BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7"))),
@@ -100,7 +100,7 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
   }
 
   test("should fail to update an object if hashes do not match") {
-    val snapshot = new SnapshotState(
+    val snapshot = new RepositoryState(
       sessionId,
       BigInt(1),
       Map(new URI("rsync://host/zzz.cer") -> (Base64("aaaa="), Hash("BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7"))),
@@ -116,7 +116,7 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
   }
 
   test("should fail to withdraw an object if there's no such object") {
-    val snapshot = new SnapshotState(
+    val snapshot = new RepositoryState(
       sessionId,
       BigInt(1),
       Map(new URI("rsync://host/zzz.cer") -> (Base64("aaaa="), Hash("BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7"))),
@@ -127,7 +127,7 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
   }
 
   test("should fail to withdraw an object if hashes do not match") {
-    val snapshot = new SnapshotState(
+    val snapshot = new RepositoryState(
       sessionId,
       BigInt(1),
       Map(new URI("rsync://host/zzz.cer") -> (Base64("aaaa="), Hash("BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7"))),
@@ -167,8 +167,9 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
 
     snapshotStateUpdater.updateWith(Seq(publish))
 
-    verify(repositoryWriterSpy).writeSnapshot(anyString(), any[SnapshotState])
+    verify(repositoryWriterSpy).writeSnapshot(anyString(), any[RepositoryState])
     verify(repositoryWriterSpy).writeNotification(anyString(), any[Notification])
+    verify(repositoryWriterSpy).writeDelta(anyString(), any[Delta])
     snapshotStateUpdater.get should not equal snapshotStateBefore
     NotificationState.get should not equal notificationStateBefore
   }
@@ -189,7 +190,7 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
 
   test("should not update the snapshot state when writing it to the filesystem throws an error") {
     val snapshotWriterMock = mock[RepositoryWriter](RETURNS_SMART_NULLS)
-    when(snapshotWriterMock.writeSnapshot(anyString(), any[SnapshotState])).thenThrow(new IllegalArgumentException())
+    when(snapshotWriterMock.writeSnapshot(anyString(), any[RepositoryState])).thenThrow(new IllegalArgumentException())
 
     val snapshotStateUpdater = new SnapshotStateUpdater {
       override val repositoryWriter = snapshotWriterMock

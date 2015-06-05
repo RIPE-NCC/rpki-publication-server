@@ -42,13 +42,13 @@ trait Urls {
 
   lazy val repositoryUri = conf.locationRepositoryUri
   
-  def snapshotUrl(snapshot: SnapshotState) = repositoryUri + "/" + snapshot.sessionId + "/" + snapshot.serial + "/snapshot.xml"
+  def snapshotUrl(snapshot: RepositoryState) = repositoryUri + "/" + snapshot.sessionId + "/" + snapshot.serial + "/snapshot.xml"
   def deltaUrl(delta: Delta) = repositoryUri + "/" + delta.sessionId + "/" + delta.serial + "/delta.xml"
 }
 
 object Notification extends Hashing with Urls {
 
-  def create(sessionId: UUID, snapshot: SnapshotState): Notification = {
+  def create(sessionId: UUID, snapshot: RepositoryState): Notification = {
     val snapshotLocator = SnapshotLocator(snapshotUrl(snapshot), hash(snapshot.serialize.mkString.getBytes))
     val deltaLocators = snapshot.deltas.values.map { d =>
       DeltaLocator(d.serial, deltaUrl(d), hash(d.serialize.mkString.getBytes))

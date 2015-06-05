@@ -8,7 +8,7 @@ import scala.io.Source
 
 case class PublishElement(uri: URI, hash: Hash, body: Base64)
 
-object RrdpParser extends MessageParser[SnapshotState] with Hashing {
+object RrdpParser extends MessageParser[RepositoryState] with Hashing {
 
   override val Schema = Source.fromURL(getClass.getResource("/rrdp-schema.rng")).mkString
 
@@ -21,7 +21,7 @@ object RrdpParser extends MessageParser[SnapshotState] with Hashing {
     (BigInt(attrs("serial")), UUID.fromString(attrs("session_id")))
   }
 
-  override protected def parse(parser: StaxParser): Either[BaseError, SnapshotState] = {
+  override protected def parse(parser: StaxParser): Either[BaseError, RepositoryState] = {
     var serial: BigInt = null
     var sessionId: UUID = null
 
@@ -63,7 +63,7 @@ object RrdpParser extends MessageParser[SnapshotState] with Hashing {
 
     val publishElementsMap = publishElements.map(p => p.uri -> (p.body, p.hash)).toMap
 
-    Right(new SnapshotState(sessionId, serial, publishElementsMap, Map.empty))
+    Right(new RepositoryState(sessionId, serial, publishElementsMap, Map.empty))
   }
 
   private def normalize(s: String) = s.filterNot(Character.isWhitespace)

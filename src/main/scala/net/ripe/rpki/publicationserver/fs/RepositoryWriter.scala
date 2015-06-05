@@ -4,12 +4,12 @@ import java.io.{FileWriter, File}
 import java.nio.file._
 import java.util.UUID
 
-import net.ripe.rpki.publicationserver.{Delta, DeltaLocator, Notification, SnapshotState}
+import net.ripe.rpki.publicationserver._
 
 import scala.xml.Elem
 
 class RepositoryWriter {
-  def writeSnapshot(rootDir: String, snapshot: SnapshotState) = {
+  def writeSnapshot(rootDir: String, snapshot: RepositoryState) = {
     val stateDir = getStateDir(rootDir, snapshot.sessionId, snapshot.serial)
     writeFile(snapshot.serialize, new File(stateDir, "snapshot.xml"))
   }
@@ -52,5 +52,13 @@ class RepositoryWriter {
     if (!_dir.exists()) _dir.mkdir()
     _dir
   }
+
+
+//  def getSnapshotWriteAction(root: String, state: RepositoryState): FsAction[File] = {
+//    val dir = root + "/" + state.sessionId + "/" + state.serial
+//    MkDir(dir) { d =>
+//      WriteFile(new File(d, "snapshot.xml"), state.serialize.mkString).execute()
+//    }
+//  }
 
 }

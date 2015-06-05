@@ -26,11 +26,11 @@ class PublicationServiceActor extends Actor with PublicationService with RRDPSer
       case Left(err@BaseError(_, _)) =>
         serviceLogger.error(s"Error occured while reading initial snapshot: $err")
       case Right(None) =>
-        val snapshot = SnapshotState.emptySnapshot
-        SnapshotState.writeSnapshotAndNotification(snapshot)
-        SnapshotState.initializeWith(snapshot)
+        val snapshot = RepositoryState.emptySnapshot
+        RepositoryState.writeRepositoryState(snapshot)
+        RepositoryState.initializeWith(snapshot)
       case Right(Some(is)) =>
-        SnapshotState.initializeWith(is)
+        RepositoryState.initializeWith(is)
     }
   }
 }
@@ -90,7 +90,7 @@ trait PublicationService extends HttpService with RepositoryPath {
 
     val response = msgParser.parse(xmlMessage) match {
       case Right(QueryMessage(pdus)) =>
-        val elements = SnapshotState.updateWith(pdus)
+        val elements = RepositoryState.updateWith(pdus)
         elements.filter(_.isInstanceOf[ReportError]) match {
           case Seq() =>
             serviceLogger.info("Request handled successfully")
@@ -100,7 +100,7 @@ trait PublicationService extends HttpService with RepositoryPath {
         ReplyMsg(elements).serialize
 
       case Right(ListMessage()) =>
-        ReplyMsg(SnapshotState.listReply).serialize
+        ReplyMsg(RepositoryState.listReply).serialize
 
       case Left(msgError) =>
         serviceLogger.warn("Error while handling request: {}", msgError)

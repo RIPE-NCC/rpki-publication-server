@@ -10,7 +10,7 @@ import scala.io.Source
 object SnapshotReader {
   val logger = LoggerFactory.getLogger("SnapshotReader")
   
-  def readSnapshotFromNotification(repositoryPath: String, repositoryUri: String) : Either[BaseError, Option[SnapshotState]] = {
+  def readSnapshotFromNotification(repositoryPath: String, repositoryUri: String) : Either[BaseError, Option[RepositoryState]] = {
 
     def composeSnapshotPath(notification: Notification): String = {
       assert(notification.snapshot.uri.startsWith(repositoryUri), s"Snapshot URI [${notification.snapshot.uri}] in notification.xml does not start with configured repository URI [$repositoryUri]")

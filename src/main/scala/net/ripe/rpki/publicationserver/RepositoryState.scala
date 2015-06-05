@@ -4,14 +4,14 @@ import java.net.URI
 import java.util.UUID
 
 import com.softwaremill.macwire.MacwireMacros._
-import net.ripe.rpki.publicationserver.SnapshotState
-import net.ripe.rpki.publicationserver.fs.RepositoryWriter
+import net.ripe.rpki.publicationserver.RepositoryState$
+import net.ripe.rpki.publicationserver.fs.{FsAction, RepositoryWriter}
 
 import scala.xml.{Elem, Node}
 
-case class SnapshotState(sessionId: UUID, serial: BigInt, pdus: SnapshotState.SnapshotMap, deltas: Map[BigInt, Delta]) extends Hashing {
+case class RepositoryState(sessionId: UUID, serial: BigInt, pdus: RepositoryState.SnapshotMap, deltas: Map[BigInt, Delta]) extends Hashing {
 
-  def apply(queries: Seq[QueryPdu]): (Seq[ReplyPdu], Option[SnapshotState]) = {
+  def apply(queries: Seq[QueryPdu]): (Seq[ReplyPdu], Option[RepositoryState]) = {
 
     var newPdus = pdus
     val replies = queries.map {
@@ -58,7 +58,7 @@ case class SnapshotState(sessionId: UUID, serial: BigInt, pdus: SnapshotState.Sn
     else {
       val newSerial = serial + 1
       val newDeltas = deltas + (newSerial -> Delta(sessionId, newSerial, queries))
-      (replies, Some(SnapshotState(sessionId, newSerial, newPdus, newDeltas)))
+      (replies, Some(RepositoryState(sessionId, newSerial, newPdus, newDeltas)))
     }
   }
 
@@ -114,7 +114,7 @@ case class Delta(sessionId: UUID, serial: BigInt, pdus: Seq[QueryPdu]) extends H
 /**
  * Holds the global snapshot state
  */
-object SnapshotState extends SnapshotStateUpdater {
+object RepositoryState extends SnapshotStateUpdater {
 
   type SnapshotMap = Map[URI, (Base64, Hash)]
 
@@ -128,11 +128,11 @@ trait SnapshotStateUpdater extends Urls with Logging {
 
   private var state = emptySnapshot
 
-  def emptySnapshot = new SnapshotState(conf.currentSessionId, BigInt(1), Map.empty, Map.empty)
+  def emptySnapshot = new RepositoryState(conf.currentSessionId, BigInt(1), Map.empty, Map.empty)
 
   def get = state
 
-  def initializeWith(initState: SnapshotState) = {
+  def initializeWith(initState: RepositoryState) = {
     state = initState
     val newNotification = Notification.create(sessionId, initState)
     NotificationState.update(newNotification)
@@ -141,7 +141,7 @@ trait SnapshotStateUpdater extends Urls with Logging {
   def updateWith(queries: Seq[QueryPdu]): Seq[ReplyPdu] = synchronized {
     val (replies, newState) = state(queries)
     if (newState.isDefined) {
-      writeSnapshotAndNotification(newState.get)
+      writeRepositoryState(newState.get)
       state = newState.get
     }
     replies
@@ -149,7 +149,7 @@ trait SnapshotStateUpdater extends Urls with Logging {
 
   def listReply = get.list
 
-  def writeSnapshotAndNotification(newSnapshot: SnapshotState) = {
+  def writeRepositoryState(newSnapshot: RepositoryState) = {
     repositoryWriter.writeSnapshot(conf.locationRepositoryPath, newSnapshot)
     newSnapshot.latestDelta match {
       case None => logger.error(s"Could not find the latest delta, sessionId=${newSnapshot.sessionId}, serial=${newSnapshot.serial}")
