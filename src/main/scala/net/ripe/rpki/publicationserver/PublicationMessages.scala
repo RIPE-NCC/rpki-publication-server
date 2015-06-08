@@ -14,6 +14,7 @@ object BaseError extends Enumeration {
   val NoObjectToUpdate = Value
   val NoObjectForWithdraw = Value
   val NonMatchingHash = Value
+  val CouldNotPersist = Value
 }
 
 case class BaseError(code: BaseError.Code, message: String)

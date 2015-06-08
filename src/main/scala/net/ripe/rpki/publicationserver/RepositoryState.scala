@@ -4,9 +4,9 @@ import java.net.URI
 import java.util.UUID
 
 import com.softwaremill.macwire.MacwireMacros._
-import net.ripe.rpki.publicationserver.RepositoryState$
-import net.ripe.rpki.publicationserver.fs.{FsAction, RepositoryWriter}
+import net.ripe.rpki.publicationserver.fs.RepositoryWriter
 
+import scala.util.{Failure, Success}
 import scala.xml.{Elem, Node}
 
 case class RepositoryState(sessionId: UUID, serial: BigInt, pdus: RepositoryState.SnapshotMap, deltas: Map[BigInt, Delta]) extends Hashing {
@@ -134,25 +134,32 @@ trait SnapshotStateUpdater extends Urls with Logging {
 
   def initializeWith(initState: RepositoryState) = {
     state = initState
-    val newNotification = Notification.create(sessionId, initState)
+    val newNotification = Notification.create(initState)
     NotificationState.update(newNotification)
   }
 
   def updateWith(queries: Seq[QueryPdu]): Seq[ReplyPdu] = synchronized {
     val (replies, newState) = state(queries)
     if (newState.isDefined) {
-      writeRepositoryState(newState.get)
-      state = newState.get
-    }
-    replies
+      writeRepositoryState(newState.get) match {
+        case Success(_) =>
+          state = newState.get
+          replies
+        case Failure(e) =>
+          replies ++ Seq(ReportError(BaseError.CouldNotPersist, Some("Could not persist the changes: " + e.getMessage)))
+      }
+    } else
+      replies
   }
 
   def listReply = get.list
 
   def writeRepositoryState(newSnapshot: RepositoryState) = {
-    val newNotification = Notification.create(newSnapshot.sessionId, newSnapshot)
-    repositoryWriter.writeNewState(conf.locationRepositoryPath, newSnapshot, newNotification)
-    NotificationState.update(newNotification)
+    val newNotification = Notification.create(newSnapshot)
+    repositoryWriter.writeNewState(conf.locationRepositoryPath, newSnapshot, newNotification).map { _ =>
+      println("newNotification = " + newNotification)
+      NotificationState.update(newNotification)
+    }
   }
 
 }

@@ -48,7 +48,7 @@ trait Urls {
 
 object Notification extends Hashing with Urls {
 
-  def create(sessionId: UUID, snapshot: RepositoryState): Notification = {
+  def create(snapshot: RepositoryState): Notification = {
     val snapshotLocator = SnapshotLocator(snapshotUrl(snapshot), hash(snapshot.serialize.mkString.getBytes))
     val deltaLocators = snapshot.deltas.values.map { d =>
       DeltaLocator(d.serial, deltaUrl(d), hash(d.serialize.mkString.getBytes))
