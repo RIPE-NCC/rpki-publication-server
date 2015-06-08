@@ -8,7 +8,17 @@ import net.ripe.rpki.publicationserver._
 
 import scala.xml.Elem
 
-class RepositoryWriter {
+class RepositoryWriter extends Logging {
+
+  def writeNewState(rootDir: String, newSnapshot: RepositoryState, newNotification: Notification) = {
+    writeSnapshot(rootDir, newSnapshot)
+    newSnapshot.latestDelta match {
+      case None => logger.error(s"Could not find the latest delta, sessionId=${newSnapshot.sessionId}, serial=${newSnapshot.serial}")
+      case Some(delta) => writeDelta(rootDir, delta)
+    }
+    writeNotification(rootDir, newNotification)
+  }
+
   def writeSnapshot(rootDir: String, snapshot: RepositoryState) = {
     val stateDir = getStateDir(rootDir, snapshot.sessionId, snapshot.serial)
     writeFile(snapshot.serialize, new File(stateDir, "snapshot.xml"))

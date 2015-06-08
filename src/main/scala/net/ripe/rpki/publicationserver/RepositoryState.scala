@@ -150,13 +150,8 @@ trait SnapshotStateUpdater extends Urls with Logging {
   def listReply = get.list
 
   def writeRepositoryState(newSnapshot: RepositoryState) = {
-    repositoryWriter.writeSnapshot(conf.locationRepositoryPath, newSnapshot)
-    newSnapshot.latestDelta match {
-      case None => logger.error(s"Could not find the latest delta, sessionId=${newSnapshot.sessionId}, serial=${newSnapshot.serial}")
-      case Some(delta) => repositoryWriter.writeDelta(conf.locationRepositoryPath, delta)
-    }
-    val newNotification = Notification.create(sessionId, newSnapshot)
-    repositoryWriter.writeNotification(conf.locationRepositoryPath, newNotification)
+    val newNotification = Notification.create(newSnapshot.sessionId, newSnapshot)
+    repositoryWriter.writeNewState(conf.locationRepositoryPath, newSnapshot, newNotification)
     NotificationState.update(newNotification)
   }
 

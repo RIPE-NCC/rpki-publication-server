@@ -167,9 +167,7 @@ class RepositoryStateSpec extends PublicationServerBaseSpec with Urls {
 
     snapshotStateUpdater.updateWith(Seq(publish))
 
-    verify(repositoryWriterSpy).writeSnapshot(anyString(), any[RepositoryState])
-    verify(repositoryWriterSpy).writeNotification(anyString(), any[Notification])
-    verify(repositoryWriterSpy).writeDelta(anyString(), any[Delta])
+    verify(repositoryWriterSpy).writeNewState(anyString(), any[RepositoryState], any[Notification])
     snapshotStateUpdater.get should not equal snapshotStateBefore
     NotificationState.get should not equal notificationStateBefore
   }
@@ -189,8 +187,8 @@ class RepositoryStateSpec extends PublicationServerBaseSpec with Urls {
   }
 
   test("should not update the snapshot state when writing it to the filesystem throws an error") {
-    val snapshotWriterMock = mock[RepositoryWriter](RETURNS_SMART_NULLS)
-    when(snapshotWriterMock.writeSnapshot(anyString(), any[RepositoryState])).thenThrow(new IllegalArgumentException())
+    val snapshotWriterMock = spy(new RepositoryWriter())
+    doThrow(new IllegalArgumentException()).when(snapshotWriterMock).writeSnapshot(anyString(), any[RepositoryState])
 
     val snapshotStateUpdater = new SnapshotStateUpdater {
       override val repositoryWriter = snapshotWriterMock
@@ -206,8 +204,8 @@ class RepositoryStateSpec extends PublicationServerBaseSpec with Urls {
   }
 
   test("should not update the snapshot state or the notification state when updating the notification throws an error") {
-    val snapshotWriterMock = mock[RepositoryWriter](RETURNS_SMART_NULLS)
-    when(snapshotWriterMock.writeNotification(anyString(), any[Notification])).thenThrow(new IllegalArgumentException())
+    val snapshotWriterMock = spy(new RepositoryWriter())
+    doThrow(new IllegalArgumentException()).when(snapshotWriterMock).writeNotification(anyString(), any[Notification])
 
     val snapshotStateUpdater = new SnapshotStateUpdater {
       override val repositoryWriter = snapshotWriterMock
@@ -223,4 +221,24 @@ class RepositoryStateSpec extends PublicationServerBaseSpec with Urls {
     snapshotStateUpdater.get should equal(snapshotStateBefore)
     NotificationState.get should equal(notificationStateBefore)
   }
+
+  test("should not update the snapshot state or the notification state when updating delta throws an error") {
+    val snapshotWriterMock = spy(new RepositoryWriter())
+    doThrow(new IllegalArgumentException()).when(snapshotWriterMock).writeDelta(anyString(), any[Delta])
+
+    val snapshotStateUpdater = new SnapshotStateUpdater {
+      override val repositoryWriter = snapshotWriterMock
+    }
+
+    val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
+    val snapshotStateBefore = snapshotStateUpdater.get
+    val notificationStateBefore = NotificationState.get
+
+    an[IllegalArgumentException] should be thrownBy  {
+      snapshotStateUpdater.updateWith(Seq(publish))
+    }
+    snapshotStateUpdater.get should equal(snapshotStateBefore)
+    NotificationState.get should equal(notificationStateBefore)
+  }
+
 }
