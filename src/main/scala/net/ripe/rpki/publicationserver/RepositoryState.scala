@@ -141,9 +141,12 @@ trait SnapshotStateUpdater extends Urls with Logging {
   def updateWith(queries: Seq[QueryPdu]): Seq[ReplyPdu] = synchronized {
     val (replies, newState) = state(queries)
     if (newState.isDefined) {
-      writeRepositoryState(newState.get) match {
+      val newSnapshot = newState.get
+      val newNotification = Notification.create(newSnapshot)
+      repositoryWriter.writeNewState(conf.locationRepositoryPath, newSnapshot, newNotification) match {
         case Success(_) =>
           state = newState.get
+          NotificationState.update(newNotification)
           replies
         case Failure(e) =>
           replies ++ Seq(ReportError(BaseError.CouldNotPersist, Some("Could not persist the changes: " + e.getMessage)))
@@ -157,7 +160,6 @@ trait SnapshotStateUpdater extends Urls with Logging {
   def writeRepositoryState(newSnapshot: RepositoryState) = {
     val newNotification = Notification.create(newSnapshot)
     repositoryWriter.writeNewState(conf.locationRepositoryPath, newSnapshot, newNotification).map { _ =>
-      println("newNotification = " + newNotification)
       NotificationState.update(newNotification)
     }
   }
