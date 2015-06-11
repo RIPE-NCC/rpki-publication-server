@@ -57,13 +57,15 @@ object Notification extends Hashing with Urls {
   }
 }
 
-object NotificationState {
+
+class NotificationStateUpdater {
   private val state: AtomicReference[Notification] = new AtomicReference[Notification]()
 
   def get = state.get()
 
   def update(notification: Notification): Unit = state.set(notification)
 }
+
 
 object NotificationParser extends MessageParser[Notification] {
 
