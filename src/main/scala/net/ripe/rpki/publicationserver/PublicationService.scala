@@ -28,8 +28,8 @@ class PublicationServiceActor extends Actor with PublicationService with RRDPSer
         serviceLogger.error(s"Error occured while reading initial snapshot: $err")
       case Right(None) =>
         val snapshot = RepositoryState.emptySnapshot
-        RepositoryState.writeRepositoryState(snapshot)
         RepositoryState.initializeWith(snapshot)
+        RepositoryState.writeRepositoryState(snapshot)
       case Right(Some(is)) =>
         RepositoryState.initializeWith(is)
     }

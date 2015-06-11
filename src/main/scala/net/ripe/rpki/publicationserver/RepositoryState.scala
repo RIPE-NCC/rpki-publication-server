@@ -136,7 +136,6 @@ trait SnapshotStateUpdater extends Urls with Logging {
 
   def initializeWith(initState: RepositoryState) = {
     state = initState
-    notificationState.update(Notification.create(initState))
   }
 
   def updateWith(queries: Seq[QueryPdu]): Seq[ReplyPdu] = synchronized {
