@@ -6,6 +6,7 @@ import akka.actor.Actor
 import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver.fs.SnapshotReader
 import org.slf4j.LoggerFactory
+import spray.http.CacheDirectives._
 import spray.http.HttpHeaders.{`Cache-Control`, `Content-Type`}
 import spray.http.MediaTypes._
 import spray.http._
@@ -124,10 +125,9 @@ trait RRDPService extends HttpService with RepositoryPath {
 
   val rrdpRoutes =
     path("notification.xml") {
-      serve( s"""$repositoryPath/notification.xml""")
-//      respondWithHeaders(`Cache-Control`(CacheDirectives.`no-cache`, CacheDirectives.`no-store`, CacheDirectives.`must-revalidate`)) {
-//        getFromFile(s"""$repositoryPath/notification.xml""")
-//      }
+      respondWithHeader(`Cache-Control`(CacheDirectives.`no-cache`, CacheDirectives.`no-store`, CacheDirectives.`must-revalidate`)) {
+        serve( s"""$repositoryPath/notification.xml""")
+      }
     } ~
     path(JavaUUID / IntNumber / "snapshot.xml") { (sessionId, serial) =>
       serve( s"""$repositoryPath/$sessionId/$serial/snapshot.xml""")
