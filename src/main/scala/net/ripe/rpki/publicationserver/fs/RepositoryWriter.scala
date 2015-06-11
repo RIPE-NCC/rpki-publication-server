@@ -15,13 +15,17 @@ class RepositoryWriter extends Logging {
     Try {
       writeSnapshot(rootDir, newSnapshot)
       try {
-        newSnapshot.latestDelta match {
-          case None =>
-            val message = s"Could not find the latest delta, sessionId=${newSnapshot.sessionId}, serial=${newSnapshot.serial}"
-            logger.error(message)
-            throw new IllegalStateException(message)
-          case Some(delta) =>
-            writeDelta(rootDir, delta)
+        if (newSnapshot.deltas.nonEmpty) {
+          newSnapshot.latestDelta match {
+            case None =>
+              val message = s"Could not find the latest delta, sessionId=${newSnapshot.sessionId}, serial=${newSnapshot.serial}"
+              logger.error(message)
+              throw new IllegalStateException(message)
+            case Some(delta) =>
+              writeDelta(rootDir, delta)
+          }
+        } else {
+          logger.info("No deltas found in current snapshot")
         }
         try {
           writeNotification(rootDir, newNotification)
