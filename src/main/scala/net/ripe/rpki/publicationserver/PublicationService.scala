@@ -1,6 +1,7 @@
 package net.ripe.rpki.publicationserver
 
 import java.io.ByteArrayInputStream
+import java.util.concurrent.Executors
 
 import akka.actor.Actor
 import com.softwaremill.macwire.MacwireMacros._
@@ -12,7 +13,9 @@ import spray.http._
 import spray.httpx.unmarshalling._
 import spray.routing._
 
+import scala.concurrent.{ExecutionContext, Future}
 import scala.io.{BufferedSource, Source}
+import scala.util.{Failure, Success}
 
 class PublicationServiceActor extends Actor with PublicationService with RRDPService {
 
@@ -60,6 +63,8 @@ trait PublicationService extends HttpService with RepositoryPath {
       case HttpEntity.Empty => Source.fromInputStream(new ByteArrayInputStream(Array[Byte]()))
     }
 
+  implicit val singleThreadEC = ExecutionContext.fromExecutorService(Executors.newSingleThreadExecutor())
+
   val publicationRoutes =
     path("") {
       post {
@@ -69,7 +74,12 @@ trait PublicationService extends HttpService with RepositoryPath {
             serviceLogger.warn("Request does not specify content-type")
           }
           respondWithMediaType(RpkiPublicationType) {
-            entity(as[BufferedSource])(processRequest)
+            entity(as[BufferedSource]){ e =>
+              onComplete(Future(processRequest(e))(executor = singleThreadEC)) {
+                case Success(result) => complete(result)
+                case Failure(error) => complete(500, error)
+              }
+            }
           }
         }
       }
@@ -80,7 +90,7 @@ trait PublicationService extends HttpService with RepositoryPath {
         }
       }
 
-  private def processRequest(xmlMessage: BufferedSource): StandardRoute = {
+  private def processRequest(xmlMessage: BufferedSource) = {
     def logErrors(errors: Seq[ReplyPdu]): Unit = {
       serviceLogger.warn(s"Request contained ${errors.size} PDU(s) with errors:")
       errors.foreach { e =>
@@ -106,7 +116,7 @@ trait PublicationService extends HttpService with RepositoryPath {
         serviceLogger.warn("Error while handling request: {}", msgError)
         ErrorMsg(msgError).serialize
     }
-    complete(response)
+    response
   }
 
   private def checkContentType(header: HttpHeader): Option[ContentType] = header match {

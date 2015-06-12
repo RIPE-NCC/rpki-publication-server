@@ -121,8 +121,10 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
     }
   }
 
-  test("should return a list response for list request request") {
-    POST("/", getFile("/publish.xml")) ~> publicationService.publicationRoutes
+  test("should return a list response for list request") {
+    POST("/", getFile("/publish.xml")) ~> publicationService.publicationRoutes ~> check {
+      response.status.isSuccess should be(true)
+    }
 
     val listXml = getFile("/list.xml")
     val listXmlResponse = getFile("/listResponse.xml")
@@ -133,7 +135,9 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
   }
 
   test("should execute list query even if <list/> doesn't go first") {
-    POST("/", getFile("/publish.xml")) ~> publicationService.publicationRoutes
+    POST("/", getFile("/publish.xml")) ~> publicationService.publicationRoutes ~> check {
+      response.status.isSuccess should be(true)
+    }
 
     val publishXml = getFile("/dubiousListRequest.xml")
     val listXmlResponse = getFile("/listResponse.xml")
