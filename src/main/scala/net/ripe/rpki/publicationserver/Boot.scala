@@ -5,7 +5,7 @@ import akka.io.IO
 import akka.pattern.ask
 import akka.util.Timeout
 import com.softwaremill.macwire.MacwireMacros._
-import net.ripe.rpki.publicationserver.fs.SnapshotReader
+import net.ripe.rpki.publicationserver.store.fs.SnapshotReader
 import org.slf4j.LoggerFactory
 import spray.can.Http
 

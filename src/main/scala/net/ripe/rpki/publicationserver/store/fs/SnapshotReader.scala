@@ -1,4 +1,4 @@
-package net.ripe.rpki.publicationserver.fs
+package net.ripe.rpki.publicationserver.store.fs
 
 import java.io.File
 

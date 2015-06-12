@@ -4,7 +4,7 @@ import java.net.URI
 import java.nio.file.{Paths, Path}
 import java.util.UUID
 
-import net.ripe.rpki.publicationserver.fs.RepositoryWriter
+import net.ripe.rpki.publicationserver.store.fs.RepositoryWriter
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 

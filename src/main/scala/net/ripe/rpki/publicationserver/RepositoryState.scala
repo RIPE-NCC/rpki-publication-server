@@ -4,7 +4,7 @@ import java.net.URI
 import java.util.UUID
 
 import com.softwaremill.macwire.MacwireMacros._
-import net.ripe.rpki.publicationserver.fs.RepositoryWriter
+import net.ripe.rpki.publicationserver.store.fs.{DB, RepositoryWriter}
 
 import scala.util.{Failure, Success}
 import scala.xml.{Elem, Node}
@@ -127,6 +127,8 @@ trait SnapshotStateUpdater extends Urls with Logging {
   val repositoryWriter = wire[RepositoryWriter]
 
   val notificationState = wire[NotificationStateUpdater]
+
+  val db = wire[DB]
 
   private var state = emptySnapshot
 

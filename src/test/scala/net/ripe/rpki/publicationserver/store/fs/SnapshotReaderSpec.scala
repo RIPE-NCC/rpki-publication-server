@@ -1,4 +1,4 @@
-package net.ripe.rpki.publicationserver.fs
+package net.ripe.rpki.publicationserver.store.fs
 
 import org.scalatest.FunSuite
 
