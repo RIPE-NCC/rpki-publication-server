@@ -33,7 +33,8 @@ libraryDependencies ++= {
     "com.softwaremill.macwire" %% "macros"            % "1.0.1",
     "com.softwaremill.macwire" %% "runtime"           % "1.0.1",
     "io.spray"                 %% "spray-json"        % "1.3.2",
-    "com.google.guava"         %  "guava"             % "18.0"
+    "com.google.guava"         %  "guava"             % "18.0",
+    "com.h2database"           %  "h2"                % "1.4.185"
   )
 }
 
