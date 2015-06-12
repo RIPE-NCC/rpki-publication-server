@@ -76,8 +76,11 @@ trait PublicationService extends HttpService with RepositoryPath {
           respondWithMediaType(RpkiPublicationType) {
             entity(as[BufferedSource]){ e =>
               onComplete(Future(processRequest(e))(executor = singleThreadEC)) {
-                case Success(result) => complete(result)
-                case Failure(error) => complete(500, error)
+                case Success(result) =>
+                  complete(result)
+                case Failure(error) =>
+                  serviceLogger.error("Error processing request: ", error)
+                  complete(500, error.getMessage)
               }
             }
           }
