@@ -167,7 +167,7 @@ trait SnapshotStateUpdater extends Urls with Logging with Hashing {
           }
           case WithdrawQ(uri, _, hash) => db.withdraw(clientId, Hash(hash))
         }
-        errors
+        errors  // TODO check for h2db errors?
       })
   }
 
