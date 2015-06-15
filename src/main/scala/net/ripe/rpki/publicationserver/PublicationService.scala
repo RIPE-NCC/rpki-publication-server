@@ -4,6 +4,7 @@ import java.io.ByteArrayInputStream
 
 import akka.actor.Actor
 import com.softwaremill.macwire.MacwireMacros._
+import net.ripe.rpki.publicationserver.store.ClientId
 import net.ripe.rpki.publicationserver.store.fs.SnapshotReader
 import org.slf4j.LoggerFactory
 import spray.http.HttpHeaders.{`Cache-Control`, `Content-Type`}
@@ -62,25 +63,25 @@ trait PublicationService extends HttpService with RepositoryPath {
 
   val publicationRoutes =
     path("") {
-      post {
+      post { parameter ("clientId") { clientId =>
         optionalHeaderValue(checkContentType) { ct =>
           serviceLogger.info("Post request received")
           if (ct.isEmpty) {
             serviceLogger.warn("Request does not specify content-type")
           }
           respondWithMediaType(RpkiPublicationType) {
-            entity(as[BufferedSource])(processRequest)
+            entity(as[BufferedSource])(processRequest(ClientId(clientId)))
           }
         }
       }
-    } ~
+    } } ~
       path("monitoring" / "healthcheck") {
         get {
           complete(healthChecks.healthString)
         }
       }
 
-  private def processRequest(xmlMessage: BufferedSource): StandardRoute = {
+  private def processRequest(clientId: ClientId) (xmlMessage: BufferedSource): StandardRoute = {
     def logErrors(errors: Seq[ReplyPdu]): Unit = {
       serviceLogger.warn(s"Request contained ${errors.size} PDU(s) with errors:")
       errors.foreach { e =>
@@ -90,7 +91,7 @@ trait PublicationService extends HttpService with RepositoryPath {
 
     val response = msgParser.parse(xmlMessage) match {
       case Right(QueryMessage(pdus)) =>
-        val elements = RepositoryState.updateWith(pdus)
+        val elements = RepositoryState.updateWith(clientId, pdus)
         elements.filter(_.isInstanceOf[ReportError]) match {
           case Seq() =>
             serviceLogger.info("Request handled successfully")

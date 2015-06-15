@@ -17,7 +17,7 @@ trait DB {
 
   def publish(cliendId: ClientId, obj: RRDPObject): Unit
 
-  def withdraw(cliendId: ClientId, obj: RRDPObject): Unit
+  def withdraw(cliendId: ClientId, hash: Hash): Unit
 }
 
 object DB {

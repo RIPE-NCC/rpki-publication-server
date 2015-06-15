@@ -27,16 +27,15 @@ class H2DB extends DB {
     Await.result(seqFuture, Duration.Inf)
   }
 
-  override def publish(cliendId: ClientId, obj: RRDPObject): Unit = {
+  override def publish(clientId: ClientId, obj: RRDPObject): Unit = {
     val (base64, hash, uri) = obj
     val insertActions = DBIO.seq(
-      objects += (uri.toString, base64.value, hash.hash, cliendId.value)
+      objects += (uri.toString, base64.value, hash.hash, clientId.value)
     )
     Await.result(db.run(insertActions), Duration.Inf)
   }
 
-  override def withdraw(cliendId: ClientId, obj: RRDPObject): Unit = {
-    val (base64, hash, uri) = obj
+  override def withdraw(clientId: ClientId, hash: Hash): Unit = {
     val deleteActions = DBIO.seq(
       objects.filter(_.hash === hash.hash).delete
     )

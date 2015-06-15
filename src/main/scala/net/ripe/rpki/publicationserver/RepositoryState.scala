@@ -4,7 +4,7 @@ import java.net.URI
 import java.util.UUID
 
 import com.softwaremill.macwire.MacwireMacros._
-import net.ripe.rpki.publicationserver.store.H2DB
+import net.ripe.rpki.publicationserver.store.{ClientId, H2DB}
 import net.ripe.rpki.publicationserver.store.fs.RepositoryWriter
 
 import scala.util.{Failure, Success}
@@ -121,7 +121,7 @@ object RepositoryState extends SnapshotStateUpdater {
 
 }
 
-trait SnapshotStateUpdater extends Urls with Logging {
+trait SnapshotStateUpdater extends Urls with Logging with Hashing {
 
   val sessionId = conf.currentSessionId
 
@@ -141,7 +141,7 @@ trait SnapshotStateUpdater extends Urls with Logging {
     state = initState
   }
 
-  def updateWith(queries: Seq[QueryPdu]): Seq[ReplyPdu] = synchronized {
+  def updateWith(clientId: ClientId, queries: Seq[QueryPdu]): Seq[ReplyPdu] = synchronized {
     val (replies, newState) = state(queries)
     if (newState.isDefined) {
       val newSnapshot = newState.get
@@ -150,12 +150,25 @@ trait SnapshotStateUpdater extends Urls with Logging {
         case Success(_) =>
           state = newState.get
           notificationState.update(newNotification)
-          replies
+          replies ++ persistForClient(clientId, queries)
         case Failure(e) =>
           replies ++ Seq(ReportError(BaseError.CouldNotPersist, Some("Could not persist the changes: " + e.getMessage)))
       }
     } else
       replies
+  }
+
+  def persistForClient(clientId: ClientId, queries: Seq[QueryPdu]): Seq[ReportError] = {
+      queries.foldLeft(Seq[ReportError]()) ((errors, pdu) => {
+        pdu match {
+          case PublishQ(uri, _, hashOption, base64) => {
+            val hashed = if (hashOption.isDefined) Hash(hashOption.get) else hash(base64)
+            db.publish(clientId, (base64, hashed, uri))
+          }
+          case WithdrawQ(uri, _, hash) => db.withdraw(clientId, Hash(hash))
+        }
+        errors
+      })
   }
 
   def listReply = get.list
