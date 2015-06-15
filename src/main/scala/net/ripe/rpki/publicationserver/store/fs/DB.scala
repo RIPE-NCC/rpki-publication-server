@@ -1,15 +1,16 @@
 package net.ripe.rpki.publicationserver.store.fs
 
-import net.ripe.rpki.publicationserver.{Base64, Hash}
+import java.net.URI
+
+import net.ripe.rpki.publicationserver.{Hash, Base64}
 
 case class ClientId(value: String)
 
+trait DB {
+  type RRDPObject = (Base64, Hash, URI)
 
-class DB {
-  type RRDPObject = (Base64, Hash)
+  def list(cliendId: ClientId): Seq[RRDPObject]
 
-  def list(cliendId: ClientId): Seq[RRDPObject] = Seq()
-
-  def publish(cliendId: ClientId, obj: RRDPObject): Unit = {}
+  def publish(cliendId: ClientId, obj: RRDPObject): Unit
 
 }
