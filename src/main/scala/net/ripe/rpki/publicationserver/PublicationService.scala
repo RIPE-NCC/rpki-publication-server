@@ -124,7 +124,7 @@ trait RRDPService extends HttpService with RepositoryPath {
 
   val rrdpRoutes =
     path("notification.xml") {
-      respondWithHeader(`Cache-Control`(CacheDirectives.`no-cache`, CacheDirectives.`no-store`, CacheDirectives.`must-revalidate`)) {
+      respondWithHeader(`Cache-Control`(CacheDirectives.`no-cache`)) {
         serve( s"""$repositoryPath/notification.xml""")
       }
     } ~
