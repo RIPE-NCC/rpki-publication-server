@@ -13,7 +13,7 @@ class H2DB extends DB {
 
   import DB._
 
-  private val db = Database.forConfig("h2mem1")
+  val db = Database.forConfig("h2mem1")
 
   override def list(cliendId: ClientId): Seq[RRDPObject] = {
     val ClientId(cId) = cliendId
