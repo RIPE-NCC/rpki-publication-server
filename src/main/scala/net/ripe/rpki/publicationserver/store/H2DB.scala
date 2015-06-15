@@ -1,31 +1,17 @@
-package net.ripe.rpki.publicationserver.store.fs
+package net.ripe.rpki.publicationserver.store
 
 import java.net.URI
 
-import net.ripe.rpki.publicationserver.{Hash, Base64}
-import slick.driver.H2Driver
+import net.ripe.rpki.publicationserver.{Base64, Hash}
 import slick.driver.H2Driver.api._
 
-import scala.concurrent.Future
 import scala.concurrent.Await
-import scala.concurrent.duration.Duration
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration.Duration
 
 class H2DB extends DB {
 
-  class RepoObject(tag: Tag) extends Table[(String, String, String, String)](tag, "RepoObjects") {
-    def uri = column[String]("URI", O.PrimaryKey)
-
-    def hash = column[String]("HASH")
-
-    def base64 = column[String]("BASE64")
-
-    def clientId = column[String]("CLIENT_ID")
-
-    def * = (uri, base64, hash, clientId)
-  }
-
-  private val objects = TableQuery[RepoObject]
+  import DB._
 
   private val db = Database.forConfig("h2mem1")
 
@@ -38,7 +24,6 @@ class H2DB extends DB {
         (Base64(b64), Hash(h), new URI(u))
       }
     }
-
     Await.result(seqFuture, Duration.Inf)
   }
 
@@ -48,5 +33,13 @@ class H2DB extends DB {
       objects += (uri.toString, base64.value, hash.hash, cliendId.value)
     )
     Await.result(db.run(insertActions), Duration.Inf)
+  }
+
+  override def withdraw(cliendId: ClientId, obj: RRDPObject): Unit = {
+    val (base64, hash, uri) = obj
+    val deleteActions = DBIO.seq(
+      objects.filter(_.hash === hash.hash).delete
+    )
+    Await.result(db.run(deleteActions), Duration.Inf)
   }
 }

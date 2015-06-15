@@ -4,7 +4,8 @@ import java.net.URI
 import java.util.UUID
 
 import com.softwaremill.macwire.MacwireMacros._
-import net.ripe.rpki.publicationserver.store.fs.{H2DB, DB, RepositoryWriter}
+import net.ripe.rpki.publicationserver.store.H2DB
+import net.ripe.rpki.publicationserver.store.fs.RepositoryWriter
 
 import scala.util.{Failure, Success}
 import scala.xml.{Elem, Node}
