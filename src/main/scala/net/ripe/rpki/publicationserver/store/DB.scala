@@ -30,7 +30,7 @@ object DB {
     def base64 = column[String]("BASE64")
     def clientId = column[String]("CLIENT_ID")
 
-    def * = (uri, base64, hash, clientId)
+    def * = (base64, hash, uri, clientId)
   }
 
   val objects = TableQuery[RepoObject]

@@ -30,7 +30,7 @@ class H2DB extends DB {
   override def publish(clientId: ClientId, obj: RRDPObject): Unit = {
     val (base64, hash, uri) = obj
     val insertActions = DBIO.seq(
-      objects += (uri.toString, base64.value, hash.hash, clientId.value)
+      objects += (base64.value, hash.hash, uri.toString, clientId.value)
     )
     Await.result(db.run(insertActions), Duration.Inf)
   }

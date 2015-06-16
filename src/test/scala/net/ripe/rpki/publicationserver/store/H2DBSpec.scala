@@ -14,8 +14,8 @@ class H2DBSpec extends PublicationServerBaseSpec {
 
   test("should store an object and extract it") {
     val clientId = ClientId("client1")
-    h2db.publish(clientId, (Base64("AAAA=="), Hash("jfkfhjghj"), new URI("")))
-    h2db.list(clientId) should be(Seq((Base64("AAAA=="), Hash("jfkfhjghj"), new URI(""))))
+    h2db.publish(clientId, (Base64("AAAA=="), Hash("jfkfhjghj"), new URI("rsync://host.com/path")))
+    h2db.list(clientId) should be(Vector((Base64("AAAA=="), Hash("jfkfhjghj"), new URI("rsync://host.com/path"))))
   }
 
 }
