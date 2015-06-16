@@ -17,20 +17,13 @@ class ObjectStore extends DB {
 
   override def list(cliendId: ClientId): Seq[RRDPObject] = {
     val ClientId(cId) = cliendId
-    val query = objects.filter(_.clientId === cId)
-    val future = db.run(query.result)
-    val seqFuture = future.map { _.map { o =>
-        val (b64, h, u, _) = o
-        (Base64(b64), Hash(h), new URI(u))
-      }
-    }
-    Await.result(seqFuture, Duration.Inf)
+    getSeq(objects.filter(_.clientId === cId))
   }
 
   override def publish(clientId: ClientId, obj: RRDPObject): Unit = {
     val (base64, hash, uri) = obj
     val insertActions = DBIO.seq(
-      objects += (base64.value, hash.hash, uri.toString, clientId.value)
+      objects +=(base64.value, hash.hash, uri.toString, clientId.value)
     )
     Await.result(db.run(insertActions), Duration.Inf)
   }
@@ -42,6 +35,37 @@ class ObjectStore extends DB {
     Await.result(db.run(deleteActions), Duration.Inf)
   }
 
-  def clear = Await.result(db.run(objects.delete), Duration.Inf)
+  def insertAction(clientId: ClientId, obj: RRDPObject) = {
+    val (base64, hash, uri) = obj
+    objects += (base64.value, hash.hash, uri.toString, clientId.value)
+  }
+
+  def updateAction(clientId: ClientId, obj: RRDPObject) = {
+    val (base64, hash, uri) = obj
+    objects.filter(_.uri === uri.toString).update {
+      (base64.value, hash.hash, uri.toString, clientId.value)
+    }
+  }
+
+  def deleteAction(clientId: ClientId, hash: Hash) =
+    objects.filter(_.hash === hash.hash).delete
+
+  def find(uri: URI): Option[RRDPObject] = {
+    getSeq(objects.filter(_.uri === uri.toString)).headOption
+  }
+
+  private def getSeq(q: Query[RepoObject, (String, String, String, String), Seq]) = {
+    val seqFuture = db.run(q.result).map { _.map { o =>
+        val (b64, h, u, _) = o
+        (Base64(b64), Hash(h), new URI(u))
+      }
+    }
+    Await.result(seqFuture, Duration.Inf)
+  }
+
+  def atomic[E <: Effect](actions: Seq[DBIOAction[_, NoStream, E]]) =
+    Await.result(db.run(DBIO.seq(actions: _*).transactionally), Duration.Inf)
+
+  def clear() = Await.result(db.run(objects.delete), Duration.Inf)
 
 }
