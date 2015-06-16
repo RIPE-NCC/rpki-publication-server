@@ -14,7 +14,7 @@ object Migrations {
     objects.schema.create
   })
 
-  def migrate(db: Database) = {
+  def migrate(db: Database) = synchronized {
     createMigrationTableIfNeeded(db)
     val latestMigration = Await.result(db.run(migrationsTable.map(_.number).max.result), 1.seconds)
     val latest = latestMigration.getOrElse(0)

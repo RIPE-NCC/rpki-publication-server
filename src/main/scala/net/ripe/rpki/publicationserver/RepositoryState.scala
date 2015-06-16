@@ -4,7 +4,7 @@ import java.net.URI
 import java.util.UUID
 
 import com.softwaremill.macwire.MacwireMacros._
-import net.ripe.rpki.publicationserver.store.{ClientId, H2DB}
+import net.ripe.rpki.publicationserver.store.{ClientId, ObjectStore}
 import net.ripe.rpki.publicationserver.store.fs.RepositoryWriter
 
 import scala.util.{Failure, Success}
@@ -129,7 +129,7 @@ trait SnapshotStateUpdater extends Urls with Logging with Hashing {
 
   val notificationState = wire[NotificationStateUpdater]
 
-  val db = wire[H2DB]
+  val db = wire[ObjectStore]
 
   private var state = emptySnapshot
 

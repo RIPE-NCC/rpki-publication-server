@@ -9,7 +9,7 @@ import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 
-class H2DB extends DB {
+class ObjectStore extends DB {
 
   import DB._
 
@@ -41,4 +41,7 @@ class H2DB extends DB {
     )
     Await.result(db.run(deleteActions), Duration.Inf)
   }
+
+  def clear = Await.result(db.run(objects.delete), Duration.Inf)
+
 }

@@ -18,6 +18,8 @@ trait DB {
   def publish(cliendId: ClientId, obj: RRDPObject): Unit
 
   def withdraw(cliendId: ClientId, hash: Hash): Unit
+
+  def clear(): Unit
 }
 
 object DB {
