@@ -15,7 +15,6 @@ object Migrations {
   })
 
   def migrate(db: Database) = {
-
     createMigrationTableIfNeeded(db)
     val latestMigration = Await.result(db.run(migrationsTable.map(_.number).max.result), 1.seconds)
     val latest = latestMigration.getOrElse(0)
@@ -34,7 +33,7 @@ object Migrations {
 
   private def createMigrationTableIfNeeded(db: Database) = {
     if (!tableExists(db, "migrations")) {
-      migrationsTable.schema.create
+      Await.result(db.run(migrationsTable.schema.create), 10.seconds)
     }
   }
 
@@ -45,7 +44,7 @@ object Migrations {
     def * = (number, source)
   }
 
-  private val migrationsTable = TableQuery[Migration]
+  private lazy val migrationsTable = TableQuery[Migration]
 
 
 }
