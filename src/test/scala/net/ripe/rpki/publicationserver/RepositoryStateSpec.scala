@@ -4,6 +4,7 @@ import java.net.URI
 import java.nio.file.{Paths, Path}
 import java.util.UUID
 
+import net.ripe.rpki.publicationserver.store.ClientId
 import net.ripe.rpki.publicationserver.store.fs.RepositoryWriter
 import org.mockito.Matchers._
 import org.mockito.Mockito._
@@ -166,7 +167,7 @@ class RepositoryStateSpec extends PublicationServerBaseSpec with Urls {
     val snapshotStateBefore = snapshotStateUpdater.get
     val notificationStateBefore = notificationStateSpy.get
 
-    snapshotStateUpdater.updateWith(Seq(publish))
+    snapshotStateUpdater.updateWith(ClientId("client1"), Seq(publish))
 
     verify(repositoryWriterSpy).writeNewState(anyString(), any[RepositoryState], any[Notification])
     snapshotStateUpdater.get should not equal snapshotStateBefore
@@ -190,7 +191,7 @@ class RepositoryStateSpec extends PublicationServerBaseSpec with Urls {
     val withdraw = WithdrawQ(new URI("rsync://host/zzz.cer"), None, "BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7")
 
     // The withdraw will fail because the SnapshotState is still empty
-    snapshotStateUpdater.updateWith(Seq(withdraw))
+    snapshotStateUpdater.updateWith(ClientId("client1"), Seq(withdraw))
 
     verifyNoMoreInteractions(repositoryWriterSpy)
   }
@@ -208,7 +209,7 @@ class RepositoryStateSpec extends PublicationServerBaseSpec with Urls {
     val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
     val stateBefore = snapshotStateUpdater.get
 
-    val reply = snapshotStateUpdater.updateWith(Seq(publish))
+    val reply = snapshotStateUpdater.updateWith(ClientId("client1"), Seq(publish))
     reply.tail should equal(Seq(ReportError(BaseError.CouldNotPersist, Some("Could not persist the changes: null"))))
     verify(repositoryWriterSpy).deleteSnapshot(anyString(), any[RepositoryState])
     snapshotStateUpdater.get should equal(stateBefore)
@@ -228,7 +229,7 @@ class RepositoryStateSpec extends PublicationServerBaseSpec with Urls {
     val snapshotStateBefore = snapshotStateUpdater.get
     val notificationStateBefore = notificationStateSpy.get
 
-    val reply = snapshotStateUpdater.updateWith(Seq(publish))
+    val reply = snapshotStateUpdater.updateWith(ClientId("client1"), Seq(publish))
     reply.tail should equal(Seq(ReportError(BaseError.CouldNotPersist, Some("Could not persist the changes: null"))))
     verify(repositoryWriterSpy).deleteSnapshot(anyString(), any[RepositoryState])
     verify(repositoryWriterSpy).deleteDelta(anyString(), any[RepositoryState])
@@ -250,7 +251,7 @@ class RepositoryStateSpec extends PublicationServerBaseSpec with Urls {
     val snapshotStateBefore = snapshotStateUpdater.get
     val notificationStateBefore = notificationStateSpy.get
 
-    val reply = snapshotStateUpdater.updateWith(Seq(publish))
+    val reply = snapshotStateUpdater.updateWith(ClientId("client1"), Seq(publish))
     reply.tail should equal(Seq(ReportError(BaseError.CouldNotPersist, Some("Could not persist the changes: null"))))
     verify(repositoryWriterSpy).deleteSnapshot(anyString(), any[RepositoryState])
     verify(repositoryWriterSpy).deleteDelta(anyString(), any[RepositoryState])
