@@ -158,17 +158,58 @@ trait SnapshotStateUpdater extends Urls with Logging with Hashing {
       replies
   }
 
-  def persistForClient(clientId: ClientId, queries: Seq[QueryPdu]): Seq[ReportError] = {
-      queries.foldLeft(Seq[ReportError]()) ((errors, pdu) => {
-        pdu match {
-          case PublishQ(uri, _, hashOption, base64) => {
-            val hashed = if (hashOption.isDefined) Hash(hashOption.get) else hash(base64)
-            db.publish(clientId, (base64, hashed, uri))
-          }
-          case WithdrawQ(uri, _, hash) => db.withdraw(clientId, Hash(hash))
+  def persistForClient(clientId: ClientId, queries: Seq[QueryPdu]) = {
+    val x = queries.map {
+      case PublishQ(uri, tag, None, base64) =>
+        db.find(uri) match {
+          case Some((_, h, _)) =>
+            Left(ReportError(BaseError.HashForInsert, Some(s"Tried to insert existing object [$uri].")))
+          case None =>
+            Right((PublishR(uri, tag), db.insertAction(clientId, (base64, hash(base64), uri))))
         }
-        errors  // TODO check for h2db errors?
-      })
+      case PublishQ(uri, tag, Some(sHash), base64) =>
+        db.find(uri) match {
+          case Some(obj) =>
+            val (_, h, _) = obj
+            if (Hash(sHash) == h)
+              Right((PublishR(uri, tag), db.updateAction(clientId, (base64, h, uri))))
+            else {
+              Left(ReportError(BaseError.NonMatchingHash, Some(s"Cannot republish the object [$uri], hash doesn't match")))
+            }
+          case None =>
+            Left(ReportError(BaseError.NoObjectToUpdate, Some(s"No object [$uri] has been found.")))
+        }
+
+      case WithdrawQ(uri, tag, sHash) =>
+        db.find(uri) match {
+          case Some(obj) =>
+            val (_, h, _) = obj
+            if (Hash(sHash) == h)
+              Right((WithdrawR(uri, tag), db.deleteAction(clientId, h)))
+            else {
+              Left(ReportError(BaseError.NonMatchingHash, Some(s"Cannot withdraw the object [$uri], hash doesn't match.")))
+            }
+          case None =>
+            Left(ReportError(BaseError.NoObjectForWithdraw, Some(s"No object [$uri] found.")))
+        }
+    }
+
+    val errors = x.collect { case Left(error) => error }
+    if (errors.nonEmpty) {
+      errors
+    }
+    else {
+      val actions = x.collect { case Right((_, action)) => action }
+      lazy val replies = x.collect { case Right((reply, _)) => reply }
+      try {
+        db.atomic(actions)
+        replies
+      } catch {
+        case e: Exception =>
+          logger.error("Couldn't persis objects", e)
+          Seq(ReportError(BaseError.CouldNotPersist, Some(s"A problem occurred while persisting the changes: " + e)))
+      }
+    }
   }
 
   def listReply = get.list
@@ -181,6 +222,5 @@ trait SnapshotStateUpdater extends Urls with Logging with Hashing {
   }
 
 }
-
 
 
