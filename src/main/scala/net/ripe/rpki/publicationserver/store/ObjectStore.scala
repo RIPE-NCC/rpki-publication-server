@@ -9,7 +9,7 @@ import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 
-class ObjectStore extends DB {
+class ObjectStore extends RepoObjectDB {
 
   import DB._
 
