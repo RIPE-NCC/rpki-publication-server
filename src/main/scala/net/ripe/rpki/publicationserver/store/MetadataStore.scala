@@ -1,5 +1,6 @@
 package net.ripe.rpki.publicationserver.store
 
+import net.ripe.rpki.publicationserver.store.DB._
 import slick.driver.H2Driver.api._
 
 import scala.concurrent.Await
@@ -17,5 +18,9 @@ class MetadataStore extends MetadataDB {
     Await.result(f, Duration.Inf).head
   }
 
-  override def update(metadata: Metadatum): Unit = ???
+  override def update(metadatum: Metadatum): Unit = {
+    val update = metadata.update(metadatum)
+    val f = db.run(update)
+    Await.result(f, Duration.Inf)
+  }
 }
