@@ -1,6 +1,7 @@
 package net.ripe.rpki.publicationserver
 
 import java.io.ByteArrayInputStream
+import java.util.concurrent.Executors
 
 import akka.actor.Actor
 import com.softwaremill.macwire.MacwireMacros._
@@ -13,7 +14,9 @@ import spray.http._
 import spray.httpx.unmarshalling._
 import spray.routing._
 
+import scala.concurrent.{ExecutionContext, Future}
 import scala.io.{BufferedSource, Source}
+import scala.util.{Failure, Success}
 
 class PublicationServiceActor extends Actor with PublicationService with RRDPService {
 
@@ -61,6 +64,8 @@ trait PublicationService extends HttpService with RepositoryPath {
       case HttpEntity.Empty => Source.fromInputStream(new ByteArrayInputStream(Array[Byte]()))
     }
 
+  implicit val singleThreadEC = ExecutionContext.fromExecutorService(Executors.newSingleThreadExecutor())
+
   val publicationRoutes =
     path("") {
       post { parameter ("clientId") { clientId =>
@@ -70,7 +75,15 @@ trait PublicationService extends HttpService with RepositoryPath {
             serviceLogger.warn("Request does not specify content-type")
           }
           respondWithMediaType(RpkiPublicationType) {
-            entity(as[BufferedSource])(processRequest(ClientId(clientId)))
+            entity(as[BufferedSource]){ e =>
+              onComplete(Future(processRequest(ClientId(clientId))(e))(executor = singleThreadEC)) {
+                case Success(result) =>
+                  complete(result)
+                case Failure(error) =>
+                  serviceLogger.error("Error processing request: ", error)
+                  complete(500, error.getMessage)
+              }
+            }
           }
         }
       }
@@ -107,7 +120,7 @@ trait PublicationService extends HttpService with RepositoryPath {
         serviceLogger.warn("Error while handling request: {}", msgError)
         ErrorMsg(msgError).serialize
     }
-    complete(response)
+    response
   }
 
   private def checkContentType(header: HttpHeader): Option[ContentType] = header match {
@@ -122,19 +135,26 @@ trait PublicationService extends HttpService with RepositoryPath {
 
 
 trait RRDPService extends HttpService with RepositoryPath {
+  val immutableContentValiditySeconds: Long = 31536000 // ~one year
 
   val rrdpRoutes =
     path("notification.xml") {
       respondWithHeader(`Cache-Control`(CacheDirectives.`no-cache`)) {
-        serve( s"""$repositoryPath/notification.xml""")
+        serve(s"$repositoryPath/notification.xml")
       }
     } ~
     path(JavaUUID / IntNumber / "snapshot.xml") { (sessionId, serial) =>
-      serve( s"""$repositoryPath/$sessionId/$serial/snapshot.xml""")
+      serveImmutableContent(s"$repositoryPath/$sessionId/$serial/snapshot.xml")
     } ~
     path(JavaUUID / IntNumber / "delta.xml") { (sessionId, serial) =>
-      serve( s"""$repositoryPath/$sessionId/$serial/delta.xml""")
+      serveImmutableContent(s"$repositoryPath/$sessionId/$serial/delta.xml")
     }
+
+  private def serveImmutableContent(filename: => String) = {
+    respondWithHeader(`Cache-Control`(CacheDirectives.`max-age`(immutableContentValiditySeconds))) {
+      serve(filename)
+    }
+  }
 
   private def serve(filename: => String) = get {
     respondWithMediaType(`application/xhtml+xml`) {
