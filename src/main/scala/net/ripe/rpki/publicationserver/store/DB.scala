@@ -2,6 +2,7 @@ package net.ripe.rpki.publicationserver.store
 
 import java.net.URI
 
+import net.ripe.rpki.publicationserver.store.DB.RRDPObject
 import net.ripe.rpki.publicationserver.{Base64, Hash}
 import slick.jdbc.meta.MTable
 
@@ -11,9 +12,8 @@ import scala.concurrent.duration._
 case class ClientId(value: String)
 
 trait DB {
-  type RRDPObject = (Base64, Hash, URI)
-
   def list(cliendId: ClientId): Seq[RRDPObject]
+  def listAll: Seq[RRDPObject]
 
   def publish(cliendId: ClientId, obj: RRDPObject): Unit
 
@@ -25,6 +25,8 @@ trait DB {
 object DB {
 
   import slick.driver.H2Driver.api._
+
+  type RRDPObject = (Base64, Hash, URI)
 
   class RepoObject(tag: Tag) extends Table[(String, String, String, String)](tag, "REPO_OBJECTS") {
     def uri = column[String]("URI", O.PrimaryKey)

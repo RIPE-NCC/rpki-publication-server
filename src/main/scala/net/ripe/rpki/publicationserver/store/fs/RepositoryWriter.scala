@@ -11,9 +11,9 @@ import scala.xml.Elem
 
 class RepositoryWriter extends Logging {
 
-  def writeNewState(rootDir: String, newSnapshot: RepositoryState, newNotification: Notification) = {
+  def writeNewState(rootDir: String, newSnapshot: ChangeSet, newNotification: Notification, snapshotXml: String) = {
     Try {
-      writeSnapshot(rootDir, newSnapshot)
+      writeSnapshot(rootDir, newSnapshot, snapshotXml)
       try {
         if (newSnapshot.deltas.nonEmpty) {
           newSnapshot.latestDelta match {
@@ -48,30 +48,30 @@ class RepositoryWriter extends Logging {
     }
   }
 
-  def writeSnapshot(rootDir: String, snapshot: RepositoryState) = {
+  def writeSnapshot(rootDir: String, snapshot: ChangeSet, snapshotXml: String) = {
     val stateDir = getStateDir(rootDir, snapshot.sessionId, snapshot.serial)
-    writeFile(snapshot.serialize, new File(stateDir, "snapshot.xml"))
+    writeFile(snapshotXml, new File(stateDir, "snapshot.xml"))
   }
 
   def writeDelta(rootDir: String, delta: Delta) = {
     val stateDir = getStateDir(rootDir, delta.sessionId, delta.serial)
-    writeFile(delta.serialize, new File(stateDir, "delta.xml"))
+    writeFile(delta.serialize.mkString, new File(stateDir, "delta.xml"))
   }
 
   def writeNotification(rootDir: String, notification: Notification) = {
     val root = getRootFolder(rootDir)
 
     val tmpFile = new File(root, "notification_tmp.xml")
-    writeFile(notification.serialize, tmpFile)
+    writeFile(notification.serialize.mkString, tmpFile)
 
     val source = Paths.get(tmpFile.toURI)
     val target = Paths.get(new File(root, "notification.xml").toURI)
     Files.move(source, target, StandardCopyOption.REPLACE_EXISTING)
   }
 
-  private def writeFile(elem: Elem, file: File) = {
+  private def writeFile(content: String, file: File) = {
     val writer = new FileWriter(file)
-    try writer.write(elem.mkString)
+    try writer.write(content)
     finally writer.close()
   }
 
@@ -92,7 +92,7 @@ class RepositoryWriter extends Logging {
     _dir
   }
 
-  def deleteSessionFile(rootDir: String, snapshot: RepositoryState, name: String) = {
+  def deleteSessionFile(rootDir: String, snapshot: ChangeSet, name: String) = {
     val sessionDir = new File(new File(rootDir), snapshot.sessionId.toString)
     val serialDir = new File(sessionDir, snapshot.serial.toString)
     del(new File(serialDir, "snapshot.xml"))
@@ -100,11 +100,11 @@ class RepositoryWriter extends Logging {
 
   def del(f: File) = Files.deleteIfExists(Paths.get(f.toURI))
 
-  def deleteSnapshot(rootDir: String, snapshot: RepositoryState) = deleteSessionFile(rootDir, snapshot, "snapshot.xml")
+  def deleteSnapshot(rootDir: String, snapshot: ChangeSet) = deleteSessionFile(rootDir, snapshot, "snapshot.xml")
 
-  def deleteDelta(rootDir: String, snapshot: RepositoryState) = deleteSessionFile(rootDir, snapshot, "delta.xml")
+  def deleteDelta(rootDir: String, snapshot: ChangeSet) = deleteSessionFile(rootDir, snapshot, "delta.xml")
 
-  def deleteNotification(rootDir: String, snapshot: RepositoryState) = {
+  def deleteNotification(rootDir: String, snapshot: ChangeSet) = {
     del(new File(rootDir, "notification.xml"))
     del(new File(rootDir, "notification_tmp.xml"))
   }

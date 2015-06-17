@@ -6,7 +6,6 @@ import java.util.concurrent.Executors
 import akka.actor.Actor
 import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver.store.ClientId
-import net.ripe.rpki.publicationserver.store.fs.SnapshotReader
 import org.slf4j.LoggerFactory
 import spray.http.HttpHeaders.{`Cache-Control`, `Content-Type`}
 import spray.http.MediaTypes._
@@ -25,17 +24,17 @@ class PublicationServiceActor extends Actor with PublicationService with RRDPSer
   def receive = runRoute(publicationRoutes ~ rrdpRoutes)
 
   override def preStart() = {
-    val initialSnapshot = SnapshotReader.readSnapshotFromNotification(repositoryPath = conf.locationRepositoryPath, repositoryUri = conf.locationRepositoryUri)
-    initialSnapshot match {
-      case Left(err@BaseError(_, _)) =>
-        serviceLogger.error(s"Error occured while reading initial snapshot: $err")
-      case Right(None) =>
-        val snapshot = RepositoryState.emptySnapshot
-        RepositoryState.initializeWith(snapshot)
-        RepositoryState.writeRepositoryState(snapshot)
-      case Right(Some(is)) =>
-        RepositoryState.initializeWith(is)
-    }
+//    val initialSnapshot = SnapshotReader.readSnapshotFromNotification(repositoryPath = conf.locationRepositoryPath, repositoryUri = conf.locationRepositoryUri)
+//    initialSnapshot match {
+//      case Left(err@BaseError(_, _)) =>
+//        serviceLogger.error(s"Error occurred while reading initial snapshot: $err")
+//      case Right(None) =>
+//        val snapshot = ChangeSet.emptySnapshot
+//        ChangeSet.initializeWith(snapshot)
+////        ChangeSet.writeRepositoryState(snapshot)
+//      case Right(Some(is)) =>
+//        ChangeSet.initializeWith(is)
+//    }
   }
 }
 
@@ -94,7 +93,7 @@ trait PublicationService extends HttpService with RepositoryPath {
         }
       }
 
-  private def processRequest(clientId: ClientId) (xmlMessage: BufferedSource): StandardRoute = {
+  private def processRequest(clientId: ClientId) (xmlMessage: BufferedSource) = {
     def logErrors(errors: Seq[ReplyPdu]): Unit = {
       serviceLogger.warn(s"Request contained ${errors.size} PDU(s) with errors:")
       errors.foreach { e =>
@@ -104,7 +103,7 @@ trait PublicationService extends HttpService with RepositoryPath {
 
     val response = msgParser.parse(xmlMessage) match {
       case Right(QueryMessage(pdus)) =>
-        val elements = RepositoryState.updateWith(clientId, pdus)
+        val elements = ChangeSet.updateWith(clientId, pdus)
         elements.filter(_.isInstanceOf[ReportError]) match {
           case Seq() =>
             serviceLogger.info("Request handled successfully")
@@ -114,7 +113,7 @@ trait PublicationService extends HttpService with RepositoryPath {
         ReplyMsg(elements).serialize
 
       case Right(ListMessage()) =>
-        ReplyMsg(RepositoryState.listReply).serialize
+        ReplyMsg(ChangeSet.list(clientId)).serialize
 
       case Left(msgError) =>
         serviceLogger.warn("Error while handling request: {}", msgError)

@@ -22,7 +22,7 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
   }
 
   before {
-    RepositoryState.initializeWith(RepositoryState.emptySnapshot)
+    ChangeSet.initializeWith(ChangeSet.emptySnapshot)
   }
 
   test("should return a response with content-type application/rpki-publication") {
@@ -85,8 +85,8 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
 
   test("should return an ok response for a valid withdraw request") {
     val pdus = Map(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer") -> (Base64("bla"), Hash("deadf00d")))
-    val state0 = RepositoryState(UUID.randomUUID(), BigInt(1), pdus, Map.empty)
-    RepositoryState.initializeWith(state0)
+    val state0 = ChangeSet(UUID.randomUUID(), BigInt(1), Map.empty)
+    ChangeSet.initializeWith(state0)
 
     val withdrawXml = getFile("/withdraw.xml")
     val withdrawXmlResponse = getFile("/withdrawResponse.xml")
@@ -99,8 +99,8 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
 
   test("should return the tag in the response if it was present in the withdraw request") {
     val pdus = Map(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer") -> (Base64("bla"), Hash("deadf00d")))
-    val state0 = RepositoryState(UUID.randomUUID(), BigInt(1), pdus, Map.empty)
-    RepositoryState.initializeWith(state0)
+    val state0 = ChangeSet(UUID.randomUUID(), BigInt(1), Map.empty)
+    ChangeSet.initializeWith(state0)
 
     val withdrawXml = getFile("/withdrawWithTag.xml")
     val withdrawXmlResponse = getFile("/withdrawWithTagResponse.xml")

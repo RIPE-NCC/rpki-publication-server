@@ -14,6 +14,7 @@ case class SnapshotLocator(uri: String, hash: Hash)
 
 case class DeltaLocator(serial: BigInt, uri: String, hash: Hash)
 
+// TODO Merge it with ChangeSet
 case class Notification(sessionId: UUID, serial: BigInt, snapshot: SnapshotLocator, deltas: Iterable[DeltaLocator]) {
 
   def serialize = notificationXml (
@@ -42,14 +43,14 @@ trait Urls {
 
   lazy val repositoryUri = conf.locationRepositoryUri
   
-  def snapshotUrl(snapshot: RepositoryState) = repositoryUri + "/" + snapshot.sessionId + "/" + snapshot.serial + "/snapshot.xml"
+  def snapshotUrl(snapshot: ChangeSet) = repositoryUri + "/" + snapshot.sessionId + "/" + snapshot.serial + "/snapshot.xml"
   def deltaUrl(delta: Delta) = repositoryUri + "/" + delta.sessionId + "/" + delta.serial + "/delta.xml"
 }
 
 object Notification extends Hashing with Urls {
 
-  def create(snapshot: RepositoryState): Notification = {
-    val snapshotLocator = SnapshotLocator(snapshotUrl(snapshot), hash(snapshot.serialize.mkString.getBytes))
+  def create(snapshotXml: String, snapshot: ChangeSet): Notification = {
+    val snapshotLocator = SnapshotLocator(snapshotUrl(snapshot), hash(snapshotXml.getBytes))
     val deltaLocators = snapshot.deltas.values.map { d =>
       DeltaLocator(d.serial, deltaUrl(d), hash(d.serialize.mkString.getBytes))
     }

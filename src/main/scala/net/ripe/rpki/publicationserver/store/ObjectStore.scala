@@ -20,6 +20,8 @@ class ObjectStore extends DB {
     getSeq(objects.filter(_.clientId === cId))
   }
 
+  override def listAll: Seq[RRDPObject] = getSeq(objects)
+
   override def publish(clientId: ClientId, obj: RRDPObject): Unit = {
     val (base64, hash, uri) = obj
     val insertActions = DBIO.seq(
@@ -54,7 +56,7 @@ class ObjectStore extends DB {
     getSeq(objects.filter(_.uri === uri.toString)).headOption
   }
 
-  private def getSeq(q: Query[RepoObject, (String, String, String, String), Seq]) = {
+  private def getSeq(q: Query[RepoObject, (String, String, String, String), Seq]): Seq[RRDPObject] = {
     val seqFuture = db.run(q.result).map { _.map { o =>
         val (b64, h, u, _) = o
         (Base64(b64), Hash(h), new URI(u))
@@ -63,8 +65,13 @@ class ObjectStore extends DB {
     Await.result(seqFuture, Duration.Inf)
   }
 
-  def atomic[E <: Effect](actions: Seq[DBIOAction[_, NoStream, E]]) =
-    Await.result(db.run(DBIO.seq(actions: _*).transactionally), Duration.Inf)
+  def atomic[E <: Effect, T](actions: Seq[DBIOAction[_, NoStream, E]], f: => T) : T =
+    Await.result(db.run {
+      (for {
+        _ <- DBIO.seq(actions: _*)
+        t <- DBIO.successful(f)
+      } yield t).transactionally
+    }, Duration.Inf)
 
   def clear() = Await.result(db.run(objects.delete), Duration.Inf)
 
