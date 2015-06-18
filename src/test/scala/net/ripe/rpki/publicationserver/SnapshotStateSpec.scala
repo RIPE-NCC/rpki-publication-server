@@ -3,7 +3,8 @@ package net.ripe.rpki.publicationserver
 import java.net.URI
 import java.nio.file.{Path, Paths}
 
-import net.ripe.rpki.publicationserver.store.ClientId
+import net.ripe.rpki.publicationserver.store.DB.ServerState
+import net.ripe.rpki.publicationserver.store.{DB, ClientId}
 import net.ripe.rpki.publicationserver.store.fs.RepositoryWriter
 import org.mockito.Matchers._
 import org.mockito.Mockito._
@@ -17,7 +18,7 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
   private var emptySnapshot: ChangeSet = _
   
   before {
-    serial = 123L
+    serial = 1L
     sessionId = "1234ab"
     emptySnapshot = new ChangeSet(Map.empty)
     SnapshotState.initializeWith(emptySnapshot)
@@ -27,9 +28,9 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
     SnapshotState.updateWith(ClientId("bla"), Seq(PublishQ(uri = new URI("rsync://host/zzz.cer"), tag = None, hash = None, base64 = Base64("aaaa="))))
 
     SnapshotState.get.deltas should be(Map(
-      BigInt(2) -> Delta(
+      2L -> Delta(
         sessionId,
-        serial,
+        2L,
         Seq(PublishQ(uri = new URI("rsync://host/zzz.cer"), tag = None, hash = None, base64 = Base64("aaaa=")))
       )
     ))
@@ -46,9 +47,9 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
 
 
     SnapshotState.get.deltas should be(Map(
-      BigInt(2) -> Delta(
+      2L -> Delta(
         sessionId,
-        serial,
+        2L,
         Seq(PublishQ(uri = new URI("rsync://host/zzz.cer"),
           tag = None,
           hash = Some("BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7"),
@@ -103,18 +104,19 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
   }
 
   test("should create 2 entries in delta map after 2 updates") {
-    val s1 = emptySnapshot.next(Seq(PublishQ(uri = new URI("rsync://host/cert1.cer"), tag = None, hash = None, base64 = Base64("cccc="))))
-    val s2 = s1.next(Seq(PublishQ(uri = new URI("rsync://host/cert2.cer"), tag = None, hash = None, base64 = Base64("bbbb="))))
+    SnapshotState.updateWith(ClientId("bla"), Seq(PublishQ(uri = new URI("rsync://host/cert1.cer"), tag = None, hash = None, base64 = Base64("cccc="))))
 
-    s2.deltas should be(Map(
-      BigInt(2) -> Delta(
+    SnapshotState.updateWith(ClientId("bla"), Seq(PublishQ(uri = new URI("rsync://host/cert2.cer"), tag = None, hash = None, base64 = Base64("bbbb="))))
+
+    SnapshotState.get.deltas should be(Map(
+      2L -> Delta(
         sessionId,
-        BigInt(2),
+        2L,
         Seq(PublishQ(uri = new URI("rsync://host/cert1.cer"), tag = None, hash = None, base64 = Base64("cccc=")))
       ),
-      BigInt(3) -> Delta(
+      3L -> Delta(
         sessionId,
-        BigInt(3),
+        3L,
         Seq(PublishQ(uri = new URI("rsync://host/cert2.cer"), tag = None, hash = None, base64 = Base64("bbbb=")))
       )
     ))
@@ -123,40 +125,42 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
   test("should update the snapshot and the notification and write them to the filesystem when a message is successfully processed") {
     val repositoryWriterSpy = spy(getRepositoryWriter)
     val notificationStateSpy = getNotificationUpdater
-    val snapshotStateUpdater = new SnapshotStateService {
+    val snapshotStateService = new SnapshotStateService {
       override val repositoryWriter = repositoryWriterSpy
       override val notificationState = notificationStateSpy
+      override val db = DB.onFS // TODO
     }
 
     val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
-    val snapshotStateBefore = snapshotStateUpdater.get
+    val snapshotStateBefore = snapshotStateService.get
     val notificationStateBefore = notificationStateSpy.get
 
-    snapshotStateUpdater.updateWith(ClientId("client1"), Seq(publish))
+    snapshotStateService.updateWith(ClientId("client1"), Seq(publish))
 
-    verify(repositoryWriterSpy).writeNewState(anyString(), any[ChangeSet], any[Notification], "")
-    snapshotStateUpdater.get should not equal snapshotStateBefore
+    verify(repositoryWriterSpy).writeNewState(anyString(), any[ServerState], any[ChangeSet], any[Notification], "")
+    snapshotStateService.get should not equal snapshotStateBefore
     notificationStateSpy.get should not equal notificationStateBefore
   }
 
   def getNotificationUpdater: NotificationStateUpdater = {
     val notificationStateUpdater = new NotificationStateUpdater()
-    notificationStateUpdater.update(Notification.create("", emptySnapshot))
+    notificationStateUpdater.update(Notification.create("", ServerState(sessionId, serial), emptySnapshot))
     notificationStateUpdater
   }
 
   test("should not write a snapshot to the filesystem when a message contained an error") {
     val repositoryWriterSpy = spy(getRepositoryWriter)
     val notificationStateSpy = getNotificationUpdater
-    val snapshotStateUpdater = new SnapshotStateService {
+    val snapshotStateService = new SnapshotStateService {
       override val repositoryWriter = repositoryWriterSpy
       override val notificationState = notificationStateSpy
+      override val db = DB.onFS // TODO
     }
 
     val withdraw = WithdrawQ(new URI("rsync://host/zzz.cer"), None, "BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7")
 
     // The withdraw will fail because the SnapshotState is still empty
-    snapshotStateUpdater.updateWith(ClientId("client1"), Seq(withdraw))
+    snapshotStateService.updateWith(ClientId("client1"), Seq(withdraw))
 
     verifyNoMoreInteractions(repositoryWriterSpy)
   }
@@ -164,20 +168,21 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
   test("should not update the snapshot state when writing it to the filesystem throws an error") {
     val repositoryWriterSpy = spy(getRepositoryWriter)
     val notificationStateSpy = getNotificationUpdater
-    doThrow(new IllegalArgumentException()).when(repositoryWriterSpy).writeSnapshot(anyString(), any[ChangeSet], "")
+    doThrow(new IllegalArgumentException()).when(repositoryWriterSpy).writeSnapshot(anyString(), any[ServerState], "")
 
-    val snapshotStateUpdater = new SnapshotStateService {
+    val snapshotStateService = new SnapshotStateService {
       override val repositoryWriter = repositoryWriterSpy
       override val notificationState = notificationStateSpy
+      override val db = DB.onFS // TODO
     }
 
     val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
-    val stateBefore = snapshotStateUpdater.get
+    val stateBefore = snapshotStateService.get
 
-    val reply = snapshotStateUpdater.updateWith(ClientId("client1"), Seq(publish))
+    val reply = snapshotStateService.updateWith(ClientId("client1"), Seq(publish))
     reply.tail should equal(Seq(ReportError(BaseError.CouldNotPersist, Some("Could not persist the changes: null"))))
-    verify(repositoryWriterSpy).deleteSnapshot(anyString(), any[ChangeSet])
-    snapshotStateUpdater.get should equal(stateBefore)
+    verify(repositoryWriterSpy).deleteSnapshot(anyString(), any[ServerState])
+    snapshotStateService.get should equal(stateBefore)
   }
 
   test("should not update the snapshot, delta and notification state when updating delta throws an error") {
@@ -188,6 +193,7 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
     val snapshotStateUpdater = new SnapshotStateService {
       override val repositoryWriter = repositoryWriterSpy
       override val notificationState = notificationStateSpy
+      override val db = DB.onFS // TODO
     }
 
     val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
@@ -196,8 +202,8 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
 
     val reply = snapshotStateUpdater.updateWith(ClientId("client1"), Seq(publish))
     reply.tail should equal(Seq(ReportError(BaseError.CouldNotPersist, Some("Could not persist the changes: null"))))
-    verify(repositoryWriterSpy).deleteSnapshot(anyString(), any[ChangeSet])
-    verify(repositoryWriterSpy).deleteDelta(anyString(), any[ChangeSet])
+    verify(repositoryWriterSpy).deleteSnapshot(anyString(), any[ServerState])
+    verify(repositoryWriterSpy).deleteDelta(anyString(), any[ServerState])
     snapshotStateUpdater.get should equal(snapshotStateBefore)
     notificationStateSpy.get should equal(notificationStateBefore)
   }
@@ -207,28 +213,29 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
     val notificationStateSpy = getNotificationUpdater
     doThrow(new IllegalArgumentException()).when(repositoryWriterSpy).writeNotification(anyString(), any[Notification])
 
-    val snapshotStateUpdater = new SnapshotStateService {
+    val snapshotStateService = new SnapshotStateService {
       override val repositoryWriter = repositoryWriterSpy
       override val notificationState = notificationStateSpy
+      override val db = DB.onFS // TODO
     }
 
     val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
-    val snapshotStateBefore = snapshotStateUpdater.get
+    val snapshotStateBefore = snapshotStateService.get
     val notificationStateBefore = notificationStateSpy.get
 
-    val reply = snapshotStateUpdater.updateWith(ClientId("client1"), Seq(publish))
+    val reply = snapshotStateService.updateWith(ClientId("client1"), Seq(publish))
     reply.tail should equal(Seq(ReportError(BaseError.CouldNotPersist, Some("Could not persist the changes: null"))))
-    verify(repositoryWriterSpy).deleteSnapshot(anyString(), any[ChangeSet])
-    verify(repositoryWriterSpy).deleteDelta(anyString(), any[ChangeSet])
+    verify(repositoryWriterSpy).deleteSnapshot(anyString(), any[ServerState])
+    verify(repositoryWriterSpy).deleteDelta(anyString(), any[ServerState])
     verify(repositoryWriterSpy).deleteNotification(anyString(), any[ChangeSet])
-    snapshotStateUpdater.get should equal(snapshotStateBefore)
+    snapshotStateService.get should equal(snapshotStateBefore)
     notificationStateSpy.get should equal(notificationStateBefore)
   }
   
   def getRepositoryWriter: RepositoryWriter = new MockRepositoryWriter()
 
   class MockRepositoryWriter extends RepositoryWriter {
-    override def writeSnapshot(rootDir: String, snapshot: ChangeSet, snapshoXml: String): Unit = { }
+    override def writeSnapshot(rootDir: String, serverState: ServerState, snapshotXml: String): Unit = { }
     override def writeDelta(rootDir: String, delta: Delta): Unit = { }
     override def writeNotification(rootDir: String, notification: Notification): Path = Paths.get("")
   }
