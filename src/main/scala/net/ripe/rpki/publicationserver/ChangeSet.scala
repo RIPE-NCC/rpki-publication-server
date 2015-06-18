@@ -14,8 +14,6 @@ import scala.xml.{Elem, Node}
 case class ChangeSet(deltas: Map[Long, Delta]) extends Hashing {
   val db = wire[ServerStateStore]
 
-  def get: ServerState = db.get
-
   def next(queries: Seq[QueryPdu]): ChangeSet = {
     val ServerState(sessionId, oldSerial) = db.get
     val newSerial = oldSerial + 1
@@ -70,7 +68,9 @@ trait SnapshotStateUpdater extends Urls with Logging with Hashing {
 
   val notificationState = wire[NotificationStateUpdater]
 
-  val db = wire[ObjectStore]
+  val objectStore = wire[ObjectStore]
+
+  val serverStateStore = wire[ServerStateStore]
 
   private var changeSet = emptySnapshot
 
@@ -82,7 +82,7 @@ trait SnapshotStateUpdater extends Urls with Logging with Hashing {
     changeSet = initState
   }
 
-  def list(clientId: ClientId) = db.list(clientId).map { pdu =>
+  def list(clientId: ClientId) = objectStore.list(clientId).map { pdu =>
     val (base64, hash, uri) = pdu
     ListR(uri, hash.hash, None)
   }
@@ -90,10 +90,11 @@ trait SnapshotStateUpdater extends Urls with Logging with Hashing {
   def updateWith(clientId: ClientId, queries: Seq[QueryPdu]): Seq[ReplyPdu] = synchronized {
     persistForClient(clientId, queries) { replies : Seq[ReplyPdu] =>
       val newChangeSet = changeSet.next(queries)
-      val pdus = db.listAll
-      val snapshotXml = serialize(newChangeSet, pdus).mkString
-      val newNotification = Notification.create(snapshotXml, newChangeSet)
-      repositoryWriter.writeNewState(conf.locationRepositoryPath, newChangeSet, newNotification, snapshotXml) match {
+      val newServerState = serverStateStore.get
+      val pdus = objectStore.listAll
+      val snapshotXml = serialize(serverStateStore.get, pdus).mkString
+      val newNotification = Notification.create(snapshotXml, newServerState, newChangeSet)
+      repositoryWriter.writeNewState(conf.locationRepositoryPath, newServerState, newChangeSet, newNotification, snapshotXml) match {
         case Success(_) =>
           changeSet = newChangeSet
           notificationState.update(newNotification)
@@ -112,8 +113,8 @@ trait SnapshotStateUpdater extends Urls with Logging with Hashing {
 //    }
 //  }
 
-  def serialize(changeSet: ChangeSet, pdus: Seq[DB.RRDPObject]) = {
-    val ServerState(sessionId, serial) = changeSet.get
+  def serialize(serverState: ServerState, pdus: Seq[DB.RRDPObject]) = {
+    val ServerState(sessionId, serial) = serverState
     snapshotXml(
       sessionId,
       serial,
@@ -137,18 +138,18 @@ trait SnapshotStateUpdater extends Urls with Logging with Hashing {
   def persistForClient(clientId: ClientId, queries: Seq[QueryPdu])(f : Seq[ReplyPdu] => Seq[ReplyPdu]) = {
     val result = queries.map {
       case PublishQ(uri, tag, None, base64) =>
-        db.find(uri) match {
+        objectStore.find(uri) match {
           case Some((_, h, _)) =>
             Left(ReportError(BaseError.HashForInsert, Some(s"Tried to insert existing object [$uri].")))
           case None =>
-            Right((PublishR(uri, tag), db.insertAction(clientId, (base64, hash(base64), uri))))
+            Right((PublishR(uri, tag), objectStore.insertAction(clientId, (base64, hash(base64), uri))))
         }
       case PublishQ(uri, tag, Some(sHash), base64) =>
-        db.find(uri) match {
+        objectStore.find(uri) match {
           case Some(obj) =>
             val (_, h, _) = obj
             if (Hash(sHash) == h)
-              Right((PublishR(uri, tag), db.updateAction(clientId, (base64, h, uri))))
+              Right((PublishR(uri, tag), objectStore.updateAction(clientId, (base64, h, uri))))
             else {
               Left(ReportError(BaseError.NonMatchingHash, Some(s"Cannot republish the object [$uri], hash doesn't match")))
             }
@@ -157,11 +158,11 @@ trait SnapshotStateUpdater extends Urls with Logging with Hashing {
         }
 
       case WithdrawQ(uri, tag, sHash) =>
-        db.find(uri) match {
+        objectStore.find(uri) match {
           case Some(obj) =>
             val (_, h, _) = obj
             if (Hash(sHash) == h)
-              Right((WithdrawR(uri, tag), db.deleteAction(clientId, h)))
+              Right((WithdrawR(uri, tag), objectStore.deleteAction(clientId, h)))
             else {
               Left(ReportError(BaseError.NonMatchingHash, Some(s"Cannot withdraw the object [$uri], hash doesn't match.")))
             }
@@ -178,7 +179,7 @@ trait SnapshotStateUpdater extends Urls with Logging with Hashing {
       val actions = result.collect { case Right((_, action)) => action }
       lazy val replies = result.collect { case Right((reply, _)) => reply }
       try {
-        val transactionReplies = db.atomic(actions, f(replies))
+        val transactionReplies = objectStore.atomic(actions, f(replies))
         replies ++ transactionReplies
       } catch {
         case e: Exception =>

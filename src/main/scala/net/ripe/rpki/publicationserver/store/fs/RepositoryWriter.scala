@@ -10,10 +10,10 @@ import scala.util.{Failure, Try}
 
 class RepositoryWriter extends Logging {
 
-  def writeNewState(rootDir: String, newSnapshot: ChangeSet, newNotification: Notification, snapshotXml: String) = {
-    val ServerState(sessionId, serial) = newSnapshot.get
+  def writeNewState(rootDir: String, serverState: ServerState, newSnapshot: ChangeSet, newNotification: Notification, snapshotXml: String) = {
+    val ServerState(sessionId, serial) = serverState
     Try {
-      writeSnapshot(rootDir, newSnapshot, snapshotXml)
+      writeSnapshot(rootDir, serverState, snapshotXml)
       try {
         if (newSnapshot.deltas.nonEmpty) {
           newSnapshot.latestDelta match {
@@ -38,18 +38,18 @@ class RepositoryWriter extends Logging {
       } catch {
         case e: Exception =>
           logger.error("An error occurred, removing delta: ", e)
-          deleteDelta(rootDir, newSnapshot)
+          deleteDelta(rootDir, serverState)
           throw e
       }
     }.recoverWith { case e : Exception =>
         logger.error("An error occurred, removing snapshot: ", e)
-        deleteSnapshot(rootDir, newSnapshot)
+        deleteSnapshot(rootDir, serverState)
         Failure(e)
     }
   }
 
-  def writeSnapshot(rootDir: String, snapshot: ChangeSet, snapshotXml: String) = {
-    val ServerState(sessionId, serial) = snapshot.get
+  def writeSnapshot(rootDir: String, serverState: ServerState, snapshotXml: String) = {
+    val ServerState(sessionId, serial) = serverState
     val stateDir = getStateDir(rootDir, sessionId, serial)
     writeFile(snapshotXml, new File(stateDir, "snapshot.xml"))
   }
@@ -93,8 +93,8 @@ class RepositoryWriter extends Logging {
     _dir
   }
 
-  def deleteSessionFile(rootDir: String, snapshot: ChangeSet, name: String) = {
-    val ServerState(sessionId, serial) = snapshot.get
+  def deleteSessionFile(rootDir: String, serverState: ServerState, name: String) = {
+    val ServerState(sessionId, serial) = serverState
     val sessionDir = new File(new File(rootDir), sessionId)
     val serialDir = new File(sessionDir, serial.toString)
     del(new File(serialDir, "snapshot.xml"))
@@ -102,9 +102,9 @@ class RepositoryWriter extends Logging {
 
   def del(f: File) = Files.deleteIfExists(Paths.get(f.toURI))
 
-  def deleteSnapshot(rootDir: String, snapshot: ChangeSet) = deleteSessionFile(rootDir, snapshot, "snapshot.xml")
+  def deleteSnapshot(rootDir: String, serverState: ServerState) = deleteSessionFile(rootDir, serverState, "snapshot.xml")
 
-  def deleteDelta(rootDir: String, snapshot: ChangeSet) = deleteSessionFile(rootDir, snapshot, "delta.xml")
+  def deleteDelta(rootDir: String, serverState: ServerState) = deleteSessionFile(rootDir, serverState, "delta.xml")
 
   def deleteNotification(rootDir: String, snapshot: ChangeSet) = {
     del(new File(rootDir, "notification.xml"))
