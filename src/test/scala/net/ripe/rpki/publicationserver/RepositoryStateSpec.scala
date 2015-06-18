@@ -150,7 +150,7 @@ class RepositoryStateSpec extends PublicationServerBaseSpec with Urls {
   test("should update the snapshot and the notification and write them to the filesystem when a message is successfully processed") {
     val repositoryWriterSpy = spy(getRepositoryWriter)
     val notificationStateSpy = getNotificationUpdater
-    val snapshotStateUpdater = new SnapshotStateUpdater {
+    val snapshotStateUpdater = new SnapshotStateService {
       override val repositoryWriter = repositoryWriterSpy
       override val notificationState = notificationStateSpy
     }
@@ -175,7 +175,7 @@ class RepositoryStateSpec extends PublicationServerBaseSpec with Urls {
   test("should not write a snapshot to the filesystem when a message contained an error") {
     val repositoryWriterSpy = spy(getRepositoryWriter)
     val notificationStateSpy = getNotificationUpdater
-    val snapshotStateUpdater = new SnapshotStateUpdater {
+    val snapshotStateUpdater = new SnapshotStateService {
       override val repositoryWriter = repositoryWriterSpy
       override val notificationState = notificationStateSpy
     }
@@ -193,7 +193,7 @@ class RepositoryStateSpec extends PublicationServerBaseSpec with Urls {
     val notificationStateSpy = getNotificationUpdater
     doThrow(new IllegalArgumentException()).when(repositoryWriterSpy).writeSnapshot(anyString(), any[ChangeSet], "")
 
-    val snapshotStateUpdater = new SnapshotStateUpdater {
+    val snapshotStateUpdater = new SnapshotStateService {
       override val repositoryWriter = repositoryWriterSpy
       override val notificationState = notificationStateSpy
     }
@@ -212,7 +212,7 @@ class RepositoryStateSpec extends PublicationServerBaseSpec with Urls {
     val notificationStateSpy = getNotificationUpdater
     doThrow(new IllegalArgumentException()).when(repositoryWriterSpy).writeDelta(anyString(), any[Delta])
 
-    val snapshotStateUpdater = new SnapshotStateUpdater {
+    val snapshotStateUpdater = new SnapshotStateService {
       override val repositoryWriter = repositoryWriterSpy
       override val notificationState = notificationStateSpy
     }
@@ -234,7 +234,7 @@ class RepositoryStateSpec extends PublicationServerBaseSpec with Urls {
     val notificationStateSpy = getNotificationUpdater
     doThrow(new IllegalArgumentException()).when(repositoryWriterSpy).writeNotification(anyString(), any[Notification])
 
-    val snapshotStateUpdater = new SnapshotStateUpdater {
+    val snapshotStateUpdater = new SnapshotStateService {
       override val repositoryWriter = repositoryWriterSpy
       override val notificationState = notificationStateSpy
     }

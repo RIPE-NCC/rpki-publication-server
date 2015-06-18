@@ -48,14 +48,14 @@ case class Delta(sessionId: UUID, serial: Long, pdus: Seq[QueryPdu]) extends Has
 /**
  * Holds the global snapshot state
  */
-object SnapshotState extends SnapshotStateUpdater {
+object SnapshotState extends SnapshotStateService {
 
   type SnapshotMap = Map[URI, (Base64, Hash)]
 
   override val db: DBType = DB.onFS
 }
 
-trait SnapshotStateUpdater extends Urls with Logging with Hashing {
+trait SnapshotStateService extends Urls with Logging with Hashing {
 
   val sessionId = conf.currentSessionId
 
