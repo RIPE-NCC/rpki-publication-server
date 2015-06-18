@@ -26,9 +26,14 @@ class DeltaStore(db: DB.DBType) extends Hashing {
       case WithdrawQ(u, tag, h) =>
         deltas += ((u.toString, h, "", cId, delta.serial, 'W'))
     }
-    DBIO.seq(DBIO.seq(actions:_*), liftDB {
-      deltaMap = deltaMap + (delta.serial -> delta)
-    })
+
+    if (actions.isEmpty) {
+      DBIO.successful(())
+    } else {
+      DBIO.seq(DBIO.seq(actions: _*), liftDB {
+        deltaMap = deltaMap + (delta.serial -> delta)
+      })
+    }
   }
 
   def getDeltas = deltaMap.values.toSeq.sortBy(_.serial)
