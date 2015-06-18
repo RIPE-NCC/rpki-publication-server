@@ -72,8 +72,6 @@ case class Snapshot(serverState: ServerState, pdus: Seq[DB.RRDPObject]) {
  */
 object SnapshotState extends SnapshotStateService {
 
-  type SnapshotMap = Map[URI, (Base64, Hash)]
-
   override val db: DBType = DB.onFS
 }
 
@@ -93,9 +91,9 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
 
   lazy val deltaStore = new DeltaStore(db)
 
-  private var changeSet = emptySnapshot
+  private var changeSet = emptyChangeSet
 
-  def emptySnapshot = new ChangeSet(Map.empty)
+  def emptyChangeSet = new ChangeSet(Map.empty)
 
   def get = changeSet
 
@@ -115,13 +113,11 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
       serverStateStore.update(newServerState)
       val pdus = objectStore.listAll
       val snapshotXml = Snapshot(newServerState, pdus).serialize
-//      val newNotification = Notification.create(snapshotXml, newServerState, deltas)
-      val deltas = null
-      val newNotification = null
+      val deltas = changeSet.next(newServerState, queries) // TODO handle this in the db
+      val newNotification = Notification.create(snapshotXml, newServerState, deltas)
       repositoryWriter.writeNewState(conf.locationRepositoryPath, newServerState, deltas, newNotification, snapshotXml) match {
         case Success(_) =>
-//          changeSet = newChangeSet
-//          notificationState.update(newNotification)
+          notificationState.update(newNotification)
           Seq()
         case Failure(e) =>
           logger.error("Could not write XML files to filesystem: " + e.getMessage, e)

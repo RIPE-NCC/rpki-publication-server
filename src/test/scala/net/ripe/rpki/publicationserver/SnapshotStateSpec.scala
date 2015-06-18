@@ -1,31 +1,32 @@
 package net.ripe.rpki.publicationserver
 
 import java.net.URI
-import java.nio.file.{Paths, Path}
-import java.util.UUID
+import java.nio.file.{Path, Paths}
 
-import net.ripe.rpki.publicationserver.store.DB.ServerState
-import net.ripe.rpki.publicationserver.store.{ObjectStore, ClientId}
+import net.ripe.rpki.publicationserver.store.ClientId
 import net.ripe.rpki.publicationserver.store.fs.RepositoryWriter
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 
 class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
 
+  private var serial: Long = _
+
   private var sessionId: String = _
 
   private var emptySnapshot: ChangeSet = _
   
   before {
+    serial = 123L
     sessionId = "1234ab"
     emptySnapshot = new ChangeSet(Map.empty)
+    SnapshotState.initializeWith(emptySnapshot)
   }
 
   test("should add an object with publish") {
-    val serial = 123L
-    val serverState = ServerState(sessionId, serial)
-    val s = emptySnapshot.next(serverState, Seq(PublishQ(uri = new URI("rsync://host/zzz.cer"), tag = None, hash = None, base64 = Base64("aaaa="))))
-    s.deltas should be(Map(
+    SnapshotState.updateWith(ClientId("bla"), Seq(PublishQ(uri = new URI("rsync://host/zzz.cer"), tag = None, hash = None, base64 = Base64("aaaa="))))
+
+    SnapshotState.get.deltas should be(Map(
       BigInt(2) -> Delta(
         sessionId,
         serial,
@@ -35,17 +36,16 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
   }
 
   test("should update an object with publish and republish") {
-    val snapshot = new ChangeSet(Map.empty)
-    val serial = 123L
-    val serverState = ServerState(sessionId, serial)
-    val s = SnapshotState.updateWith(
-      serverState,
+
+    val replies = SnapshotState.updateWith(
+      ClientId("bla"),
       Seq(PublishQ(uri = new URI("rsync://host/zzz.cer"),
         tag = None,
         hash = Some("BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7"),
         base64 = Base64("cccc="))))
 
-    s.deltas should be(Map(
+
+    SnapshotState.get.deltas should be(Map(
       BigInt(2) -> Delta(
         sessionId,
         serial,
@@ -58,63 +58,48 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
   }
 
   test("should fail to update an object which is not in the snapshot") {
-    val snapshot = new ChangeSet(
-      sessionId,
-      BigInt(1),
-      Map.empty)
+    val replies = SnapshotState.updateWith(
+      ClientId("bla"),
+      Seq(PublishQ(
+        uri = new URI("rsync://host/not-existing.cer"),
+        tag = None,
+        hash = Some("BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7"),
+        base64 = Base64("cccc="))))
 
-    val s = snapshot.next(Seq(PublishQ(
-      uri = new URI("rsync://host/not-existing.cer"),
-      tag = None,
-      hash = Some("BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7"),
-      base64 = Base64("cccc="))))
-
-//    s.head should be(ReportError(BaseError.NoObjectToUpdate, Some("No object [rsync://host/not-existing.cer] has been found.")))
+    replies.head should be(ReportError(BaseError.NoObjectToUpdate, Some("No object [rsync://host/not-existing.cer] has been found.")))
   }
 
   test("should fail to update an object without hash provided") {
-    val snapshot = new ChangeSet(
-      sessionId,
-      BigInt(1),
-      Map.empty)
+    val replies = SnapshotState.updateWith(
+      ClientId("bla"),Seq(PublishQ(uri = new URI("rsync://host/zzz.cer"), tag = None, hash = None, base64 = Base64("cccc="))))
 
-    val s = snapshot.next(Seq(PublishQ(uri = new URI("rsync://host/zzz.cer"), tag = None, hash = None, base64 = Base64("cccc="))))
-//    s.head should be(ReportError(BaseError.HashForInsert, Some("Tried to insert existing object [rsync://host/zzz.cer].")))
+    replies.head should be(ReportError(BaseError.HashForInsert, Some("Tried to insert existing object [rsync://host/zzz.cer].")))
   }
 
   test("should fail to update an object if hashes do not match") {
-    val snapshot = new ChangeSet(
-      sessionId,
-      BigInt(1),
-      Map.empty)
-
-    val s = snapshot.next(Seq(PublishQ(
+    val replies = SnapshotState.updateWith(
+      ClientId("bla"),
+      Seq(PublishQ(
       uri = new URI("rsync://host/zzz.cer"),
       tag = None,
       hash = Some("WRONGHASH"),
       base64 = Base64("cccc="))))
 
-//    s._1.head should be(ReportError(BaseError.NonMatchingHash, Some("Cannot republish the object [rsync://host/zzz.cer], hash doesn't match")))
+    replies.head should be(ReportError(BaseError.NonMatchingHash, Some("Cannot republish the object [rsync://host/zzz.cer], hash doesn't match")))
   }
 
   test("should fail to withdraw an object if there's no such object") {
-    val snapshot = new ChangeSet(
-      sessionId,
-      BigInt(1),
-      Map.empty)
+    val replies = SnapshotState.updateWith(
+      ClientId("bla"),Seq(WithdrawQ(uri = new URI("rsync://host/not-existing-uri.cer"), tag = None, hash = "whatever")))
 
-    val s = snapshot.next(Seq(WithdrawQ(uri = new URI("rsync://host/not-existing-uri.cer"), tag = None, hash = "whatever")))
-//    s._1.head should be(ReportError(BaseError.NoObjectForWithdraw, Some("No object [rsync://host/not-existing-uri.cer] found.")))
+    replies.head should be(ReportError(BaseError.NoObjectForWithdraw, Some("No object [rsync://host/not-existing-uri.cer] found.")))
   }
 
   test("should fail to withdraw an object if hashes do not match") {
-    val snapshot = new ChangeSet(
-      sessionId,
-      BigInt(1),
-      Map.empty)
+    val replies = SnapshotState.updateWith(
+      ClientId("bla"),Seq(WithdrawQ(uri = new URI("rsync://host/zzz.cer"), tag = None, hash = "WRONGHASH")))
 
-    val s = snapshot.next(Seq(WithdrawQ(uri = new URI("rsync://host/zzz.cer"), tag = None, hash = "WRONGHASH")))
-//    s._1.head should be(ReportError(BaseError.NonMatchingHash, Some("Cannot withdraw the object [rsync://host/zzz.cer], hash doesn't match.")))
+    replies.head should be(ReportError(BaseError.NonMatchingHash, Some("Cannot withdraw the object [rsync://host/zzz.cer], hash doesn't match.")))
   }
 
   test("should create 2 entries in delta map after 2 updates") {
