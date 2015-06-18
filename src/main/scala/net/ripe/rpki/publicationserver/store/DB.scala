@@ -2,7 +2,7 @@ package net.ripe.rpki.publicationserver.store
 
 import java.net.URI
 
-import net.ripe.rpki.publicationserver.store.DB.{Metadatum, RRDPObject}
+import net.ripe.rpki.publicationserver.store.DB.{ServerState, RRDPObject}
 import net.ripe.rpki.publicationserver.{Base64, Hash}
 import slick.jdbc.meta.MTable
 
@@ -22,10 +22,10 @@ trait RepoObjectDB {
   def clear(): Unit
 }
 
-trait MetadataDB {
-  def get: Metadatum
+trait ServerStateDB {
+  def get: ServerState
 
-  def update(metadata: Metadatum): Unit
+  def update(serverState: ServerState): Unit
 }
 
 object DB {
@@ -43,18 +43,18 @@ object DB {
     def * = (base64, hash, uri, clientId)
   }
 
-  case class Metadatum(sessionId: String, serialNumber: Int)
+  case class ServerState(sessionId: String, serialNumber: Long)
 
-  class Metadata(tag: Tag) extends Table[Metadatum](tag, "META_DATA") {
+  class ServerStates(tag: Tag) extends Table[ServerState](tag, "META_DATA") {
     def sessionId = column[String]("SESSION_ID", O.PrimaryKey)
-    def serialNumber = column[Int]("SERIAL_NUMBER")
+    def serialNumber = column[Long]("SERIAL_NUMBER")
 
-    def * = (sessionId, serialNumber) <> (Metadatum.tupled, Metadatum.unapply)
+    def * = (sessionId, serialNumber) <> (ServerState.tupled, ServerState.unapply)
   }
 
   val objects = TableQuery[RepoObject]
 
-  val metadata = TableQuery[Metadata]
+  val serverStates = TableQuery[ServerStates]
 
   def tableExists(db: Database, name: String) = {
     Await.result(db.run(MTable.getTables), 1.seconds).exists(_.name.name == name)

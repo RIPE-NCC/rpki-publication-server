@@ -4,9 +4,9 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
 
 import com.softwaremill.macwire.MacwireMacros._
+import net.ripe.rpki.publicationserver.store.DB.ServerState
 
 import scala.annotation.tailrec
-import scala.collection.immutable
 import scala.io.Source
 import scala.xml.{Elem, Node}
 
@@ -42,8 +42,11 @@ trait Urls {
   lazy val conf = wire[ConfigWrapper]
 
   lazy val repositoryUri = conf.locationRepositoryUri
-  
-  def snapshotUrl(snapshot: ChangeSet) = repositoryUri + "/" + snapshot.sessionId + "/" + snapshot.serial + "/snapshot.xml"
+
+  def snapshotUrl(snapshot: ChangeSet) = {
+    val ServerState(sessionId, serial) = snapshot.get
+    repositoryUri + "/" + sessionId + "/" + serial + "/snapshot.xml"
+  }
   def deltaUrl(delta: Delta) = repositoryUri + "/" + delta.sessionId + "/" + delta.serial + "/delta.xml"
 }
 
@@ -54,10 +57,10 @@ object Notification extends Hashing with Urls {
     val deltaLocators = snapshot.deltas.values.map { d =>
       DeltaLocator(d.serial, deltaUrl(d), hash(d.serialize.mkString.getBytes))
     }
-    Notification(snapshot.sessionId, snapshot.serial, snapshotLocator, deltaLocators)
+    val ServerState(sessionId, serial) = snapshot.get
+    Notification(UUID.fromString(sessionId), serial, snapshotLocator, deltaLocators)
   }
 }
-
 
 class NotificationStateUpdater {
   private val state: AtomicReference[Notification] = new AtomicReference[Notification]()

@@ -4,27 +4,33 @@ import java.net.URI
 import java.util.UUID
 
 import com.softwaremill.macwire.MacwireMacros._
-import net.ripe.rpki.publicationserver.store.{DB, ClientId, ObjectStore}
+import net.ripe.rpki.publicationserver.store.DB.ServerState
+import net.ripe.rpki.publicationserver.store.{ServerStateStore, DB, ClientId, ObjectStore}
 import net.ripe.rpki.publicationserver.store.fs.RepositoryWriter
 
 import scala.util.{Failure, Success}
 import scala.xml.{Elem, Node}
 
-case class ChangeSet(sessionId: UUID, serial: BigInt, deltas: Map[BigInt, Delta]) extends Hashing {
+case class ChangeSet(deltas: Map[Long, Delta]) extends Hashing {
+  val db = wire[ServerStateStore]
+
+  def get: ServerState = db.get
 
   def next(queries: Seq[QueryPdu]): ChangeSet = {
-    val newSerial = serial + 1
-    val newDeltas = deltas + (newSerial -> Delta(sessionId, newSerial, queries))
-    ChangeSet(sessionId, newSerial, newDeltas)
+    val ServerState(sessionId, oldSerial) = db.get
+    val newSerial = oldSerial + 1
+    db.update(ServerState(sessionId, oldSerial))
+    val newDeltas = deltas + (newSerial -> Delta(UUID.fromString(sessionId), newSerial, queries))
+    ChangeSet(newDeltas)
   }
 
   def latestDelta = {
+    val ServerState(_, serial) = db.get
     deltas.get(serial)
   }
-
 }
 
-case class Delta(sessionId: UUID, serial: BigInt, pdus: Seq[QueryPdu]) extends Hashing {
+case class Delta(sessionId: UUID, serial: Long, pdus: Seq[QueryPdu]) extends Hashing {
 
   def serialize = deltaXml(
     sessionId,
@@ -68,7 +74,7 @@ trait SnapshotStateUpdater extends Urls with Logging with Hashing {
 
   private var changeSet = emptySnapshot
 
-  def emptySnapshot = new ChangeSet(conf.currentSessionId, BigInt(1), Map.empty)
+  def emptySnapshot = new ChangeSet(Map.empty)
 
   def get = changeSet
 
@@ -106,19 +112,22 @@ trait SnapshotStateUpdater extends Urls with Logging with Hashing {
 //    }
 //  }
 
-  def serialize(changeSet: ChangeSet, pdus: Seq[DB.RRDPObject]) = snapshotXml(
-    changeSet.sessionId,
-    changeSet.serial,
-    pdus.map { e =>
-      val (base64, hash, uri) = e
-      <publish uri={uri.toString} hash={hash.hash}>
-        {base64.value}
-      </publish>
-    }
-  )
+  def serialize(changeSet: ChangeSet, pdus: Seq[DB.RRDPObject]) = {
+    val ServerState(sessionId, serial) = changeSet.get
+    snapshotXml(
+      sessionId,
+      serial,
+      pdus.map { e =>
+        val (base64, hash, uri) = e
+        <publish uri={uri.toString} hash={hash.hash}>
+          {base64.value}
+        </publish>
+      }
+    )
+  }
 
-  private def snapshotXml(sessionId: UUID, serial: BigInt, pdus: => Iterable[Node]): Elem =
-    <snapshot xmlns="HTTP://www.ripe.net/rpki/rrdp" version="1" session_id={sessionId.toString} serial={serial.toString()}>
+  private def snapshotXml(sessionId: String, serial: BigInt, pdus: => Iterable[Node]): Elem =
+    <snapshot xmlns="HTTP://www.ripe.net/rpki/rrdp" version="1" session_id={sessionId} serial={serial.toString()}>
       {pdus}
     </snapshot>
 

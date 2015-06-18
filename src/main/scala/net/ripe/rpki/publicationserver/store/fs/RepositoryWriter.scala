@@ -2,23 +2,23 @@ package net.ripe.rpki.publicationserver.store.fs
 
 import java.io.{File, FileWriter}
 import java.nio.file._
-import java.util.UUID
 
 import net.ripe.rpki.publicationserver._
+import net.ripe.rpki.publicationserver.store.DB.ServerState
 
 import scala.util.{Failure, Try}
-import scala.xml.Elem
 
 class RepositoryWriter extends Logging {
 
   def writeNewState(rootDir: String, newSnapshot: ChangeSet, newNotification: Notification, snapshotXml: String) = {
+    val ServerState(sessionId, serial) = newSnapshot.get
     Try {
       writeSnapshot(rootDir, newSnapshot, snapshotXml)
       try {
         if (newSnapshot.deltas.nonEmpty) {
           newSnapshot.latestDelta match {
             case None =>
-              val message = s"Could not find the latest delta, sessionId=${newSnapshot.sessionId}, serial=${newSnapshot.serial}"
+              val message = s"Could not find the latest delta, sessionId=${sessionId}, serial=${serial}"
               logger.error(message)
               throw new IllegalStateException(message)
             case Some(delta) =>
@@ -49,12 +49,13 @@ class RepositoryWriter extends Logging {
   }
 
   def writeSnapshot(rootDir: String, snapshot: ChangeSet, snapshotXml: String) = {
-    val stateDir = getStateDir(rootDir, snapshot.sessionId, snapshot.serial)
+    val ServerState(sessionId, serial) = snapshot.get
+    val stateDir = getStateDir(rootDir, sessionId, serial)
     writeFile(snapshotXml, new File(stateDir, "snapshot.xml"))
   }
 
   def writeDelta(rootDir: String, delta: Delta) = {
-    val stateDir = getStateDir(rootDir, delta.sessionId, delta.serial)
+    val stateDir = getStateDir(rootDir, delta.sessionId.toString, delta.serial)
     writeFile(delta.serialize.mkString, new File(stateDir, "delta.xml"))
   }
 
@@ -81,9 +82,9 @@ class RepositoryWriter extends Logging {
     root
   }
 
-  private def getStateDir(rootDir: String, sessionId: UUID, serial: BigInt): File = {
+  private def getStateDir(rootDir: String, sessionId: String, serial: Long): File = {
     val root = getRootFolder(rootDir)
-    dir(dir(root, sessionId.toString), serial.toString())
+    dir(dir(root, sessionId), serial.toString())
   }
 
   private def dir(d: File, name: String) = {
@@ -93,8 +94,9 @@ class RepositoryWriter extends Logging {
   }
 
   def deleteSessionFile(rootDir: String, snapshot: ChangeSet, name: String) = {
-    val sessionDir = new File(new File(rootDir), snapshot.sessionId.toString)
-    val serialDir = new File(sessionDir, snapshot.serial.toString)
+    val ServerState(sessionId, serial) = snapshot.get
+    val sessionDir = new File(new File(rootDir), sessionId)
+    val serialDir = new File(sessionDir, serial.toString)
     del(new File(serialDir, "snapshot.xml"))
   }
 
