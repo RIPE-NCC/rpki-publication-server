@@ -4,63 +4,51 @@ import java.net.URI
 import java.nio.file.{Paths, Path}
 import java.util.UUID
 
+import net.ripe.rpki.publicationserver.store.DB.ServerState
 import net.ripe.rpki.publicationserver.store.{ObjectStore, ClientId}
 import net.ripe.rpki.publicationserver.store.fs.RepositoryWriter
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 
-class RepositoryStateSpec extends PublicationServerBaseSpec with Urls {
+class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
 
-  private var sessionId: UUID = _
+  private var sessionId: String = _
 
   private var emptySnapshot: ChangeSet = _
   
   before {
-    sessionId = UUID.randomUUID
-    emptySnapshot = new ChangeSet(sessionId, BigInt(1), Map.empty)
-  }
-  
-  test("should serialize a SnapshotState to proper xml") {
-    val pdus: Map[URI, (Base64, Hash)] = Map(new URI("rsync://bla") -> (Base64.apply("321"), Hash("123")))
-    val state = new ChangeSet(sessionId, BigInt(123), Map.empty)
-
-//    val xml = state.serialize.mkString
-//
-//    trim(xml) should be(trim(s"""<snapshot version="1" session_id="${sessionId.toString}" serial="123" xmlns="HTTP://www.ripe.net/rpki/rrdp">
-//                                  <publish uri="rsync://bla" hash="123">321</publish>
-//                                </snapshot>"""))
+    sessionId = "1234ab"
+    emptySnapshot = new ChangeSet(Map.empty)
   }
 
   test("should add an object with publish") {
-    val s = emptySnapshot.next(Seq(PublishQ(uri = new URI("rsync://host/zzz.cer"), tag = None, hash = None, base64 = Base64("aaaa="))))
-    s.serial should be(BigInt(2))
-    s.sessionId should be(sessionId)
+    val serial = 123L
+    val serverState = ServerState(sessionId, serial)
+    val s = emptySnapshot.next(serverState, Seq(PublishQ(uri = new URI("rsync://host/zzz.cer"), tag = None, hash = None, base64 = Base64("aaaa="))))
     s.deltas should be(Map(
       BigInt(2) -> Delta(
         sessionId,
-        BigInt(2),
+        serial,
         Seq(PublishQ(uri = new URI("rsync://host/zzz.cer"), tag = None, hash = None, base64 = Base64("aaaa=")))
       )
     ))
   }
 
   test("should update an object with publish and republish") {
-    val snapshot = new ChangeSet(
-      sessionId,
-      BigInt(1),
-      Map.empty)
+    val snapshot = new ChangeSet(Map.empty)
+    val serial = 123L
+    val serverState = ServerState(sessionId, serial)
+    val s = SnapshotState.updateWith(
+      serverState,
+      Seq(PublishQ(uri = new URI("rsync://host/zzz.cer"),
+        tag = None,
+        hash = Some("BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7"),
+        base64 = Base64("cccc="))))
 
-    val s = snapshot.next(Seq(PublishQ(uri = new URI("rsync://host/zzz.cer"),
-      tag = None,
-      hash = Some("BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7"),
-      base64 = Base64("cccc="))))
-
-    s.serial should be(BigInt(2))
-    s.sessionId should be(sessionId)
     s.deltas should be(Map(
       BigInt(2) -> Delta(
         sessionId,
-        BigInt(2),
+        serial,
         Seq(PublishQ(uri = new URI("rsync://host/zzz.cer"),
           tag = None,
           hash = Some("BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7"),
@@ -69,7 +57,7 @@ class RepositoryStateSpec extends PublicationServerBaseSpec with Urls {
     ))
   }
 
-  test("should fail to update an object which is not in the snashot") {
+  test("should fail to update an object which is not in the snapshot") {
     val snapshot = new ChangeSet(
       sessionId,
       BigInt(1),

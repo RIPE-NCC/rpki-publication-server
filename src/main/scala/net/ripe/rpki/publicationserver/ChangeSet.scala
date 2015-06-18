@@ -1,7 +1,6 @@
 package net.ripe.rpki.publicationserver
 
 import java.net.URI
-import java.util.UUID
 
 import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver.store.DB.{DBType, ServerState}
@@ -15,14 +14,14 @@ case class ChangeSet(deltas: Map[Long, Delta]) extends Hashing {
 
   def next(newServerState: ServerState, queries: Seq[QueryPdu]): ChangeSet = {
     val ServerState(sessionId, newSerial) = newServerState
-    val newDeltas = deltas + (newSerial -> Delta(UUID.fromString(sessionId), newSerial, queries))
+    val newDeltas = deltas + (newSerial -> Delta(sessionId, newSerial, queries))
     ChangeSet(newDeltas)
   }
 
   def latestDelta(serial: Long) = deltas.get(serial)
 }
 
-case class Delta(sessionId: UUID, serial: Long, pdus: Seq[QueryPdu]) extends Hashing {
+case class Delta(sessionId: String, serial: Long, pdus: Seq[QueryPdu]) extends Hashing {
 
   def serialize = deltaXml(
     sessionId,
@@ -38,10 +37,33 @@ case class Delta(sessionId: UUID, serial: Long, pdus: Seq[QueryPdu]) extends Has
     }
   )
 
-  private def deltaXml(sessionId: UUID, serial: BigInt, pdus: => Iterable[Node]): Elem =
-    <delta xmlns="HTTP://www.ripe.net/rpki/rrdp" version="1" session_id={sessionId.toString} serial={serial.toString()}>
+  private def deltaXml(sessionId: String, serial: BigInt, pdus: => Iterable[Node]): Elem =
+    <delta xmlns="HTTP://www.ripe.net/rpki/rrdp" version="1" session_id={sessionId} serial={serial.toString()}>
       {pdus}
     </delta>
+
+}
+
+case class Snapshot(serverState: ServerState, pdus: Seq[DB.RRDPObject]) {
+  
+  def serialize = {
+    val ServerState(sessionId, serial) = serverState
+    snapshotXml(
+      sessionId,
+      serial,
+      pdus.map { e =>
+        val (base64, hash, uri) = e
+        <publish uri={uri.toString} hash={hash.hash}>
+          {base64.value}
+        </publish>
+      }
+    )
+  }.mkString
+  
+  private def snapshotXml(sessionId: String, serial: BigInt, pdus: => Iterable[Node]): Elem =
+    <snapshot xmlns="HTTP://www.ripe.net/rpki/rrdp" version="1" session_id={sessionId} serial={serial.toString()}>
+      {pdus}
+    </snapshot>
 
 }
 
@@ -92,7 +114,7 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
     persistForClient(clientId, queries, newServerState) { replies : Seq[ReplyPdu] =>
       serverStateStore.update(newServerState)
       val pdus = objectStore.listAll
-      val snapshotXml = serialize(newServerState, pdus).mkString
+      val snapshotXml = Snapshot(newServerState, pdus).serialize
 //      val newNotification = Notification.create(snapshotXml, newServerState, deltas)
       val deltas = null
       val newNotification = null
@@ -107,27 +129,6 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
       }
     }
   }
-
-
-  def serialize(serverState: ServerState, pdus: Seq[DB.RRDPObject]) = {
-    val ServerState(sessionId, serial) = serverState
-    snapshotXml(
-      sessionId,
-      serial,
-      pdus.map { e =>
-        val (base64, hash, uri) = e
-        <publish uri={uri.toString} hash={hash.hash}>
-          {base64.value}
-        </publish>
-      }
-    )
-  }
-
-
-  private def snapshotXml(sessionId: String, serial: BigInt, pdus: => Iterable[Node]): Elem =
-    <snapshot xmlns="HTTP://www.ripe.net/rpki/rrdp" version="1" session_id={sessionId} serial={serial.toString()}>
-      {pdus}
-    </snapshot>
 
   /*
    * TODO Check if the client doesn't try to modify objects that belong to other client
