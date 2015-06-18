@@ -48,7 +48,7 @@ object DB {
     def next = ServerState(sessionId, serialNumber + 1)
   }
 
-  class ServerStates(tag: Tag) extends Table[ServerState](tag, "META_DATA") {
+  class ServerStates(tag: Tag) extends Table[ServerState](tag, "SERVER_STATES") {
     def sessionId = column[String]("SESSION_ID", O.PrimaryKey)
     def serialNumber = column[Long]("SERIAL_NUMBER")
 

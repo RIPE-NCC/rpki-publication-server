@@ -16,7 +16,7 @@ class RepositoryWriter extends Logging {
       writeSnapshot(rootDir, serverState, snapshotXml)
       try {
         if (newSnapshot.deltas.nonEmpty) {
-          newSnapshot.latestDelta match {
+          newSnapshot.latestDelta(serial) match {
             case None =>
               val message = s"Could not find the latest delta, sessionId=${sessionId}, serial=${serial}"
               logger.error(message)

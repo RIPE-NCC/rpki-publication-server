@@ -12,20 +12,15 @@ import scala.util.{Failure, Success}
 import scala.xml.{Elem, Node}
 
 case class ChangeSet(deltas: Map[Long, Delta]) extends Hashing {
-  val objectStore = new ServerStateStore(DB.inMemory)
 
-  def next(queries: Seq[QueryPdu]): ChangeSet = {
-    val ServerState(sessionId, oldSerial) = objectStore.get
-    val newSerial = oldSerial + 1
-    objectStore.update(ServerState(sessionId, newSerial))
+  def next(newServerState: ServerState, queries: Seq[QueryPdu]): ChangeSet = {
+    val ServerState(sessionId, newSerial) = newServerState
     val newDeltas = deltas + (newSerial -> Delta(UUID.fromString(sessionId), newSerial, queries))
     ChangeSet(newDeltas)
   }
 
-  def latestDelta = {
-    val ServerState(_, serial) = objectStore.get
-    deltas.get(serial)
-  }
+  def latestDelta(serial: Long) = deltas.get(serial)
+
 }
 
 case class Delta(sessionId: UUID, serial: Long, pdus: Seq[QueryPdu]) extends Hashing {
