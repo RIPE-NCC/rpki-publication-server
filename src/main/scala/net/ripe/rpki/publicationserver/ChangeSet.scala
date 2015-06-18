@@ -20,7 +20,6 @@ case class ChangeSet(deltas: Map[Long, Delta]) extends Hashing {
   }
 
   def latestDelta(serial: Long) = deltas.get(serial)
-
 }
 
 case class Delta(sessionId: UUID, serial: Long, pdus: Seq[QueryPdu]) extends Hashing {
@@ -49,7 +48,7 @@ case class Delta(sessionId: UUID, serial: Long, pdus: Seq[QueryPdu]) extends Has
 /**
  * Holds the global snapshot state
  */
-object ChangeSet extends SnapshotStateUpdater {
+object SnapshotState extends SnapshotStateUpdater {
 
   type SnapshotMap = Map[URI, (Base64, Hash)]
 
