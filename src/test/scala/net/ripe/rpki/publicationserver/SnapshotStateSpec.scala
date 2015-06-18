@@ -128,7 +128,7 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
     val snapshotStateService = new SnapshotStateService {
       override val repositoryWriter = repositoryWriterSpy
       override val notificationState = notificationStateSpy
-      override val db = DB.onFS // TODO
+      override val db = DB.inMemory
     }
 
     val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
@@ -154,7 +154,7 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
     val snapshotStateService = new SnapshotStateService {
       override val repositoryWriter = repositoryWriterSpy
       override val notificationState = notificationStateSpy
-      override val db = DB.onFS // TODO
+      override val db = DB.inMemory
     }
 
     val withdraw = WithdrawQ(new URI("rsync://host/zzz.cer"), None, "BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7")
@@ -173,7 +173,7 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
     val snapshotStateService = new SnapshotStateService {
       override val repositoryWriter = repositoryWriterSpy
       override val notificationState = notificationStateSpy
-      override val db = DB.onFS // TODO
+      override val db = DB.inMemory
     }
 
     val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
@@ -193,7 +193,7 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
     val snapshotStateUpdater = new SnapshotStateService {
       override val repositoryWriter = repositoryWriterSpy
       override val notificationState = notificationStateSpy
-      override val db = DB.onFS // TODO
+      override val db = DB.inMemory
     }
 
     val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
@@ -216,7 +216,7 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
     val snapshotStateService = new SnapshotStateService {
       override val repositoryWriter = repositoryWriterSpy
       override val notificationState = notificationStateSpy
-      override val db = DB.onFS // TODO
+      override val db = DB.inMemory
     }
 
     val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
