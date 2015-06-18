@@ -12,9 +12,10 @@ object Migrations {
 
   // Migrations are to be added here together
   // with their indexes
-  private val migrations = Map(
-    1 -> DBIO.seq {objects.schema.create},
-    2 -> DBIO.seq {objects.schema.create}
+
+  private val migrations = Map (
+    1 -> DBIO.seq(objects.schema.create),
+    2 -> DBIO.seq(deltas.schema.create)
   )
 
   def migrate(db: Database) = synchronized {

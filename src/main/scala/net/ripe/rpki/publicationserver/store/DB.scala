@@ -15,10 +15,6 @@ trait RepoObjectDB {
   def list(clientId: ClientId): Seq[RRDPObject]
   def listAll: Seq[RRDPObject]
 
-  def publish(clientId: ClientId, obj: RRDPObject): Unit
-
-  def withdraw(clientId: ClientId, hash: Hash): Unit
-
   def clear(): Unit
 }
 
@@ -34,6 +30,11 @@ object DB {
 
   type RRDPObject = (Base64, Hash, URI)
 
+  type DBType = Database
+
+  def inMemory = Database.forConfig("h2mem1")
+  def onFS     = Database.forConfig("h2fs")
+
   class RepoObject(tag: Tag) extends Table[(String, String, String, String)](tag, "REPO_OBJECTS") {
     def uri = column[String]("URI", O.PrimaryKey)
     def hash = column[String]("HASH")
@@ -43,7 +44,9 @@ object DB {
     def * = (base64, hash, uri, clientId)
   }
 
-  case class ServerState(sessionId: String, serialNumber: Long)
+  case class ServerState(sessionId: String, serialNumber: Long) {
+    def next = ServerState(sessionId, serialNumber + 1)
+  }
 
   class ServerStates(tag: Tag) extends Table[ServerState](tag, "META_DATA") {
     def sessionId = column[String]("SESSION_ID", O.PrimaryKey)
@@ -52,9 +55,24 @@ object DB {
     def * = (sessionId, serialNumber) <> (ServerState.tupled, ServerState.unapply)
   }
 
+  class Deltas(tag: Tag) extends Table[(String, String, String, String, Long, Char)](tag, "DELTAS") {
+    def uri = column[String]("URI")
+    def hash = column[String]("HASH")
+    def base64 = column[String]("BASE64")
+    def clientId = column[String]("CLIENT_ID")
+    def serial = column[Long]("SERIAL")
+    def changeType = column[Char]("CHANGE_TYPE")
+
+    def pk = primaryKey("pk_a", (uri, serial, changeType))
+    def * = (base64, hash, uri, clientId, serial, changeType)
+  }
+
+
   val objects = TableQuery[RepoObject]
 
   val serverStates = TableQuery[ServerStates]
+
+  val deltas = TableQuery[Deltas]
 
   def tableExists(db: Database, name: String) = {
     Await.result(db.run(MTable.getTables), 1.seconds).exists(_.name.name == name)
