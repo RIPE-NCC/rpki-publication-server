@@ -1,12 +1,14 @@
 package net.ripe.rpki.publicationserver
 
+import java.net.URI
+
 import net.ripe.rpki.publicationserver.store.DB.ServerState
 
 class SnapshotSpec extends PublicationServerBaseSpec {
 
   test("should serialize to proper xml") {
     val sessionId = "1234ab"
-    val state = Snapshot(ServerState(sessionId, 123L), Seq.empty)
+    val state = Snapshot(ServerState(sessionId, 123L), Seq((Base64("321"), Hash("123"), new URI("rsync://bla"))))
 
     val xml = state.serialize.mkString
 
