@@ -55,7 +55,7 @@ object DB {
     def * = (sessionId, serialNumber) <> (ServerState.tupled, ServerState.unapply)
   }
 
-  class Deltas(tag: Tag) extends Table[(String, String, String, String, Long, Char)](tag, "DELTAS") {
+  class DeltaPdu(tag: Tag) extends Table[(String, String, String, String, Long, Char)](tag, "DELTAS") {
     def uri = column[String]("URI")
     def hash = column[String]("HASH")
     def base64 = column[String]("BASE64")
@@ -72,9 +72,19 @@ object DB {
 
   val serverStates = TableQuery[ServerStates]
 
-  val deltas = TableQuery[Deltas]
+  val deltas = TableQuery[DeltaPdu]
 
   def tableExists(db: Database, name: String) = {
     Await.result(db.run(MTable.getTables), 1.seconds).exists(_.name.name == name)
   }
+
+  def liftDB[T](f: => T) = try {
+    val x = f // force value calculation
+    DBIO.successful(x)
+  }
+  catch {
+    case e: Exception => DBIO.failed(e)
+  }
+
+
 }

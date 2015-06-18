@@ -38,27 +38,6 @@ class ObjectStore(db: DB.DBType) extends RepoObjectDB with Hashing {
   def find(uri: URI): Option[RRDPObject] =
     getSeq(objects.filter(_.uri === uri.toString)).headOption
 
-
-  def addDelta(clientId: ClientId, serial: BigInt, qPdu: QueryPdu) = {
-    val ClientId(cId) = clientId
-    qPdu match {
-      case PublishQ(u, tag, Some(h), b64) =>
-        deltas += ((u.toString, h, b64.value, cId, serial.toLong, 'P'))
-      case PublishQ(u, tag, None, b64) =>
-        deltas += ((u.toString, hash(b64).hash, b64.value, cId, serial.toLong, 'P'))
-      case WithdrawQ(u, tag, h) =>
-        deltas += ((u.toString, h, "", cId, serial.toLong, 'W'))
-    }
-  }
-
-  def liftDB[T](f: => T) = try {
-    val x = f // force value calculation
-    DBIO.successful(x)
-  }
-  catch {
-    case e: Exception => DBIO.failed(e)
-  }
-
   def atomic[E <: Effect, T](actions: Seq[DBIOAction[_, NoStream, E]], f: => T) : T =
     Await.result(db.run {
       (for {

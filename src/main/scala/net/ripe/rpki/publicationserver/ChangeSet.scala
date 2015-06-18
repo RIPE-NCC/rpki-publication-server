@@ -138,7 +138,7 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
           case None =>
             Right((PublishR(uri, tag),
               objectStore.insertAction(clientId, (base64, hash(base64), uri)),
-              objectStore.addDelta(clientId, serverState.serialNumber, pq)))
+              pq))
         }
       case pq@PublishQ(uri, tag, Some(sHash), base64) =>
         objectStore.find(uri) match {
@@ -147,7 +147,7 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
             if (Hash(sHash) == h) {
               Right((PublishR(uri, tag),
                 objectStore.updateAction(clientId, (base64, h, uri)),
-                objectStore.addDelta(clientId, serverState.serialNumber, pq)))
+                pq))
             }
             else {
               Left(ReportError(BaseError.NonMatchingHash, Some(s"Cannot republish the object [$uri], hash doesn't match")))
@@ -163,7 +163,7 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
             if (Hash(sHash) == h)
               Right((WithdrawR(uri, tag),
                 objectStore.deleteAction(clientId, h),
-                objectStore.addDelta(clientId, serverState.serialNumber, wq)))
+                wq))
             else {
               Left(ReportError(BaseError.NonMatchingHash, Some(s"Cannot withdraw the object [$uri], hash doesn't match.")))
             }
@@ -180,9 +180,9 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
       lazy val replies = result.collect {
         case Right((reply, _, _)) => reply
       }
-      val actions = result.collect {
-        case Right((_, action, deltaAction)) => Seq(action, deltaAction)
-      }.flatten
+      val actions = result.collect { case Right((_, action, _)) => action }
+      val validPdus = result.collect { case Right((_, _, qPdu)) => qPdu }
+      deltaStore.addDelta(clientId, Delta(sessionId.toString, serverState.serialNumber, validPdus))
       try {
         val transactionReplies = objectStore.atomic(actions, f(replies))
         replies ++ transactionReplies

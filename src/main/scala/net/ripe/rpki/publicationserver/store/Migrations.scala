@@ -15,7 +15,8 @@ object Migrations {
 
   private val migrations = Map (
     1 -> DBIO.seq(objects.schema.create),
-    2 -> DBIO.seq(deltas.schema.create)
+    2 -> DBIO.seq(deltas.schema.create),
+    3 -> DBIO.seq(serverStates.schema.create)
   )
 
   def migrate(db: Database) = synchronized {
