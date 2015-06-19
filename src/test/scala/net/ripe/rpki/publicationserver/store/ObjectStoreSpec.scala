@@ -15,7 +15,6 @@ class ObjectStoreSpec extends PublicationServerBaseSpec {
   val objectStore = new ObjectStore
 
   before {
-    Migrations.migrate
     objectStore.clear()
   }
 

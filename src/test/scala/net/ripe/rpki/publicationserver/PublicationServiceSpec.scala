@@ -27,7 +27,7 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
   }
 
   test("should return a response with content-type application/rpki-publication") {
-    POST("/", getFile("/publish.xml")) ~> publicationService.publicationRoutes ~> check {
+    POST("/?clientId=1234", getFile("/publish.xml")) ~> publicationService.publicationRoutes ~> check {
       contentType.toString() should include("application/rpki-publication")
     }
   }
@@ -43,7 +43,7 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
     val withdrawXml = getFile("/withdraw.xml")
     val contentType = HttpHeaders.`Content-Type`(MediaType.custom("application/rpki-publication"))
 
-    HttpRequest(HttpMethods.POST, "/", List(contentType), withdrawXml.mkString) ~> service.publicationRoutes ~> check {
+    HttpRequest(HttpMethods.POST, "/?clientId=1234", List(contentType), withdrawXml.mkString) ~> service.publicationRoutes ~> check {
       verify(logSpy).warn("Request contained 1 PDU(s) with errors:")
       verify(logSpy).info("No object [rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer] found.")
     }
@@ -59,7 +59,7 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
     val publishXml = getFile("/publish.xml")
     val contentType = HttpHeaders.`Content-Type`(ContentType(MediaTypes.`application/xml`))
 
-    HttpRequest(HttpMethods.POST, "/", List(contentType), publishXml.mkString) ~> service.publicationRoutes ~> check {
+    HttpRequest(HttpMethods.POST, "/?clientId=1234", List(contentType), publishXml.mkString) ~> service.publicationRoutes ~> check {
       verify(logSpy).warn("Request uses wrong media type: {}", "application/xml")
     }
   }
@@ -68,7 +68,7 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
     val publishXml = getFile("/publish.xml")
     val publishXmlResponse = getFile("/publishResponse.xml")
 
-    POST("/", publishXml) ~> publicationService.publicationRoutes ~> check {
+    POST("/?clientId=1234", publishXml) ~> publicationService.publicationRoutes ~> check {
       val response = responseAs[String]
       trim(response) should be(trim(publishXmlResponse.mkString))
     }
@@ -78,7 +78,7 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
     val publishXml = getFile("/publishWithTag.xml")
     val publishXmlResponse = getFile("/publishWithTagResponse.xml")
 
-    POST("/", publishXml) ~> publicationService.publicationRoutes ~> check {
+    POST("/?clientId=1234", publishXml) ~> publicationService.publicationRoutes ~> check {
       val response = responseAs[String]
       trim(response) should be(trim(publishXmlResponse.mkString))
     }
@@ -92,7 +92,7 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
     val withdrawXml = getFile("/withdraw.xml")
     val withdrawXmlResponse = getFile("/withdrawResponse.xml")
 
-    POST("/", withdrawXml) ~> publicationService.publicationRoutes ~> check {
+    POST("/?clientId=1234", withdrawXml) ~> publicationService.publicationRoutes ~> check {
       val response = responseAs[String]
       trim(response) should be(trim(withdrawXmlResponse.mkString))
     }
@@ -106,7 +106,7 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
     val withdrawXml = getFile("/withdrawWithTag.xml")
     val withdrawXmlResponse = getFile("/withdrawWithTagResponse.xml")
 
-    POST("/", withdrawXml) ~> publicationService.publicationRoutes ~> check {
+    POST("/?clientId=1234", withdrawXml) ~> publicationService.publicationRoutes ~> check {
       val response = responseAs[String]
       trim(response) should be(trim(withdrawXmlResponse.mkString))
     }
@@ -116,34 +116,34 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
     val invalidPublishXml = getFile("/publishResponse.xml")
     val publishError = getFile("/errorResponse.xml")
 
-    POST("/", invalidPublishXml) ~> publicationService.publicationRoutes ~> check {
+    POST("/?clientId=1234", invalidPublishXml) ~> publicationService.publicationRoutes ~> check {
       val response = responseAs[String]
       trim(response) should be(trim(publishError.mkString))
     }
   }
 
   test("should return a list response for list request") {
-    POST("/", getFile("/publish.xml")) ~> publicationService.publicationRoutes ~> check {
+    POST("/?clientId=1234", getFile("/publish.xml")) ~> publicationService.publicationRoutes ~> check {
       response.status.isSuccess should be(true)
     }
 
     val listXml = getFile("/list.xml")
     val listXmlResponse = getFile("/listResponse.xml")
-    POST("/", listXml) ~> publicationService.publicationRoutes ~> check {
+    POST("/?clientId=1234", listXml) ~> publicationService.publicationRoutes ~> check {
       val response = responseAs[String]
       trim(response) should be(trim(listXmlResponse.mkString))
     }
   }
 
   test("should execute list query even if <list/> doesn't go first") {
-    POST("/", getFile("/publish.xml")) ~> publicationService.publicationRoutes ~> check {
+    POST("/?clientId=1234", getFile("/publish.xml")) ~> publicationService.publicationRoutes ~> check {
       response.status.isSuccess should be(true)
     }
 
     val publishXml = getFile("/dubiousListRequest.xml")
     val listXmlResponse = getFile("/listResponse.xml")
 
-    POST("/", publishXml) ~> publicationService.publicationRoutes ~> check {
+    POST("/?clientId=1234", publishXml) ~> publicationService.publicationRoutes ~> check {
       val response = responseAs[String]
       trim(response) should be(trim(listXmlResponse.mkString))
     }

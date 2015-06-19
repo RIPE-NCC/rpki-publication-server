@@ -8,10 +8,6 @@ class DeltaStoreTest extends PublicationServerBaseSpec {
 
   val deltaStore = new DeltaStore
 
-  before {
-    Migrations.migrate
-  }
-
   test("should be cool") {
     deltaStore.initCache(UUID.randomUUID())
     deltaStore.getDeltas should have size 0
