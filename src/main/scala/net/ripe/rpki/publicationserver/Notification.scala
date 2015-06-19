@@ -4,6 +4,7 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
 
 import com.softwaremill.macwire.MacwireMacros._
+import net.ripe.rpki.publicationserver.model.Delta
 import net.ripe.rpki.publicationserver.store.DB.ServerState
 
 import scala.annotation.tailrec

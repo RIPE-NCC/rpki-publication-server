@@ -2,6 +2,7 @@ package net.ripe.rpki.publicationserver.store
 
 import java.net.URI
 
+import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.{Base64, Hash, PublicationServerBaseSpec}
 import slick.driver.H2Driver
 

@@ -4,6 +4,7 @@ import java.io.{File, FileWriter}
 import java.nio.file._
 
 import net.ripe.rpki.publicationserver._
+import net.ripe.rpki.publicationserver.model.Delta
 import net.ripe.rpki.publicationserver.store.DB.ServerState
 
 import scala.util.{Failure, Try}

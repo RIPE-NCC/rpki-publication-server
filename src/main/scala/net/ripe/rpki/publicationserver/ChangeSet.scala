@@ -1,12 +1,12 @@
 package net.ripe.rpki.publicationserver
 
 import com.softwaremill.macwire.MacwireMacros._
+import net.ripe.rpki.publicationserver.model.{ClientId, Delta, Snapshot}
 import net.ripe.rpki.publicationserver.store.DB.ServerState
 import net.ripe.rpki.publicationserver.store._
 import net.ripe.rpki.publicationserver.store.fs.RepositoryWriter
 
 import scala.util.{Failure, Success}
-import scala.xml.{Elem, Node}
 
 case class ChangeSet(deltas: Map[Long, Delta]) extends Hashing {
 
@@ -17,52 +17,6 @@ case class ChangeSet(deltas: Map[Long, Delta]) extends Hashing {
   }
 
   def latestDelta(serial: Long) = deltas.get(serial)
-}
-
-case class Delta(sessionId: String, serial: Long, pdus: Seq[QueryPdu]) extends Hashing {
-
-  def serialize = deltaXml(
-    sessionId,
-    serial,
-    pdus.map {
-      case PublishQ(uri, _, None, base64) => <publish uri={uri.toString}>
-        {base64.value}
-      </publish>
-      case PublishQ(uri, _, Some(hash), base64) => <publish uri={uri.toString} hash={hash}>
-        {base64.value}
-      </publish>
-      case WithdrawQ(uri, _, hash) => <withdraw uri={uri.toString} hash={hash}/>
-    }
-  )
-
-  private def deltaXml(sessionId: String, serial: BigInt, pdus: => Iterable[Node]): Elem =
-    <delta xmlns="HTTP://www.ripe.net/rpki/rrdp" version="1" session_id={sessionId} serial={serial.toString()}>
-      {pdus}
-    </delta>
-
-}
-
-case class Snapshot(serverState: ServerState, pdus: Seq[DB.RRDPObject]) {
-  
-  def serialize = {
-    val ServerState(sessionId, serial) = serverState
-    snapshotXml(
-      sessionId,
-      serial,
-      pdus.map { e =>
-        val (base64, hash, uri) = e
-        <publish uri={uri.toString} hash={hash.hash}>
-          {base64.value}
-        </publish>
-      }
-    )
-  }.mkString
-  
-  private def snapshotXml(sessionId: String, serial: BigInt, pdus: => Iterable[Node]): Elem =
-    <snapshot xmlns="HTTP://www.ripe.net/rpki/rrdp" version="1" session_id={sessionId} serial={serial.toString()}>
-      {pdus}
-    </snapshot>
-
 }
 
 /**

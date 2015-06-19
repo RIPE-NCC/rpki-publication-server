@@ -5,19 +5,19 @@ import slick.driver.H2Driver.api._
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
-class ServerStateStore extends ServerStateDB {
+class ServerStateStore {
 
   import DB._
 
   val db = DB.db
 
-  override def get: ServerState = {
+  def get: ServerState = {
     val selectFirst = serverStates.take(1).result
     val f = db.run(selectFirst)
     Await.result(f, Duration.Inf).head
   }
 
-  override def update(serverState: ServerState): Unit = {
+  def update(serverState: ServerState): Unit = {
     val update = serverStates.update(serverState)
     val f = db.run(update)
     Await.result(f, Duration.Inf)

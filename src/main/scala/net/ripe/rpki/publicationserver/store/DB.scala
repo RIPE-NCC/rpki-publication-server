@@ -2,27 +2,13 @@ package net.ripe.rpki.publicationserver.store
 
 import java.net.URI
 
+import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store.DB.{ServerState, RRDPObject}
 import net.ripe.rpki.publicationserver.{Base64, Hash}
 import slick.jdbc.meta.MTable
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
-
-case class ClientId(value: String)
-
-trait RepoObjectDB {
-  def list(clientId: ClientId): Seq[RRDPObject]
-  def listAll: Seq[RRDPObject]
-
-  def clear(): Unit
-}
-
-trait ServerStateDB {
-  def get: ServerState
-
-  def update(serverState: ServerState): Unit
-}
 
 object DBConfig {
   var useMemoryDatabase = false

@@ -5,7 +5,7 @@ import java.util.concurrent.Executors
 
 import akka.actor.Actor
 import com.softwaremill.macwire.MacwireMacros._
-import net.ripe.rpki.publicationserver.store.ClientId
+import net.ripe.rpki.publicationserver.model.ClientId
 import org.slf4j.LoggerFactory
 import spray.http.HttpHeaders.{`Cache-Control`, `Content-Type`}
 import spray.http.MediaTypes._

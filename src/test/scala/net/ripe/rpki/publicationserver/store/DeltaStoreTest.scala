@@ -2,6 +2,7 @@ package net.ripe.rpki.publicationserver.store
 
 import java.util.UUID
 
+import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.{Delta, PublicationServerBaseSpec}
 
 class DeltaStoreTest extends PublicationServerBaseSpec {

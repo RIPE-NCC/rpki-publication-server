@@ -3,24 +3,25 @@ package net.ripe.rpki.publicationserver.store
 import java.net.URI
 
 import net.ripe.rpki.publicationserver._
+import net.ripe.rpki.publicationserver.model.ClientId
 import slick.driver.H2Driver.api._
 
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 
-class ObjectStore extends RepoObjectDB with Hashing {
+class ObjectStore extends Hashing {
 
   import DB._
 
   val db = DB.db
 
-  override def list(cliendId: ClientId): Seq[RRDPObject] = {
+  def list(cliendId: ClientId): Seq[RRDPObject] = {
     val ClientId(cId) = cliendId
     getSeq(objects.filter(_.clientId === cId))
   }
 
-  override def listAll: Seq[RRDPObject] = getSeq(objects)
+  def listAll: Seq[RRDPObject] = getSeq(objects)
 
   def insertAction(clientId: ClientId, obj: RRDPObject) = {
     val (base64, hash, uri) = obj
