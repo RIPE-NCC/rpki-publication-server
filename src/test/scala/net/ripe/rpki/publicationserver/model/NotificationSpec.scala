@@ -1,6 +1,8 @@
-package net.ripe.rpki.publicationserver
+package net.ripe.rpki.publicationserver.model
 
 import java.util.UUID
+
+import net.ripe.rpki.publicationserver.{Hash, PublicationServerBaseSpec}
 
 class NotificationSpec extends PublicationServerBaseSpec {
 

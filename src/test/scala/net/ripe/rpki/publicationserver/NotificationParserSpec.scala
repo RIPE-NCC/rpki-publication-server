@@ -1,5 +1,7 @@
 package net.ripe.rpki.publicationserver
 
+import net.ripe.rpki.publicationserver.model.{Notification, SnapshotLocator}
+
 class NotificationParserSpec extends PublicationServerBaseSpec {
 
   test("should parse valid notification.xml") {

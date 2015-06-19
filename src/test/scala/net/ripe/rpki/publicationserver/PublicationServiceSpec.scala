@@ -1,9 +1,7 @@
 package net.ripe.rpki.publicationserver
 
 import java.net.URI
-import java.util.UUID
 
-import net.ripe.rpki.publicationserver.store.DB
 import org.mockito.Mockito._
 import org.slf4j.Logger
 import spray.http.HttpHeaders.RawHeader

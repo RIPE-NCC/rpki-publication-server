@@ -3,7 +3,7 @@ package net.ripe.rpki.publicationserver
 import java.net.URI
 import java.nio.file.{Path, Paths}
 
-import net.ripe.rpki.publicationserver.model.ClientId
+import net.ripe.rpki.publicationserver.model.{Notification, Urls, Delta, ClientId}
 import net.ripe.rpki.publicationserver.store.DB.ServerState
 import net.ripe.rpki.publicationserver.store.fs.RepositoryWriter
 import org.mockito.Matchers._
@@ -142,8 +142,8 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
     notificationStateSpy.get should not equal notificationStateBefore
   }
 
-  def getNotificationUpdater: NotificationStateUpdater = {
-    val notificationStateUpdater = new NotificationStateUpdater()
+  def getNotificationUpdater: NotificationState = {
+    val notificationStateUpdater = new NotificationState()
     notificationStateUpdater.update(Notification.create("", ServerState(sessionId, serial), emptySnapshot))
     notificationStateUpdater
   }

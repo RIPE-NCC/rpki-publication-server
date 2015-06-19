@@ -1,8 +1,9 @@
-package net.ripe.rpki.publicationserver
+package net.ripe.rpki.publicationserver.model
 
 import java.net.URI
 
 import net.ripe.rpki.publicationserver.store.DB.ServerState
+import net.ripe.rpki.publicationserver.{Base64, Hash, PublicationServerBaseSpec}
 
 class SnapshotSpec extends PublicationServerBaseSpec {
 
