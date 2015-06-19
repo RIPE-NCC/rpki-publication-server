@@ -1,13 +1,15 @@
 package net.ripe.rpki.publicationserver.model
 
+import java.util.UUID
+
 import net.ripe.rpki.publicationserver.{WithdrawQ, PublishQ, Hashing, QueryPdu}
 
 import scala.xml.{Elem, Node}
 
-case class Delta(sessionId: String, serial: Long, pdus: Seq[QueryPdu]) extends Hashing {
+case class Delta(sessionId: UUID, serial: Long, pdus: Seq[QueryPdu]) extends Hashing {
 
   def serialize = deltaXml(
-    sessionId,
+    sessionId.toString,
     serial,
     pdus.map {
       case PublishQ(uri, _, None, base64) => <publish uri={uri.toString}>

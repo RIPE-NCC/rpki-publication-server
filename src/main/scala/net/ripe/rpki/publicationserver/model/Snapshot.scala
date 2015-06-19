@@ -1,7 +1,6 @@
 package net.ripe.rpki.publicationserver.model
 
 import net.ripe.rpki.publicationserver.store.DB
-import net.ripe.rpki.publicationserver.store.DB.ServerState
 
 import scala.xml.{Elem, Node}
 
@@ -10,7 +9,7 @@ case class Snapshot(serverState: ServerState, pdus: Seq[DB.RRDPObject]) {
   def serialize = {
     val ServerState(sessionId, serial) = serverState
     snapshotXml(
-      sessionId,
+      sessionId.toString,
       serial,
       pdus.map { e =>
         val (base64, hash, uri) = e

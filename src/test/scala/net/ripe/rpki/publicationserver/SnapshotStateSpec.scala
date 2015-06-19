@@ -2,9 +2,9 @@ package net.ripe.rpki.publicationserver
 
 import java.net.URI
 import java.nio.file.{Path, Paths}
+import java.util.UUID
 
-import net.ripe.rpki.publicationserver.model.{Notification, Urls, Delta, ClientId}
-import net.ripe.rpki.publicationserver.store.DB.ServerState
+import net.ripe.rpki.publicationserver.model._
 import net.ripe.rpki.publicationserver.store.fs.RepositoryWriter
 import org.mockito.Matchers._
 import org.mockito.Mockito._
@@ -13,13 +13,13 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
 
   private var serial: Long = _
 
-  private var sessionId: String = _
+  private var sessionId: UUID = _
 
   private var emptySnapshot: ChangeSet = _
   
   before {
     serial = 1L
-    sessionId = "1234ab"
+    sessionId = UUID.randomUUID()
     emptySnapshot = new ChangeSet(Map.empty)
     SnapshotState.initializeWith(emptySnapshot)
   }

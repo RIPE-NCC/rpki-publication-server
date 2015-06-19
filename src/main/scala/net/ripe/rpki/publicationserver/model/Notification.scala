@@ -3,7 +3,6 @@ package net.ripe.rpki.publicationserver.model
 import java.util.UUID
 
 import com.softwaremill.macwire.MacwireMacros._
-import net.ripe.rpki.publicationserver.store.DB.ServerState
 import net.ripe.rpki.publicationserver._
 
 import scala.xml.{Node, Elem}
@@ -56,6 +55,6 @@ object Notification extends Hashing with Urls {
       DeltaLocator(d.serial, deltaUrl(d), hash(d.serialize.mkString.getBytes))
     }
     val ServerState(sessionId, serial) = serverState
-    Notification(UUID.fromString(sessionId), serial, snapshotLocator, deltaLocators)
+    Notification(sessionId, serial, snapshotLocator, deltaLocators)
   }
 }

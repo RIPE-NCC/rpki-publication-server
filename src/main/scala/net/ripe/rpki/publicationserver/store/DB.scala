@@ -1,9 +1,9 @@
 package net.ripe.rpki.publicationserver.store
 
 import java.net.URI
+import java.util.UUID
 
-import net.ripe.rpki.publicationserver.model.ClientId
-import net.ripe.rpki.publicationserver.store.DB.{ServerState, RRDPObject}
+import net.ripe.rpki.publicationserver.model.ServerState
 import net.ripe.rpki.publicationserver.{Base64, Hash}
 import slick.jdbc.meta.MTable
 
@@ -33,15 +33,15 @@ object DB {
     def * = (base64, hash, uri, clientId)
   }
 
-  case class ServerState(sessionId: String, serialNumber: Long) {
-    def next = ServerState(sessionId, serialNumber + 1)
-  }
-
   class ServerStates(tag: Tag) extends Table[ServerState](tag, "SERVER_STATES") {
     def sessionId = column[String]("SESSION_ID", O.PrimaryKey)
     def serialNumber = column[Long]("SERIAL_NUMBER")
 
-    def * = (sessionId, serialNumber) <> (ServerState.tupled, ServerState.unapply)
+    def * = (sessionId, serialNumber) <> (mapRow, unMapRow )
+
+    private def mapRow(tuple: (String, Long)) = ServerState(UUID.fromString(tuple._1), tuple._2)
+
+    private def unMapRow(s: ServerState) = Some((s.sessionId.toString, s.serialNumber))
   }
 
   class DeltaPdu(tag: Tag) extends Table[(String, String, String, String, Long, Char)](tag, "DELTAS") {
@@ -55,7 +55,6 @@ object DB {
     def pk = primaryKey("pk_a", (uri, serial, changeType))
     def * = (base64, hash, uri, clientId, serial, changeType)
   }
-
 
   val objects = TableQuery[RepoObject]
 

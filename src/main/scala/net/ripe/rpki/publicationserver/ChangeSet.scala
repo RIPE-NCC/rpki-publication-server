@@ -1,7 +1,6 @@
 package net.ripe.rpki.publicationserver
 
-import net.ripe.rpki.publicationserver.model.Delta
-import net.ripe.rpki.publicationserver.store.DB.ServerState
+import net.ripe.rpki.publicationserver.model.{ServerState, Delta}
 
 case class ChangeSet(deltas: Map[Long, Delta]) extends Hashing {
 

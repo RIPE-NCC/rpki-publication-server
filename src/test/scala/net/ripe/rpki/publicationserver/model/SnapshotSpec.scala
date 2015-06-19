@@ -1,14 +1,14 @@
 package net.ripe.rpki.publicationserver.model
 
 import java.net.URI
+import java.util.UUID
 
-import net.ripe.rpki.publicationserver.store.DB.ServerState
 import net.ripe.rpki.publicationserver.{Base64, Hash, PublicationServerBaseSpec}
 
 class SnapshotSpec extends PublicationServerBaseSpec {
 
   test("should serialize to proper xml") {
-    val sessionId = "1234ab"
+    val sessionId = UUID.randomUUID()
     val state = Snapshot(ServerState(sessionId, 123L), Seq((Base64("321"), Hash("123"), new URI("rsync://bla"))))
 
     val xml = state.serialize.mkString

@@ -4,11 +4,10 @@ import java.net.URI
 import java.util.UUID
 
 import net.ripe.rpki.publicationserver._
-import net.ripe.rpki.publicationserver.model.{Delta, ClientId}
+import net.ripe.rpki.publicationserver.model.{ClientId, Delta}
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
-import scala.concurrent.ExecutionContext.Implicits.global
 
 class DeltaStore extends Hashing {
 
@@ -48,7 +47,7 @@ class DeltaStore extends Hashing {
         case (uri, hash, _, _, serial, 'W') =>
           WithdrawQ(new URI(uri), None, hash)
       }
-      (p._1, Delta(sessionId.toString, p._1, pdus))
+      (p._1, Delta(sessionId, p._1, pdus))
     }
   }
 

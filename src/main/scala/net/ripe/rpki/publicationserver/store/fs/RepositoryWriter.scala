@@ -4,8 +4,7 @@ import java.io.{File, FileWriter}
 import java.nio.file._
 
 import net.ripe.rpki.publicationserver._
-import net.ripe.rpki.publicationserver.model.{Notification, Delta}
-import net.ripe.rpki.publicationserver.store.DB.ServerState
+import net.ripe.rpki.publicationserver.model.{ServerState, Notification, Delta}
 
 import scala.util.{Failure, Try}
 
@@ -51,7 +50,7 @@ class RepositoryWriter extends Logging {
 
   def writeSnapshot(rootDir: String, serverState: ServerState, snapshotXml: String) = {
     val ServerState(sessionId, serial) = serverState
-    val stateDir = getStateDir(rootDir, sessionId, serial)
+    val stateDir = getStateDir(rootDir, sessionId.toString, serial)
     writeFile(snapshotXml, new File(stateDir, "snapshot.xml"))
   }
 
@@ -96,7 +95,7 @@ class RepositoryWriter extends Logging {
 
   def deleteSessionFile(rootDir: String, serverState: ServerState, name: String) = {
     val ServerState(sessionId, serial) = serverState
-    val sessionDir = new File(new File(rootDir), sessionId)
+    val sessionDir = new File(new File(rootDir), sessionId.toString)
     val serialDir = new File(sessionDir, serial.toString)
     del(new File(serialDir, "snapshot.xml"))
   }

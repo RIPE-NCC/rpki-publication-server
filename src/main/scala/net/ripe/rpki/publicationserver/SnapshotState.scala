@@ -2,7 +2,6 @@ package net.ripe.rpki.publicationserver
 
 import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver.model._
-import net.ripe.rpki.publicationserver.store.DB.ServerState
 import net.ripe.rpki.publicationserver.store.{DeltaStore, ServerStateStore, ObjectStore, DB}
 import net.ripe.rpki.publicationserver.store.fs.RepositoryWriter
 
@@ -123,7 +122,7 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
       }
       val actions = result.collect { case Right((_, action, _)) => action }
       val validPdus = result.collect { case Right((_, _, qPdu)) => qPdu }
-      deltaStore.addDelta(clientId, Delta(sessionId.toString, serverState.serialNumber, validPdus))
+      deltaStore.addDelta(clientId, Delta(sessionId, serverState.serialNumber, validPdus))
       try {
         val transactionReplies = objectStore.atomic(actions, f(replies))
         replies ++ transactionReplies

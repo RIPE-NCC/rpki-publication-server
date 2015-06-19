@@ -16,7 +16,7 @@ class DeltaStoreTest extends PublicationServerBaseSpec {
 
   test("should be cool 2") {
     val sessionId = UUID.randomUUID()
-    val delta = Delta(sessionId.toString, 2L, Seq())
+    val delta = Delta(sessionId, 2L, Seq())
     deltaStore.addDelta(ClientId("client1"), delta)
     val deltas = deltaStore.getDeltas
     deltas should have size 0

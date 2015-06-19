@@ -1,5 +1,6 @@
 package net.ripe.rpki.publicationserver.store
 
+import net.ripe.rpki.publicationserver.model.ServerState
 import slick.driver.H2Driver.api._
 
 import scala.concurrent.Await
