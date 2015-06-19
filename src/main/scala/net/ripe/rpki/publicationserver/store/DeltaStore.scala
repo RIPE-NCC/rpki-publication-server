@@ -32,7 +32,7 @@ class DeltaStore extends Hashing {
     } else {
       DBIO.seq(DBIO.seq(actions: _*), liftDB {
         deltaMap = deltaMap + (delta.serial -> delta)
-      })
+      }).transactionally
     }
   }
 
