@@ -24,6 +24,10 @@ trait ServerStateDB {
   def update(serverState: ServerState): Unit
 }
 
+object DBConfig {
+  var useMemoryDatabase = false
+}
+
 object DB {
 
   import slick.driver.H2Driver.api._
@@ -32,8 +36,7 @@ object DB {
 
   type DBType = Database
 
-  def inMemory = Database.forConfig("h2mem1")
-  def onFS     = Database.forConfig("h2fs")
+  def db = if (DBConfig.useMemoryDatabase) Database.forConfig("h2mem1") else Database.forConfig("h2fs")
 
   class RepoObject(tag: Tag) extends Table[(String, String, String, String)](tag, "REPO_OBJECTS") {
     def uri = column[String]("URI", O.PrimaryKey)

@@ -9,9 +9,11 @@ import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 
-class ObjectStore(db: DB.DBType) extends RepoObjectDB with Hashing {
+class ObjectStore extends RepoObjectDB with Hashing {
 
   import DB._
+
+  val db = DB.db
 
   override def list(cliendId: ClientId): Seq[RRDPObject] = {
     val ClientId(cId) = cliendId

@@ -10,6 +10,8 @@ object Migrations {
 
   import DB._
 
+  val db = DB.db
+
   // Migrations are to be added here together
   // with their indexes
 
@@ -19,8 +21,8 @@ object Migrations {
     3 -> DBIO.seq(serverStates.schema.create)
   )
 
-  def migrate(db: Database) = synchronized {
-    createMigrationTableIfNeeded(db)
+  def migrate = synchronized {
+    createMigrationTableIfNeeded
     val latestMigration = Await.result(db.run(migrationsTable.map(_.number).max.result), 1.seconds)
     val latest = latestMigration.getOrElse(0)
 
@@ -36,7 +38,7 @@ object Migrations {
     }
   }
 
-  private def createMigrationTableIfNeeded(db: Database) = {
+  private def createMigrationTableIfNeeded = {
     if (!tableExists(db, "migrations")) {
       Await.result(db.run(migrationsTable.schema.create), 10.seconds)
     }

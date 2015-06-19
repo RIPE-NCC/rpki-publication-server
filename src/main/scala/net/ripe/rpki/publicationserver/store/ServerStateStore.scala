@@ -5,9 +5,11 @@ import slick.driver.H2Driver.api._
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
-class ServerStateStore(db: DB.DBType) extends ServerStateDB {
+class ServerStateStore extends ServerStateDB {
 
   import DB._
+
+  val db = DB.db
 
   override def get: ServerState = {
     val selectFirst = serverStates.take(1).result

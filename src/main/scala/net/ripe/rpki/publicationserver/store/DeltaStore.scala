@@ -9,7 +9,7 @@ import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.concurrent.ExecutionContext.Implicits.global
 
-class DeltaStore(db: DB.DBType) extends Hashing {
+class DeltaStore extends Hashing {
 
   import DB._
   import slick.driver.H2Driver.api._

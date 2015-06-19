@@ -1,11 +1,9 @@
 package net.ripe.rpki.publicationserver
 
-import java.net.URI
-
 import com.softwaremill.macwire.MacwireMacros._
-import net.ripe.rpki.publicationserver.store.DB.{DBType, ServerState}
-import net.ripe.rpki.publicationserver.store.fs.RepositoryWriter
+import net.ripe.rpki.publicationserver.store.DB.ServerState
 import net.ripe.rpki.publicationserver.store._
+import net.ripe.rpki.publicationserver.store.fs.RepositoryWriter
 
 import scala.util.{Failure, Success}
 import scala.xml.{Elem, Node}
@@ -72,7 +70,6 @@ case class Snapshot(serverState: ServerState, pdus: Seq[DB.RRDPObject]) {
  */
 object SnapshotState extends SnapshotStateService {
 
-  override val db: DBType = DB.onFS
 }
 
 trait SnapshotStateService extends Urls with Logging with Hashing {
@@ -83,13 +80,13 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
 
   val notificationState = wire[NotificationStateUpdater]
 
-  val db : DB.DBType
+  val db = DB.db
 
-  lazy val objectStore = new ObjectStore(db)
+  lazy val objectStore = new ObjectStore
 
-  lazy val serverStateStore = new ServerStateStore(db)
+  lazy val serverStateStore = new ServerStateStore
 
-  lazy val deltaStore = new DeltaStore(db)
+  lazy val deltaStore = new DeltaStore
 
   private var changeSet = emptyChangeSet
 

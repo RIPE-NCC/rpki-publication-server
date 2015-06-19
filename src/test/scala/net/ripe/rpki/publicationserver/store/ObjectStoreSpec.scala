@@ -10,11 +10,12 @@ import scala.concurrent.duration.Duration
 
 class ObjectStoreSpec extends PublicationServerBaseSpec {
 
-  val db = DB.inMemory
-  val objectStore = new ObjectStore(db)
+  val db = DB.db
+
+  val objectStore = new ObjectStore
 
   before {
-    Migrations.migrate(db)
+    Migrations.migrate
     objectStore.clear()
   }
 

@@ -1,21 +1,15 @@
 package net.ripe.rpki.publicationserver.store
 
-import java.net.URI
 import java.util.UUID
 
-import net.ripe.rpki.publicationserver.{Delta, Hash, Base64, PublicationServerBaseSpec}
-import org.scalatest.FunSuite
-
-import scala.concurrent.Await
-import scala.concurrent.duration.Duration
+import net.ripe.rpki.publicationserver.{Delta, PublicationServerBaseSpec}
 
 class DeltaStoreTest extends PublicationServerBaseSpec {
 
-  val db = DB.inMemory
-  val deltaStore = new DeltaStore(db)
+  val deltaStore = new DeltaStore
 
   before {
-    Migrations.migrate(db)
+    Migrations.migrate
   }
 
   test("should be cool") {
