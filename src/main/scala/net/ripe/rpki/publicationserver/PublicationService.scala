@@ -6,6 +6,7 @@ import java.util.concurrent.Executors
 import akka.actor.Actor
 import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver.model.ClientId
+import net.ripe.rpki.publicationserver.store.fs.RepositoryWriter
 import org.slf4j.LoggerFactory
 import spray.http.HttpHeaders.{`Cache-Control`, `Content-Type`}
 import spray.http.MediaTypes._
@@ -24,20 +25,7 @@ class PublicationServiceActor extends Actor with PublicationService with RRDPSer
   def receive = runRoute(publicationRoutes ~ rrdpRoutes)
 
   override def preStart() = {
-    SnapshotState.deltaStore.initCache(conf.currentSessionId)
-
-
-//    val initialSnapshot = SnapshotReader.readSnapshotFromNotification(repositoryPath = conf.locationRepositoryPath, repositoryUri = conf.locationRepositoryUri)
-//    initialSnapshot match {
-//      case Left(err@BaseError(_, _)) =>
-//        serviceLogger.error(s"Error occurred while reading initial snapshot: $err")
-//      case Right(None) =>
-//        val snapshot = ChangeSet.emptySnapshot
-//        ChangeSet.initializeWith(snapshot)
-////        ChangeSet.writeRepositoryState(snapshot)
-//      case Right(Some(is)) =>
-//        ChangeSet.initializeWith(is)
-//    }
+    SnapshotState.init(conf.currentSessionId)
   }
 }
 

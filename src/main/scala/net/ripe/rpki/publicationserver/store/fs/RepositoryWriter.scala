@@ -11,7 +11,6 @@ import scala.util.{Failure, Try}
 class RepositoryWriter extends Logging {
 
   def writeNewState(rootDir: String, serverState: ServerState, deltas: Seq[Delta], newNotification: Notification, snapshot: Snapshot) = {
-    val ServerState(sessionId, serial) = serverState
     Try {
       writeSnapshot(rootDir, serverState, snapshot)
       try {

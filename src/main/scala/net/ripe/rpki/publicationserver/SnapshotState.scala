@@ -1,5 +1,7 @@
 package net.ripe.rpki.publicationserver
 
+import java.util.UUID
+
 import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver.model._
 import net.ripe.rpki.publicationserver.store.{DeltaStore, ServerStateStore, ObjectStore, DB}
@@ -36,6 +38,16 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
   def emptyChangeSet = new ChangeSet(Map.empty)
 
   def get = changeSet
+
+  def init(sessionId: UUID) = {
+    deltaStore.initCache(sessionId)
+
+    val serverState = serverStateStore.get
+    val snapshot = Snapshot(serverState, objectStore.listAll)
+    repositoryWriter.writeSnapshot(conf.locationRepositoryPath, serverState, snapshot)
+
+    deltaStore.getDeltas.foreach(repositoryWriter.writeDelta(conf.locationRepositoryPath, _))
+  }
 
   def initializeWith(initState: ChangeSet) = {
     changeSet = initState
