@@ -11,8 +11,12 @@ class MigrationsTest extends PublicationServerBaseSpec {
 
   import DB._
 
-  test("should have inserted an initial row in an empty serverSettings table") {
+  val serverStatesStore = new ServerStateStore
 
+  test("should insert an initial row in an empty serverSettings table") {
+    serverStatesStore.clear()
+
+    Migrations.initServerState()
     val states = Await.result(db.run(serverStates.result), Duration.Inf)
 
     states.size should be(1)

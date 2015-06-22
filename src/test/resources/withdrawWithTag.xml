@@ -4,6 +4,6 @@
     xmlns="http://www.hactrn.net/uris/rpki/publication-spec/">
   <withdraw
       tag="123"
-      hash="deadf00d"
+      hash="42166B92CFE4202EAD65434CCB3947DE2C9306D5FE5C04602D35FC732AF19244"
       uri="rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"/>
 </msg>

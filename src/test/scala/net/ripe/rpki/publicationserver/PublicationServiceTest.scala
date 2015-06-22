@@ -12,7 +12,7 @@ import spray.testkit.ScalatestRouteTest
 
 import scala.io.Source
 
-class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRouteTest {
+class PublicationServiceTest extends PublicationServerBaseSpec with ScalatestRouteTest {
   def actorRefFactory = system
 
   trait Context {
@@ -87,7 +87,7 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
   }
 
   test("should return an ok response for a valid withdraw request") {
-    val pdus = Seq(PublishQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), None, Some("deadf00d"), Base64("bla")))
+    val pdus = Seq(PublishQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), None, None, Base64("bla")))
     SnapshotState.updateWith(ClientId("1234"), pdus)
 
     val withdrawXml = getFile("/withdraw.xml")
@@ -100,7 +100,7 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
   }
 
   test("should return the tag in the response if it was present in the withdraw request") {
-    val pdus = Seq(PublishQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), None, Some("deadf00d"), Base64("bla")))
+    val pdus = Seq(PublishQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), None, None, Base64("bla")))
     SnapshotState.updateWith(ClientId("1234"), pdus)
 
     val withdrawXml = getFile("/withdrawWithTag.xml")
