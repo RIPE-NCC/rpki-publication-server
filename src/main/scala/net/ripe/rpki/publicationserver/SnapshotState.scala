@@ -40,12 +40,16 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
   def get = changeSet
 
   def init(sessionId: UUID) = {
+    logger.info("Initializing delta cache")
+
     deltaStore.initCache(sessionId)
 
     val serverState = serverStateStore.get
     val snapshot = Snapshot(serverState, objectStore.listAll)
+    logger.info("Writing snapshot")
     repositoryWriter.writeSnapshot(conf.locationRepositoryPath, serverState, snapshot)
 
+    logger.info("Writing delta's")
     deltaStore.getDeltas.foreach(repositoryWriter.writeDelta(conf.locationRepositoryPath, _))
   }
 

@@ -5,6 +5,7 @@ import akka.io.IO
 import akka.pattern.ask
 import akka.util.Timeout
 import com.softwaremill.macwire.MacwireMacros._
+import org.slf4j.LoggerFactory
 import spray.can.Http
 
 import scala.concurrent.duration._
@@ -25,5 +26,6 @@ object Boot extends App {
 
   def setupLogging() = {
     System.setProperty("LOG_FILE", conf.locationLogfile)
+    LoggerFactory.getLogger(this.getClass).info("Starting up the publication server ...")
   }
 }
