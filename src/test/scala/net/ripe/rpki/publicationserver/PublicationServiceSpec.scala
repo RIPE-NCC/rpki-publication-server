@@ -2,6 +2,8 @@ package net.ripe.rpki.publicationserver
 
 import java.net.URI
 
+import net.ripe.rpki.publicationserver.model.ClientId
+import net.ripe.rpki.publicationserver.store.ObjectStore
 import org.mockito.Mockito._
 import org.slf4j.Logger
 import spray.http.HttpHeaders.RawHeader
@@ -20,8 +22,11 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
   def publicationService = new PublicationService with Context {
   }
 
+  val objectStore = new ObjectStore
+
   before {
     SnapshotState.initializeWith(SnapshotState.emptyChangeSet)
+    objectStore.clear()
   }
 
   test("should return a response with content-type application/rpki-publication") {
@@ -83,9 +88,8 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
   }
 
   test("should return an ok response for a valid withdraw request") {
-    val pdus = Map(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer") -> (Base64("bla"), Hash("deadf00d")))
-    val state0 = ChangeSet(Map.empty)
-    SnapshotState.initializeWith(state0)
+    val pdus = Seq(PublishQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), None, Some("deadf00d"), Base64("bla")))
+    SnapshotState.updateWith(ClientId("1234"), pdus)
 
     val withdrawXml = getFile("/withdraw.xml")
     val withdrawXmlResponse = getFile("/withdrawResponse.xml")
@@ -97,9 +101,8 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
   }
 
   test("should return the tag in the response if it was present in the withdraw request") {
-    val pdus = Map(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer") -> (Base64("bla"), Hash("deadf00d")))
-    val state0 = ChangeSet(Map.empty)
-    SnapshotState.initializeWith(state0)
+    val pdus = Seq(PublishQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), None, Some("deadf00d"), Base64("bla")))
+    SnapshotState.updateWith(ClientId("1234"), pdus)
 
     val withdrawXml = getFile("/withdrawWithTag.xml")
     val withdrawXmlResponse = getFile("/withdrawWithTagResponse.xml")
