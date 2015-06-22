@@ -1,10 +1,16 @@
 package net.ripe.rpki.publicationserver.store
 
+import java.util.UUID
+
+import net.ripe.rpki.publicationserver.model.ServerState
 import slick.dbio.DBIO
+import slick.dbio.Effect.Write
 import slick.driver.H2Driver.api._
+import slick.profile.FixedSqlAction
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
+import scala.concurrent.ExecutionContext.Implicits.global
 
 object Migrations {
 
@@ -21,8 +27,8 @@ object Migrations {
     3 -> DBIO.seq(serverStates.schema.create)
   )
 
-  def migrate = synchronized {
-    createMigrationTableIfNeeded
+  def migrate() = synchronized {
+    createMigrationTableIfNeeded()
     val latestMigration = Await.result(db.run(migrationsTable.map(_.number).max.result), 1.seconds)
     val latest = latestMigration.getOrElse(0)
 
@@ -36,9 +42,11 @@ object Migrations {
       }
       Await.result(applyMigration, Duration.Inf)
     }
+
+    initServerState()
   }
 
-  private def createMigrationTableIfNeeded = {
+  private def createMigrationTableIfNeeded() = {
     if (!tableExists(db, "migrations")) {
       Await.result(db.run(migrationsTable.schema.create), 10.seconds)
     }
@@ -53,4 +61,19 @@ object Migrations {
 
   private lazy val migrationsTable = TableQuery[Migration]
 
+  // TODO remove
+  def getServerStates = serverStates.result
+
+  def initServerState() = {
+    val insert = { serverStates += ServerState(UUID.randomUUID(), 1L) }
+    val nothing = DBIO.seq()
+
+    val insertIfEmtpy = for {
+       states <- getServerStates
+       _ <- if (states.isEmpty) insert else nothing
+    } yield ()
+
+    val f = db.run(insertIfEmtpy)
+    Await.result(f, Duration.Inf)
+  }
 }
