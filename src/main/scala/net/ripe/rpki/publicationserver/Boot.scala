@@ -9,7 +9,7 @@ import spray.can.Http
 
 import scala.concurrent.duration._
 
-object Boot extends App with Logging {
+object Boot extends App {
 
   val conf = wire[ConfigWrapper]
 
