@@ -5,8 +5,8 @@ import java.nio.file.{Path, Paths}
 import java.util.UUID
 
 import net.ripe.rpki.publicationserver.model._
-import net.ripe.rpki.publicationserver.store.Migrations
 import net.ripe.rpki.publicationserver.store.fs.RepositoryWriter
+import net.ripe.rpki.publicationserver.store.{DeltaStore, Migrations}
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 
@@ -183,27 +183,31 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
   }
 
   test("should not update the snapshot, delta and notification state when updating delta throws an error") {
+    SnapshotState.objectStore.clear()
+
     val repositoryWriterSpy = spy(getRepositoryWriter)
     val notificationStateSpy = getNotificationState
-    doThrow(new IllegalArgumentException()).when(repositoryWriterSpy).writeDelta(anyString(), any[Delta])
+    val deltaStoreSpy = spy(new DeltaStore)
+    doThrow(new IllegalArgumentException()).when(deltaStoreSpy).addDelta(any[ClientId], any[Delta])
 
-    val snapshotStateUpdater = new SnapshotStateService {
+    val snapshotStateService = new SnapshotStateService {
       override val repositoryWriter = repositoryWriterSpy
       override val notificationState = notificationStateSpy
+      override lazy val deltaStore = deltaStoreSpy
     }
 
     val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
     val notificationStateBefore = notificationStateSpy.get
 
-    val reply = snapshotStateUpdater.updateWith(ClientId("client1"), Seq(publish))
+    val reply = snapshotStateService.updateWith(ClientId("client1"), Seq(publish))
 
-    reply.tail should equal(Seq(ReportError(BaseError.CouldNotPersist, Some("Could not persist the changes: null"))))
-    verify(repositoryWriterSpy).deleteSnapshot(anyString(), any[ServerState])
-    verify(repositoryWriterSpy).deleteDelta(anyString(), any[ServerState])
+    reply.head should equal(ReportError(BaseError.CouldNotPersist, Some("A problem occurred while persisting the changes: java.lang.IllegalArgumentException")))
     notificationStateSpy.get should equal(notificationStateBefore)
   }
 
   test("should not update the snapshot, delta and notification state when updating the notification throws an error") {
+    SnapshotState.objectStore.clear()
+
     val repositoryWriterSpy = spy(getRepositoryWriter)
     val notificationStateSpy = getNotificationState
     doThrow(new IllegalArgumentException()).when(repositoryWriterSpy).writeNotification(anyString(), any[Notification])
@@ -218,7 +222,7 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
 
     val reply = snapshotStateService.updateWith(ClientId("client1"), Seq(publish))
 
-    reply.tail should equal(Seq(ReportError(BaseError.CouldNotPersist, Some("Could not persist the changes: null"))))
+    reply.tail should equal(Seq(ReportError(BaseError.CouldNotPersist, Some("Could not write XML files to filesystem: null"))))
     verify(repositoryWriterSpy).deleteSnapshot(anyString(), any[ServerState])
     verify(repositoryWriterSpy).deleteDelta(anyString(), any[ServerState])
     verify(repositoryWriterSpy).deleteNotification(anyString())

@@ -127,13 +127,13 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
       }
       val actions = result.collect { case Right((_, action, _)) => action }
       val validPdus = result.collect { case Right((_, _, qPdu)) => qPdu }
-      deltaStore.addDelta(clientId, Delta(sessionId, serverState.serialNumber, validPdus))
       try {
+        deltaStore.addDelta(clientId, Delta(sessionId, serverState.serialNumber, validPdus))
         val transactionReplies = objectStore.atomic(actions, f(replies))
         replies ++ transactionReplies
       } catch {
         case e: Exception =>
-          logger.error("Couldn't persis objects", e)
+          logger.error("Couldn't persist objects", e)
           Seq(ReportError(BaseError.CouldNotPersist, Some(s"A problem occurred while persisting the changes: " + e)))
       }
     }
