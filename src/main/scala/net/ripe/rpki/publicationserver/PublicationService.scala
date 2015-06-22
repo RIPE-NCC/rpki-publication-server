@@ -24,6 +24,9 @@ class PublicationServiceActor extends Actor with PublicationService with RRDPSer
   def receive = runRoute(publicationRoutes ~ rrdpRoutes)
 
   override def preStart() = {
+    SnapshotState.deltaStore.initCache(conf.currentSessionId)
+
+
 //    val initialSnapshot = SnapshotReader.readSnapshotFromNotification(repositoryPath = conf.locationRepositoryPath, repositoryUri = conf.locationRepositoryUri)
 //    initialSnapshot match {
 //      case Left(err@BaseError(_, _)) =>
