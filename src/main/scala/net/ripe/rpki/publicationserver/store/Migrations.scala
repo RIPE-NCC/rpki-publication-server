@@ -5,8 +5,9 @@ import java.util.UUID
 import net.ripe.rpki.publicationserver.model.ServerState
 import slick.dbio.DBIO
 import slick.driver.H2Driver.api._
+import slick.jdbc.meta.MTable
 
-import scala.concurrent.Await
+import scala.concurrent.{Future, Await}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 
@@ -26,7 +27,7 @@ object Migrations {
   )
 
   def migrate() = synchronized {
-    createMigrationTableIfNeeded()
+    Await.result(createTableIfNotExists(migrationsTable), 10.seconds)
     val latestMigration = Await.result(db.run(migrationsTable.map(_.number).max.result), 1.seconds)
     val latest = latestMigration.getOrElse(0)
 
@@ -44,11 +45,14 @@ object Migrations {
     initServerState()
   }
 
-  private def createMigrationTableIfNeeded() = {
-    if (!tableExists(db, "migrations")) {
-      Await.result(db.run(migrationsTable.schema.create), 10.seconds)
+  private def createTableIfNotExists(table: TableQuery[_ <: Table[_]]) =
+    db.run(MTable.getTables(table.baseTableRow.tableName)).flatMap { result =>
+      if (result.isEmpty)
+        db.run(table.schema.create)
+      else
+        Future.successful(())
     }
-  }
+
 
   private class Migration(tag: Tag) extends Table[(Int, String)](tag, "migrations") {
     def number = column[Int]("MIGRATION_NUMBER", O.PrimaryKey)
@@ -68,7 +72,7 @@ object Migrations {
        _ <- if (states.isEmpty) insert else nothing
     } yield ()
 
-    val f = db.run(insertIfEmtpy)
+    val f = db.run(insertIfEmtpy.transactionally)
     Await.result(f, Duration.Inf)
   }
 }
