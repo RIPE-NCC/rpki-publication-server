@@ -58,5 +58,4 @@ class ObjectStore extends Hashing {
         (Base64(b64), Hash(h), new URI(u))
       }
     }, Duration.Inf)
-
 }

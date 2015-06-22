@@ -123,6 +123,8 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
   }
 
   test("should update the snapshot and the notification and write them to the filesystem when a message is successfully processed") {
+    SnapshotState.objectStore.clear()
+
     val repositoryWriterSpy = spy(getRepositoryWriter)
     val notificationStateSpy = getNotificationState
     val snapshotStateService = new SnapshotStateService {
@@ -146,6 +148,8 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
   }
 
   test("should not write a snapshot to the filesystem when a message contained an error") {
+    SnapshotState.objectStore.clear()
+
     val repositoryWriterSpy = spy(getRepositoryWriter)
     val notificationStateSpy = getNotificationState
     val snapshotStateService = new SnapshotStateService {
@@ -192,6 +196,7 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
     val notificationStateBefore = notificationStateSpy.get
 
     val reply = snapshotStateUpdater.updateWith(ClientId("client1"), Seq(publish))
+
     reply.tail should equal(Seq(ReportError(BaseError.CouldNotPersist, Some("Could not persist the changes: null"))))
     verify(repositoryWriterSpy).deleteSnapshot(anyString(), any[ServerState])
     verify(repositoryWriterSpy).deleteDelta(anyString(), any[ServerState])
@@ -212,6 +217,7 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
     val notificationStateBefore = notificationStateSpy.get
 
     val reply = snapshotStateService.updateWith(ClientId("client1"), Seq(publish))
+
     reply.tail should equal(Seq(ReportError(BaseError.CouldNotPersist, Some("Could not persist the changes: null"))))
     verify(repositoryWriterSpy).deleteSnapshot(anyString(), any[ServerState])
     verify(repositoryWriterSpy).deleteDelta(anyString(), any[ServerState])
