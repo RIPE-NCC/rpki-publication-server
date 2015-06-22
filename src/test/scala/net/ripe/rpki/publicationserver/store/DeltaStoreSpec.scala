@@ -3,7 +3,8 @@ package net.ripe.rpki.publicationserver.store
 import java.net.URI
 import java.util.UUID
 
-import net.ripe.rpki.publicationserver.{Base64, PublishQ, Delta, PublicationServerBaseSpec}
+import net.ripe.rpki.publicationserver.model.{ClientId, Delta}
+import net.ripe.rpki.publicationserver.{Base64, PublishQ, PublicationServerBaseSpec}
 
 class DeltaStoreSpec extends PublicationServerBaseSpec {
 
@@ -20,7 +21,7 @@ class DeltaStoreSpec extends PublicationServerBaseSpec {
 
   test("should return what was added") {
     val sessionId = UUID.randomUUID()
-    val delta = Delta(sessionId.toString, 2L, Seq(PublishQ(uri = new URI("rsync://host/zzz.cer"), tag = None, hash = None, base64 = Base64("aaaa="))))
+    val delta = Delta(sessionId, 2L, Seq(PublishQ(uri = new URI("rsync://host/zzz.cer"), tag = None, hash = None, base64 = Base64("aaaa="))))
     deltaStore.addDelta(ClientId("client1"), delta)
     val deltas = deltaStore.getDeltas
     deltas should have size 1

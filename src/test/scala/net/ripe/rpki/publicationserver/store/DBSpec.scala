@@ -1,7 +1,9 @@
 package net.ripe.rpki.publicationserver.store
 
 import java.net.URI
+import java.util.UUID
 
+import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.{Hash, Base64, PublicationServerBaseSpec}
 
 import scala.concurrent.Await
@@ -23,7 +25,7 @@ class DBSpec extends PublicationServerBaseSpec {
   test("should rollback transaction in case lifted calculation failed") {
     def crash = throw new Exception("I'm dying")
 
-    val clientId = ClientId("client1")
+    val clientId = ClientId(UUID.randomUUID().toString)
     val i = objectStore.insertAction(clientId, (Base64("AAAA=="), Hash("jfkfhjghj"), new URI("rsync://host.com/path")))
     try {
       Await.result(db.run(

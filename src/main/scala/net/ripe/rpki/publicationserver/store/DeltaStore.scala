@@ -41,13 +41,14 @@ class DeltaStore extends Hashing {
   def initCache(sessionId: UUID) = {
     val changes = Await.result(db.run(deltas.result), Duration.Inf)
     deltaMap = changes.groupBy(_._5).map { p =>
-      val pdus: Seq[QueryPdu] = p._2.map {
+      val (serial, pws) = p
+      val pdus = pws.map {
         case (uri, hash, b64, _, serial, 'P') =>
           PublishQ(new URI(uri), None, Option(hash), Base64(b64))
         case (uri, hash, _, _, serial, 'W') =>
           WithdrawQ(new URI(uri), None, hash)
       }
-      (p._1, Delta(sessionId, p._1, pdus))
+      (serial, Delta(sessionId, serial, pdus))
     }
   }
 
