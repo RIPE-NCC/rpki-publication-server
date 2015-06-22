@@ -8,6 +8,8 @@ scalaVersion := "2.11.6"
 
 scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8")
 
+parallelExecution in Test := false
+
 enablePlugins(JavaServerAppPackaging)
 
 resolvers += "Codehaus Maven2 Repository" at "http://repository.codehaus.org/"
