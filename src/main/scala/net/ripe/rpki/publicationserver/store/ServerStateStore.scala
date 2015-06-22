@@ -23,4 +23,6 @@ class ServerStateStore {
     val f = db.run(update)
     Await.result(f, Duration.Inf)
   }
+
+  def clear() = Await.result(db.run(serverStates.delete), Duration.Inf)
 }

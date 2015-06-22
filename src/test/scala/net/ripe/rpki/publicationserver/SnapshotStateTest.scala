@@ -5,11 +5,12 @@ import java.nio.file.{Path, Paths}
 import java.util.UUID
 
 import net.ripe.rpki.publicationserver.model._
+import net.ripe.rpki.publicationserver.store.Migrations
 import net.ripe.rpki.publicationserver.store.fs.RepositoryWriter
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 
-class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
+class SnapshotStateTest extends PublicationServerBaseSpec with Urls {
 
   private var serial: Long = _
 
@@ -17,7 +18,10 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
 
   before {
     serial = 1L
-    sessionId = UUID.randomUUID()
+    sessionId = conf.currentSessionId
+    SnapshotState.deltaStore.clear()
+    SnapshotState.serverStateStore.clear()
+    Migrations.initServerState()
   }
 
   test("should add an object with publish") {

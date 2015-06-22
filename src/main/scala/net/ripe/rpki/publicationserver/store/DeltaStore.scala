@@ -52,4 +52,8 @@ class DeltaStore extends Hashing {
     }
   }
 
+  def clear() = {
+    Await.result(db.run(deltas.delete), Duration.Inf)
+    deltaMap = Map.empty
+  }
 }
