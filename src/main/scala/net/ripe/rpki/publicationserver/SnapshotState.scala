@@ -117,7 +117,7 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
       errors
     }
     else {
-      lazy val replies = result.collect {
+      val replies = result.collect {
         case Right((reply, _, _)) => reply
       }
       val actions = result.collect { case Right((_, action, _)) => action }
