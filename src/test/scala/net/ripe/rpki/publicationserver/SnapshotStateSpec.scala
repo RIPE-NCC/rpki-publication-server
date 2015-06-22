@@ -15,20 +15,16 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
 
   private var sessionId: UUID = _
 
-  private var emptySnapshot: ChangeSet = _
-  
   before {
     serial = 1L
     sessionId = UUID.randomUUID()
-    emptySnapshot = new ChangeSet(Map.empty)
-    SnapshotState.initializeWith(emptySnapshot)
   }
 
   test("should add an object with publish") {
     SnapshotState.updateWith(ClientId("bla"), Seq(PublishQ(uri = new URI("rsync://host/zzz.cer"), tag = None, hash = None, base64 = Base64("aaaa="))))
 
-    SnapshotState.get.deltas should be(Map(
-      2L -> Delta(
+    SnapshotState.deltaStore.getDeltas should be(Seq(
+      Delta(
         sessionId,
         2L,
         Seq(PublishQ(uri = new URI("rsync://host/zzz.cer"), tag = None, hash = None, base64 = Base64("aaaa=")))
@@ -46,8 +42,8 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
         base64 = Base64("cccc="))))
 
 
-    SnapshotState.get.deltas should be(Map(
-      2L -> Delta(
+    SnapshotState.deltaStore.getDeltas should be(Seq(
+      Delta(
         sessionId,
         2L,
         Seq(PublishQ(uri = new URI("rsync://host/zzz.cer"),
@@ -108,13 +104,13 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
 
     SnapshotState.updateWith(ClientId("bla"), Seq(PublishQ(uri = new URI("rsync://host/cert2.cer"), tag = None, hash = None, base64 = Base64("bbbb="))))
 
-    SnapshotState.get.deltas should be(Map(
-      2L -> Delta(
+    SnapshotState.deltaStore.getDeltas should be(Seq(
+      Delta(
         sessionId,
         2L,
         Seq(PublishQ(uri = new URI("rsync://host/cert1.cer"), tag = None, hash = None, base64 = Base64("cccc=")))
       ),
-      3L -> Delta(
+      Delta(
         sessionId,
         3L,
         Seq(PublishQ(uri = new URI("rsync://host/cert2.cer"), tag = None, hash = None, base64 = Base64("bbbb=")))
@@ -132,13 +128,11 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
     }
 
     val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
-    val snapshotStateBefore = snapshotStateService.get
     val notificationStateBefore = notificationStateSpy.get
 
     snapshotStateService.updateWith(ClientId("client1"), Seq(publish))
 
     verify(repositoryWriterSpy).writeNewState(anyString(), any[ServerState], any[Seq[Delta]], any[Notification], any[Snapshot])
-    snapshotStateService.get should not equal snapshotStateBefore
     notificationStateSpy.get should not equal notificationStateBefore
   }
 
@@ -175,12 +169,10 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
     }
 
     val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
-    val stateBefore = snapshotStateService.get
 
     val reply = snapshotStateService.updateWith(ClientId("client1"), Seq(publish))
     reply.tail should equal(Seq(ReportError(BaseError.CouldNotPersist, Some("Could not write XML files to filesystem: null"))))
     verify(repositoryWriterSpy).deleteSnapshot(anyString(), any[ServerState])
-    snapshotStateService.get should equal(stateBefore)
   }
 
   test("should not update the snapshot, delta and notification state when updating delta throws an error") {
@@ -194,14 +186,12 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
     }
 
     val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
-    val snapshotStateBefore = snapshotStateUpdater.get
     val notificationStateBefore = notificationStateSpy.get
 
     val reply = snapshotStateUpdater.updateWith(ClientId("client1"), Seq(publish))
     reply.tail should equal(Seq(ReportError(BaseError.CouldNotPersist, Some("Could not persist the changes: null"))))
     verify(repositoryWriterSpy).deleteSnapshot(anyString(), any[ServerState])
     verify(repositoryWriterSpy).deleteDelta(anyString(), any[ServerState])
-    snapshotStateUpdater.get should equal(snapshotStateBefore)
     notificationStateSpy.get should equal(notificationStateBefore)
   }
 
@@ -216,7 +206,6 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
     }
 
     val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
-    val snapshotStateBefore = snapshotStateService.get
     val notificationStateBefore = notificationStateSpy.get
 
     val reply = snapshotStateService.updateWith(ClientId("client1"), Seq(publish))
@@ -224,7 +213,6 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
     verify(repositoryWriterSpy).deleteSnapshot(anyString(), any[ServerState])
     verify(repositoryWriterSpy).deleteDelta(anyString(), any[ServerState])
     verify(repositoryWriterSpy).deleteNotification(anyString())
-    snapshotStateService.get should equal(snapshotStateBefore)
     notificationStateSpy.get should equal(notificationStateBefore)
   }
   

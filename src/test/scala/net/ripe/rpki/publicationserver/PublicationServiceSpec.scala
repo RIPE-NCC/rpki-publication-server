@@ -25,7 +25,6 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
   val objectStore = new ObjectStore
 
   before {
-    SnapshotState.initializeWith(SnapshotState.emptyChangeSet)
     objectStore.clear()
   }
 

@@ -33,12 +33,6 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
 
   lazy val deltaStore = new DeltaStore
 
-  private var changeSet = emptyChangeSet
-
-  def emptyChangeSet = new ChangeSet(Map.empty)
-
-  def get = changeSet
-
   def init(sessionId: UUID) = {
     logger.info("Initializing delta cache")
 
@@ -51,10 +45,6 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
 
     logger.info("Writing delta's")
     deltaStore.getDeltas.foreach(repositoryWriter.writeDelta(conf.locationRepositoryPath, _))
-  }
-
-  def initializeWith(initState: ChangeSet) = {
-    changeSet = initState
   }
 
   def list(clientId: ClientId) = objectStore.list(clientId).map { pdu =>
