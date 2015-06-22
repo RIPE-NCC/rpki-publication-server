@@ -124,7 +124,7 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
 
   test("should update the snapshot and the notification and write them to the filesystem when a message is successfully processed") {
     val repositoryWriterSpy = spy(getRepositoryWriter)
-    val notificationStateSpy = getNotificationUpdater
+    val notificationStateSpy = getNotificationState
     val snapshotStateService = new SnapshotStateService {
       override val repositoryWriter = repositoryWriterSpy
       override val notificationState = notificationStateSpy
@@ -142,15 +142,15 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
     notificationStateSpy.get should not equal notificationStateBefore
   }
 
-  def getNotificationUpdater: NotificationState = {
-    val notificationStateUpdater = new NotificationState()
-    notificationStateUpdater.update(Notification.create(any[Snapshot], ServerState(sessionId, serial), Seq()))
-    notificationStateUpdater
+  def getNotificationState: NotificationState = {
+    val notificationState = new NotificationState()
+    notificationState.update(Notification.create(Snapshot(ServerState(sessionId, serial), Seq.empty), ServerState(sessionId, serial), Seq()))
+    notificationState
   }
 
   test("should not write a snapshot to the filesystem when a message contained an error") {
     val repositoryWriterSpy = spy(getRepositoryWriter)
-    val notificationStateSpy = getNotificationUpdater
+    val notificationStateSpy = getNotificationState
     val snapshotStateService = new SnapshotStateService {
       override val repositoryWriter = repositoryWriterSpy
       override val notificationState = notificationStateSpy
@@ -166,7 +166,7 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
 
   test("should not update the snapshot state when writing it to the filesystem throws an error") {
     val repositoryWriterSpy = spy(getRepositoryWriter)
-    val notificationStateSpy = getNotificationUpdater
+    val notificationStateSpy = getNotificationState
     doThrow(new IllegalArgumentException()).when(repositoryWriterSpy).writeSnapshot(anyString(), any[ServerState], any[Snapshot])
 
     val snapshotStateService = new SnapshotStateService {
@@ -178,14 +178,14 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
     val stateBefore = snapshotStateService.get
 
     val reply = snapshotStateService.updateWith(ClientId("client1"), Seq(publish))
-    reply.tail should equal(Seq(ReportError(BaseError.CouldNotPersist, Some("Could not persist the changes: null"))))
+    reply.tail should equal(Seq(ReportError(BaseError.CouldNotPersist, Some("Could not write XML files to filesystem: null"))))
     verify(repositoryWriterSpy).deleteSnapshot(anyString(), any[ServerState])
     snapshotStateService.get should equal(stateBefore)
   }
 
   test("should not update the snapshot, delta and notification state when updating delta throws an error") {
     val repositoryWriterSpy = spy(getRepositoryWriter)
-    val notificationStateSpy = getNotificationUpdater
+    val notificationStateSpy = getNotificationState
     doThrow(new IllegalArgumentException()).when(repositoryWriterSpy).writeDelta(anyString(), any[Delta])
 
     val snapshotStateUpdater = new SnapshotStateService {
@@ -207,7 +207,7 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
 
   test("should not update the snapshot, delta and notification state when updating the notification throws an error") {
     val repositoryWriterSpy = spy(getRepositoryWriter)
-    val notificationStateSpy = getNotificationUpdater
+    val notificationStateSpy = getNotificationState
     doThrow(new IllegalArgumentException()).when(repositoryWriterSpy).writeNotification(anyString(), any[Notification])
 
     val snapshotStateService = new SnapshotStateService {
