@@ -14,18 +14,17 @@ case class DeltaLocator(serial: BigInt, uri: String, hash: Hash)
 // TODO Merge it with ChangeSet
 case class Notification(sessionId: UUID, serial: BigInt, snapshot: SnapshotLocator, deltas: Iterable[DeltaLocator]) {
 
+  lazy val serialized = serialize.mkString
+
   def serialize = notificationXml (
     sessionId,
     serial,
-    snapshotXml(snapshot),
+    <snapshot uri={snapshot.uri} hash={snapshot.hash.hash}/>,
     deltas.map { d =>
       val DeltaLocator(serial, uri, hash) = d
         <delta serial={serial.toString()} uri={uri} hash={hash.hash}/>
     }
   )
-
-  private def snapshotXml(snapshot: SnapshotLocator): Elem =
-      <snapshot uri={snapshot.uri} hash={snapshot.hash.hash}/>
 
   private def notificationXml(sessionId: UUID, serial: BigInt, snapshot: Node, deltas: Iterable[Node]): Elem =
     <notification xmlns="http://www.ripe.net/rpki/rrdp" version="1" session_id={sessionId.toString} serial={serial.toString()}>
@@ -49,10 +48,10 @@ trait Urls {
 
 object Notification extends Hashing with Urls {
 
-  def create(snapshotXml: String, serverState: ServerState, snapshot: ChangeSet): Notification = {
-    val snapshotLocator = SnapshotLocator(snapshotUrl(serverState), hash(snapshotXml.getBytes))
-    val deltaLocators = snapshot.deltas.values.map { d =>
-      DeltaLocator(d.serial, deltaUrl(d), hash(d.serialize.mkString.getBytes))
+  def create(snapshot: Snapshot, serverState: ServerState, deltas: Seq[Delta]): Notification = {
+    val snapshotLocator = SnapshotLocator(snapshotUrl(serverState), snapshot.contentHash)
+    val deltaLocators = deltas.map { d =>
+      DeltaLocator(d.serial, deltaUrl(d), d.contentHash)
     }
     val ServerState(sessionId, serial) = serverState
     Notification(sessionId, serial, snapshotLocator, deltaLocators)

@@ -8,6 +8,9 @@ import scala.xml.{Elem, Node}
 
 case class Delta(sessionId: UUID, serial: Long, pdus: Seq[QueryPdu]) extends Hashing {
 
+  lazy val serialized = serialize.mkString
+  lazy val contentHash = hash(serialized.getBytes)
+
   def serialize = deltaXml(
     sessionId.toString,
     serial,

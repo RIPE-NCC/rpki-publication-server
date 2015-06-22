@@ -4,26 +4,20 @@ import java.io.{File, FileWriter}
 import java.nio.file._
 
 import net.ripe.rpki.publicationserver._
-import net.ripe.rpki.publicationserver.model.{ServerState, Notification, Delta}
+import net.ripe.rpki.publicationserver.model.{Snapshot, ServerState, Notification, Delta}
 
 import scala.util.{Failure, Try}
 
 class RepositoryWriter extends Logging {
 
-  def writeNewState(rootDir: String, serverState: ServerState, newSnapshot: ChangeSet, newNotification: Notification, snapshotXml: String) = {
+  def writeNewState(rootDir: String, serverState: ServerState, deltas: Seq[Delta], newNotification: Notification, snapshot: Snapshot) = {
     val ServerState(sessionId, serial) = serverState
     Try {
-      writeSnapshot(rootDir, serverState, snapshotXml)
+      writeSnapshot(rootDir, serverState, snapshot)
       try {
-        if (newSnapshot.deltas.nonEmpty) {
-          newSnapshot.latestDelta(serial) match {
-            case None =>
-              val message = s"Could not find the latest delta, sessionId=${sessionId}, serial=${serial}"
-              logger.error(message)
-              throw new IllegalStateException(message)
-            case Some(delta) =>
-              writeDelta(rootDir, delta)
-          }
+        if (deltas.nonEmpty) {
+          val latestDelta = deltas.maxBy(_.serial)
+          writeDelta(rootDir, latestDelta)
         } else {
           logger.info("No deltas found in current snapshot")
         }
@@ -32,7 +26,7 @@ class RepositoryWriter extends Logging {
         } catch {
           case e: Exception =>
             logger.error("Could not write notification file: ", e)
-            deleteNotification(rootDir, newSnapshot)
+            deleteNotification(rootDir)
             throw e
         }
       } catch {
@@ -48,10 +42,10 @@ class RepositoryWriter extends Logging {
     }
   }
 
-  def writeSnapshot(rootDir: String, serverState: ServerState, snapshotXml: String) = {
+  def writeSnapshot(rootDir: String, serverState: ServerState, snapshot: Snapshot) = {
     val ServerState(sessionId, serial) = serverState
     val stateDir = getStateDir(rootDir, sessionId.toString, serial)
-    writeFile(snapshotXml, new File(stateDir, "snapshot.xml"))
+    writeFile(snapshot.serialized, new File(stateDir, "snapshot.xml"))
   }
 
   def writeDelta(rootDir: String, delta: Delta) = {
@@ -63,7 +57,7 @@ class RepositoryWriter extends Logging {
     val root = getRootFolder(rootDir)
 
     val tmpFile = new File(root, "notification_tmp.xml")
-    writeFile(notification.serialize.mkString, tmpFile)
+    writeFile(notification.serialized, tmpFile)
 
     val source = Paths.get(tmpFile.toURI)
     val target = Paths.get(new File(root, "notification.xml").toURI)
@@ -84,7 +78,7 @@ class RepositoryWriter extends Logging {
 
   private def getStateDir(rootDir: String, sessionId: String, serial: Long): File = {
     val root = getRootFolder(rootDir)
-    dir(dir(root, sessionId), serial.toString())
+    dir(dir(root, sessionId), serial.toString)
   }
 
   private def dir(d: File, name: String) = {
@@ -106,7 +100,7 @@ class RepositoryWriter extends Logging {
 
   def deleteDelta(rootDir: String, serverState: ServerState) = deleteSessionFile(rootDir, serverState, "delta.xml")
 
-  def deleteNotification(rootDir: String, snapshot: ChangeSet) = {
+  def deleteNotification(rootDir: String) = {
     del(new File(rootDir, "notification.xml"))
     del(new File(rootDir, "notification_tmp.xml"))
   }

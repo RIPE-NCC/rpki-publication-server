@@ -42,20 +42,19 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
   }
 
   def list(clientId: ClientId) = objectStore.list(clientId).map { pdu =>
-    val (base64, hash, uri) = pdu
+    val (_, hash, uri) = pdu
     ListR(uri, hash.hash, None)
   }
 
   def updateWith(clientId: ClientId, queries: Seq[QueryPdu]): Seq[ReplyPdu] = synchronized {
     val oldServerState = serverStateStore.get
     val newServerState = oldServerState.next
-    persistForClient(clientId, queries, newServerState) { replies : Seq[ReplyPdu] =>
+    persistForClient(clientId, queries, newServerState) { replies: Seq[ReplyPdu] =>
       serverStateStore.update(newServerState)
-      val pdus = objectStore.listAll
-      val snapshotXml = Snapshot(newServerState, pdus).serialize
-      val deltas = changeSet.next(newServerState, queries) // TODO handle this in the db
-    val newNotification = Notification.create(snapshotXml, newServerState, deltas)
-      repositoryWriter.writeNewState(conf.locationRepositoryPath, newServerState, deltas, newNotification, snapshotXml) match {
+      val deltas = deltaStore.getDeltas
+      val snapshot = Snapshot(newServerState, objectStore.listAll)
+      val newNotification = Notification.create(snapshot, newServerState, deltas)
+      repositoryWriter.writeNewState(conf.locationRepositoryPath, newServerState, deltas, newNotification, snapshot) match {
         case Success(_) =>
           notificationState.update(newNotification)
           Seq()

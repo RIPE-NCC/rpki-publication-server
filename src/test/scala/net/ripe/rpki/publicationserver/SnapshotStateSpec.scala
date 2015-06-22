@@ -137,14 +137,14 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
 
     snapshotStateService.updateWith(ClientId("client1"), Seq(publish))
 
-    verify(repositoryWriterSpy).writeNewState(anyString(), any[ServerState], any[ChangeSet], any[Notification], "")
+    verify(repositoryWriterSpy).writeNewState(anyString(), any[ServerState], any[Seq[Delta]], any[Notification], any[Snapshot])
     snapshotStateService.get should not equal snapshotStateBefore
     notificationStateSpy.get should not equal notificationStateBefore
   }
 
   def getNotificationUpdater: NotificationState = {
     val notificationStateUpdater = new NotificationState()
-    notificationStateUpdater.update(Notification.create("", ServerState(sessionId, serial), emptySnapshot))
+    notificationStateUpdater.update(Notification.create(any[Snapshot], ServerState(sessionId, serial), Seq()))
     notificationStateUpdater
   }
 
@@ -167,7 +167,7 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
   test("should not update the snapshot state when writing it to the filesystem throws an error") {
     val repositoryWriterSpy = spy(getRepositoryWriter)
     val notificationStateSpy = getNotificationUpdater
-    doThrow(new IllegalArgumentException()).when(repositoryWriterSpy).writeSnapshot(anyString(), any[ServerState], "")
+    doThrow(new IllegalArgumentException()).when(repositoryWriterSpy).writeSnapshot(anyString(), any[ServerState], any[Snapshot])
 
     val snapshotStateService = new SnapshotStateService {
       override val repositoryWriter = repositoryWriterSpy
@@ -223,7 +223,7 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
     reply.tail should equal(Seq(ReportError(BaseError.CouldNotPersist, Some("Could not persist the changes: null"))))
     verify(repositoryWriterSpy).deleteSnapshot(anyString(), any[ServerState])
     verify(repositoryWriterSpy).deleteDelta(anyString(), any[ServerState])
-    verify(repositoryWriterSpy).deleteNotification(anyString(), any[ChangeSet])
+    verify(repositoryWriterSpy).deleteNotification(anyString())
     snapshotStateService.get should equal(snapshotStateBefore)
     notificationStateSpy.get should equal(notificationStateBefore)
   }
@@ -231,7 +231,7 @@ class SnapshotStateSpec extends PublicationServerBaseSpec with Urls {
   def getRepositoryWriter: RepositoryWriter = new MockRepositoryWriter()
 
   class MockRepositoryWriter extends RepositoryWriter {
-    override def writeSnapshot(rootDir: String, serverState: ServerState, snapshotXml: String): Unit = { }
+    override def writeSnapshot(rootDir: String, serverState: ServerState, snapshot: Snapshot): Unit = { }
     override def writeDelta(rootDir: String, delta: Delta): Unit = { }
     override def writeNotification(rootDir: String, notification: Notification): Path = Paths.get("")
   }
