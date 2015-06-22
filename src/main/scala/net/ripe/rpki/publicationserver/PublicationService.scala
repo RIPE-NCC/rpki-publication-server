@@ -6,7 +6,8 @@ import java.util.concurrent.Executors
 import akka.actor.Actor
 import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver.model.ClientId
-import net.ripe.rpki.publicationserver.store.fs.RepositoryWriter
+
+import net.ripe.rpki.publicationserver.store.Migrations
 import org.slf4j.LoggerFactory
 import spray.http.HttpHeaders.{`Cache-Control`, `Content-Type`}
 import spray.http.MediaTypes._
@@ -25,6 +26,7 @@ class PublicationServiceActor extends Actor with PublicationService with RRDPSer
   def receive = runRoute(publicationRoutes ~ rrdpRoutes)
 
   override def preStart() = {
+    Migrations.migrate()
     SnapshotState.init(conf.currentSessionId)
   }
 }
@@ -45,7 +47,7 @@ trait PublicationService extends HttpService with RepositoryPath {
 
   val healthChecks = wire[HealthChecks]
 
-  lazy val conf = wire[ConfigWrapper]
+  val conf = wire[ConfigWrapper]
 
   implicit val BufferedSourceUnmarshaller =
     Unmarshaller[BufferedSource](spray.http.ContentTypeRange.*) {
