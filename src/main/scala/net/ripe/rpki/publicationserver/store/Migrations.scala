@@ -4,13 +4,11 @@ import java.util.UUID
 
 import net.ripe.rpki.publicationserver.model.ServerState
 import slick.dbio.DBIO
-import slick.dbio.Effect.Write
 import slick.driver.H2Driver.api._
-import slick.profile.FixedSqlAction
 
 import scala.concurrent.Await
-import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
 
 object Migrations {
 
@@ -61,15 +59,12 @@ object Migrations {
 
   private lazy val migrationsTable = TableQuery[Migration]
 
-  // TODO remove
-  def getServerStates = serverStates.result
-
   def initServerState() = {
     val insert = { serverStates += ServerState(UUID.randomUUID(), 1L) }
     val nothing = DBIO.seq()
 
     val insertIfEmtpy = for {
-       states <- getServerStates
+       states <- serverStates.result
        _ <- if (states.isEmpty) insert else nothing
     } yield ()
 

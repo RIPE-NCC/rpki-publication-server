@@ -5,6 +5,7 @@ import net.ripe.rpki.publicationserver.model.ServerState
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
+import slick.driver.H2Driver.api._
 
 class MigrationsTest extends PublicationServerBaseSpec {
 
@@ -12,8 +13,7 @@ class MigrationsTest extends PublicationServerBaseSpec {
 
   test("should have inserted an initial row in an empty serverSettings table") {
 
-    //val states: Seq[ServerState] = Await.result(db.run(serverStates.result), Duration.Inf)
-    val states: Seq[ServerState] = Await.result(db.run(Migrations.getServerStates), Duration.Inf)
+    val states = Await.result(db.run(serverStates.result), Duration.Inf)
 
     states.size should be(1)
     states.head.serialNumber should be(1L)
@@ -22,7 +22,7 @@ class MigrationsTest extends PublicationServerBaseSpec {
   test("should not add a second initial row") {
     Migrations.initServerState()
 
-    val states: Seq[ServerState] = Await.result(db.run(Migrations.getServerStates), Duration.Inf)
+    val states: Seq[ServerState] = Await.result(db.run(serverStates.result), Duration.Inf)
 
     states.size should be(1)
     states.head.serialNumber should be(1L)
