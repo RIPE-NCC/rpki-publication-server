@@ -3,13 +3,13 @@ package net.ripe.rpki.publicationserver.store
 import java.net.URI
 
 import net.ripe.rpki.publicationserver.model.ClientId
-import net.ripe.rpki.publicationserver.{Base64, Hash, PublicationServerBaseSpec}
+import net.ripe.rpki.publicationserver.{Base64, Hash, PublicationServerBaseTest}
 import slick.driver.H2Driver
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
-class ObjectStoreSpec extends PublicationServerBaseSpec {
+class ObjectStoreTest extends PublicationServerBaseTest {
 
   val db = DB.db
 

@@ -6,7 +6,7 @@ import org.scalatest.{BeforeAndAfter, Matchers, FunSuite}
 
 import scala.io.Source
 
-abstract class PublicationServerBaseSpec extends FunSuite with BeforeAndAfter with Matchers with MockitoSugar with TestLogSetup {
+abstract class PublicationServerBaseTest extends FunSuite with BeforeAndAfter with Matchers with MockitoSugar with TestLogSetup {
 
   DBConfig.useMemoryDatabase = true
   Migrations.migrate()

@@ -2,7 +2,7 @@ package net.ripe.rpki.publicationserver
 
 import java.net.URI
 
-class PublicationMsgParserSpec extends PublicationServerBaseSpec {
+class PublicationMsgParserTest extends PublicationServerBaseTest {
 
   val msgParser = new PublicationMessageParser
 

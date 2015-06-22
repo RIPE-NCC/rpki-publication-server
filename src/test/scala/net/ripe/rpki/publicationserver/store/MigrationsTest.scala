@@ -1,13 +1,13 @@
 package net.ripe.rpki.publicationserver.store
 
-import net.ripe.rpki.publicationserver.PublicationServerBaseSpec
+import net.ripe.rpki.publicationserver.PublicationServerBaseTest
 import net.ripe.rpki.publicationserver.model.ServerState
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import slick.driver.H2Driver.api._
 
-class MigrationsTest extends PublicationServerBaseSpec {
+class MigrationsTest extends PublicationServerBaseTest {
 
   import DB._
 

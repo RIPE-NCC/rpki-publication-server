@@ -4,13 +4,13 @@ import java.net.URI
 import java.util.UUID
 
 import net.ripe.rpki.publicationserver.model.ClientId
-import net.ripe.rpki.publicationserver.{Hash, Base64, PublicationServerBaseSpec}
+import net.ripe.rpki.publicationserver.{Hash, Base64, PublicationServerBaseTest}
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
 
-class DBSpec extends PublicationServerBaseSpec {
+class DBTest extends PublicationServerBaseTest {
 
   import slick.driver.H2Driver.api._
 

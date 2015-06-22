@@ -2,9 +2,9 @@ package net.ripe.rpki.publicationserver.model
 
 import java.util.UUID
 
-import net.ripe.rpki.publicationserver.{Hash, PublicationServerBaseSpec}
+import net.ripe.rpki.publicationserver.{Hash, PublicationServerBaseTest}
 
-class NotificationSpec extends PublicationServerBaseSpec {
+class NotificationTest extends PublicationServerBaseTest {
 
   test("should serialize a Notification to proper xml") {
     val snapshot = SnapshotLocator("rsync://bla", Hash("2a3s4v"))

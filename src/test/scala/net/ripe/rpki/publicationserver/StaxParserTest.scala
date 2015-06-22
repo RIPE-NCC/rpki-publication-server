@@ -2,7 +2,7 @@ package net.ripe.rpki.publicationserver
 
 import com.ctc.wstx.exc.WstxValidationException
 
-class StaxParserSpec extends PublicationServerBaseSpec {
+class StaxParserTest extends PublicationServerBaseTest {
 
   // .rnc can't be handled by Woodstox or Stax. And the only schema that the .rnc can be converted to without loss of information, is .rng ...
   // To convert the rnc from the publication server draft to rng, download a trang.jar from http://www.thaiopensource.com/relaxng/trang.html

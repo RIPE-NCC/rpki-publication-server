@@ -3,9 +3,9 @@ package net.ripe.rpki.publicationserver.model
 import java.net.URI
 import java.util.UUID
 
-import net.ripe.rpki.publicationserver.{Base64, Hash, PublicationServerBaseSpec}
+import net.ripe.rpki.publicationserver.{Base64, Hash, PublicationServerBaseTest}
 
-class SnapshotSpec extends PublicationServerBaseSpec {
+class SnapshotTest extends PublicationServerBaseTest {
 
   test("should serialize to proper xml") {
     val sessionId = UUID.randomUUID()

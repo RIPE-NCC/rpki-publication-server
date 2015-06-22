@@ -2,7 +2,7 @@ package net.ripe.rpki.publicationserver
 
 import net.ripe.rpki.publicationserver.model.{Notification, SnapshotLocator}
 
-class NotificationParserSpec extends PublicationServerBaseSpec {
+class NotificationParserTest extends PublicationServerBaseTest {
 
   test("should parse valid notification.xml") {
     val Right(Notification(sessionId, serial, SnapshotLocator(uri, hash), _)) = NotificationParser.parse(getFile("/notification-valid.xml"))

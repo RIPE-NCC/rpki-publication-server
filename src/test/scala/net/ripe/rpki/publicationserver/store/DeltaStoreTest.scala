@@ -4,9 +4,9 @@ import java.net.URI
 import java.util.UUID
 
 import net.ripe.rpki.publicationserver.model.{ClientId, Delta}
-import net.ripe.rpki.publicationserver.{Base64, PublishQ, PublicationServerBaseSpec}
+import net.ripe.rpki.publicationserver.{Base64, PublishQ, PublicationServerBaseTest}
 
-class DeltaStoreSpec extends PublicationServerBaseSpec {
+class DeltaStoreTest extends PublicationServerBaseTest {
 
   val deltaStore = new DeltaStore
 

@@ -10,7 +10,7 @@ import net.ripe.rpki.publicationserver.store.fs.RepositoryWriter
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 
-class SnapshotStateTest extends PublicationServerBaseSpec with Urls {
+class SnapshotStateTest extends PublicationServerBaseTest with Urls {
 
   private var serial: Long = _
 
@@ -128,7 +128,6 @@ class SnapshotStateTest extends PublicationServerBaseSpec with Urls {
     val snapshotStateService = new SnapshotStateService {
       override val repositoryWriter = repositoryWriterSpy
       override val notificationState = notificationStateSpy
-      
     }
 
     val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))

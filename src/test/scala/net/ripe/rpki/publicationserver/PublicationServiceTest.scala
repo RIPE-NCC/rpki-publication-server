@@ -12,7 +12,7 @@ import spray.testkit.ScalatestRouteTest
 
 import scala.io.Source
 
-class PublicationServiceTest extends PublicationServerBaseSpec with ScalatestRouteTest {
+class PublicationServiceTest extends PublicationServerBaseTest with ScalatestRouteTest {
   def actorRefFactory = system
 
   trait Context {
