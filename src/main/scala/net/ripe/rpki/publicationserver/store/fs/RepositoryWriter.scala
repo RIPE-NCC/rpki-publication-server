@@ -2,6 +2,7 @@ package net.ripe.rpki.publicationserver.store.fs
 
 import java.io.{File, FileWriter}
 import java.nio.file._
+import com.softwaremill.macwire.MacwireMacros._
 
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.model.{Snapshot, ServerState, Notification, Delta}
@@ -10,7 +11,7 @@ import scala.util.{Failure, Try}
 
 class RepositoryWriter extends Logging {
 
-  def writeNewState(rootDir: String, serverState: ServerState, deltas: Seq[Delta], newNotification: Notification, snapshot: Snapshot) = {
+  def writeNewState(rootDir: String, serverState: ServerState, deltas: Seq[Delta], newNotification: Notification, snapshot: Snapshot) =
     Try {
       writeSnapshot(rootDir, serverState, snapshot)
       try {
@@ -34,12 +35,11 @@ class RepositoryWriter extends Logging {
           deleteDelta(rootDir, serverState)
           throw e
       }
-    }.recoverWith { case e : Exception =>
-        logger.error("An error occurred, removing snapshot: ", e)
-        deleteSnapshot(rootDir, serverState)
-        Failure(e)
+    }.recoverWith { case e: Exception =>
+      logger.error("An error occurred, removing snapshot: ", e)
+      deleteSnapshot(rootDir, serverState)
+      Failure(e)
     }
-  }
 
   def writeSnapshot(rootDir: String, serverState: ServerState, snapshot: Snapshot) = {
     val ServerState(sessionId, serial) = serverState
@@ -103,5 +103,4 @@ class RepositoryWriter extends Logging {
     del(new File(rootDir, "notification.xml"))
     del(new File(rootDir, "notification_tmp.xml"))
   }
-
 }
