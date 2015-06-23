@@ -140,10 +140,42 @@ class PublicationServiceTest extends PublicationServerBaseTest with ScalatestRou
       response.status.isSuccess should be(true)
     }
 
-    val publishXml = getFile("/dubiousListRequest.xml")
+    val listXml = getFile("/dubiousListRequest.xml")
     val listXmlResponse = getFile("/listResponse.xml")
 
-    POST("/?clientId=1234", publishXml) ~> publicationService.publicationRoutes ~> check {
+    POST("/?clientId=1234", listXml) ~> publicationService.publicationRoutes ~> check {
+      val response = responseAs[String]
+      trim(response) should be(trim(listXmlResponse.mkString))
+    }
+  }
+
+  test("should list only the published object of the specified client") {
+    POST("/?clientId=1234", getFile("/publish.xml")) ~> publicationService.publicationRoutes ~> check {
+      response.status.isSuccess should be(true)
+    }
+    POST("/?clientId=1235", getFile("/publish_2.xml")) ~> publicationService.publicationRoutes ~> check {
+      response.status.isSuccess should be(true)
+    }
+
+    val listXml = getFile("/list.xml")
+    val listXmlResponse = getFile("/listResponse.xml")
+    POST("/?clientId=1234", listXml) ~> publicationService.publicationRoutes ~> check {
+      val response = responseAs[String]
+      trim(response) should be(trim(listXmlResponse.mkString))
+    }
+  }
+
+  test("should list both published objects of the specified client") {
+    POST("/?clientId=1234", getFile("/publish.xml")) ~> publicationService.publicationRoutes ~> check {
+      response.status.isSuccess should be(true)
+    }
+    POST("/?clientId=1234", getFile("/publish_2.xml")) ~> publicationService.publicationRoutes ~> check {
+      response.status.isSuccess should be(true)
+    }
+
+    val listXml = getFile("/list.xml")
+    val listXmlResponse = getFile("/listResponse_2.xml")
+    POST("/?clientId=1234", listXml) ~> publicationService.publicationRoutes ~> check {
       val response = responseAs[String]
       trim(response) should be(trim(listXmlResponse.mkString))
     }
