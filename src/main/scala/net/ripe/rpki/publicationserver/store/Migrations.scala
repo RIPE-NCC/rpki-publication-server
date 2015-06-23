@@ -23,7 +23,9 @@ object Migrations {
   private val migrations = Map (
     1 -> DBIO.seq(objects.schema.create),
     2 -> DBIO.seq(deltas.schema.create),
-    3 -> DBIO.seq(serverStates.schema.create)
+    3 -> DBIO.seq(serverStates.schema.create),
+    // TODO Change migration to Slick instead of native SQL
+    4 -> DBIO.seq(sqlu"CREATE INDEX IDX_CLIENT_ID ON #${objects.baseTableRow.tableName}(CLIENT_ID)")
   )
 
   def migrate() = synchronized {

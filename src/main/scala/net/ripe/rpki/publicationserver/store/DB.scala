@@ -31,6 +31,7 @@ object DB {
     def clientId = column[String]("CLIENT_ID")
 
     def * = (base64, hash, uri, clientId)
+    def idxClientId = index("IDX_CLID", clientId)
   }
 
   class ServerStates(tag: Tag) extends Table[ServerState](tag, "SERVER_STATES") {
