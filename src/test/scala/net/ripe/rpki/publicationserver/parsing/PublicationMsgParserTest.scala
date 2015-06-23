@@ -1,6 +1,8 @@
-package net.ripe.rpki.publicationserver
+package net.ripe.rpki.publicationserver.parsing
 
 import java.net.URI
+
+import net.ripe.rpki.publicationserver._
 
 class PublicationMsgParserTest extends PublicationServerBaseTest {
 

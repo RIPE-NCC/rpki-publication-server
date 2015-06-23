@@ -1,7 +1,8 @@
-package net.ripe.rpki.publicationserver
+package net.ripe.rpki.publicationserver.parsing
 
 import java.util.UUID
 
+import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.model.{Notification, SnapshotLocator}
 
 import scala.annotation.tailrec

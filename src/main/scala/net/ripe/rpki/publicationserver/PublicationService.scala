@@ -6,11 +6,10 @@ import java.util.concurrent.Executors
 import akka.actor.Actor
 import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver.model.ClientId
-
+import net.ripe.rpki.publicationserver.parsing.PublicationMessageParser
 import net.ripe.rpki.publicationserver.store.Migrations
 import org.slf4j.LoggerFactory
-import spray.http.HttpHeaders.{`Cache-Control`, `Content-Type`}
-import spray.http.MediaTypes._
+import spray.http.HttpHeaders.`Content-Type`
 import spray.http._
 import spray.httpx.unmarshalling._
 import spray.routing._

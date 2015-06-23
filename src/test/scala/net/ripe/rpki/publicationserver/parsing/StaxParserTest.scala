@@ -1,6 +1,7 @@
-package net.ripe.rpki.publicationserver
+package net.ripe.rpki.publicationserver.parsing
 
 import com.ctc.wstx.exc.WstxValidationException
+import net.ripe.rpki.publicationserver.PublicationServerBaseTest
 
 class StaxParserTest extends PublicationServerBaseTest {
 

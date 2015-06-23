@@ -1,6 +1,7 @@
 package net.ripe.rpki.publicationserver
 
 import net.ripe.rpki.publicationserver.model.{Notification, SnapshotLocator}
+import net.ripe.rpki.publicationserver.parsing.NotificationParser
 
 class NotificationParserTest extends PublicationServerBaseTest {
 

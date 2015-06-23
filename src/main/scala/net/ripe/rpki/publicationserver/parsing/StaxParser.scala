@@ -1,4 +1,4 @@
-package net.ripe.rpki.publicationserver
+package net.ripe.rpki.publicationserver.parsing
 
 import java.io.{Reader, StringReader}
 import javax.xml.stream.{XMLInputFactory, XMLStreamConstants, XMLStreamReader}
