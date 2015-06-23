@@ -7,12 +7,12 @@ import net.ripe.rpki.publicationserver.model._
 import net.ripe.rpki.publicationserver.store.fs.RepositoryWriter
 import net.ripe.rpki.publicationserver.store.{DB, DeltaStore, ObjectStore, ServerStateStore}
 import slick.dbio.DBIO
+import slick.driver.H2Driver.api._
 
 import scala.concurrent.Await
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success}
-import slick.driver.H2Driver.api._
-import scala.concurrent.ExecutionContext.Implicits.global
 
 
 
@@ -24,8 +24,6 @@ object SnapshotState extends SnapshotStateService {
 }
 
 trait SnapshotStateService extends Urls with Logging with Hashing {
-
-  val sessionId = conf.currentSessionId
 
   val repositoryWriter = wire[RepositoryWriter]
 
@@ -39,7 +37,11 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
 
   lazy val deltaStore = new DeltaStore
 
-  def init(sessionId: UUID) = {
+  var sessionId: UUID = _
+
+  def init() = {
+    sessionId = serverStateStore.get.sessionId
+
     logger.info("Initializing delta cache")
     deltaStore.initCache(sessionId)
 
@@ -57,7 +59,7 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
     ListR(uri, hash.hash, None)
   }
 
-  def updateWith(clientId: ClientId, queries: Seq[QueryPdu]): Seq[ReplyPdu] = synchronized {
+  def updateWith(clientId: ClientId, queries: Seq[QueryPdu]): Seq[ReplyPdu] = {
     val oldServerState = serverStateStore.get
     val newServerState = oldServerState.next
     val results = getPersistAction(clientId, queries, newServerState)

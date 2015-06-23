@@ -26,6 +26,7 @@ class PublicationServiceTest extends PublicationServerBaseTest with ScalatestRou
 
   before {
     objectStore.clear()
+    SnapshotState.init()
   }
 
   test("should return a response with content-type application/rpki-publication") {

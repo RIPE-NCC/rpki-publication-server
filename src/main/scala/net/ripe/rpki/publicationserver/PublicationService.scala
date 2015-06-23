@@ -26,7 +26,7 @@ class PublicationServiceActor extends Actor with PublicationService with RRDPSer
 
   override def preStart() = {
     Migrations.migrate()
-    SnapshotState.init(conf.currentSessionId)
+    SnapshotState.init()
   }
 }
 

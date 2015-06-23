@@ -27,10 +27,10 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
 
   before {
     serial = 1L
-    sessionId = conf.currentSessionId
     deltaStore.clear()
     serverStateStore.clear()
     Migrations.initServerState()
+    sessionId = serverStateStore.get.sessionId
   }
 
   test("should write the snapshot and delta's from the db to the filesystem on init") {
@@ -43,7 +43,7 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
     }
     when(mockDeltaStore.getDeltas).thenReturn(Seq(Delta(sessionId, 1L, Seq.empty)))
 
-    snapshotState.init(sessionId)
+    snapshotState.init()
 
     verify(mockDeltaStore).initCache(sessionId)
     verify(mockRepositoryWriter).writeSnapshot(any[String], any[ServerState], any[Snapshot])
@@ -51,6 +51,8 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
   }
 
   test("should add an object with publish") {
+    SnapshotState.init()
+
     SnapshotState.updateWith(ClientId("bla"), Seq(PublishQ(uri = new URI("rsync://host/zzz.cer"), tag = None, hash = None, base64 = Base64("aaaa="))))
 
     SnapshotState.deltaStore.getDeltas should be(Seq(
@@ -63,6 +65,7 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
   }
 
   test("should update an object with publish and republish") {
+    SnapshotState.init()
 
     val replies = SnapshotState.updateWith(
       ClientId("bla"),
@@ -85,6 +88,8 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
   }
 
   test("should fail to update an object which is not in the snapshot") {
+    SnapshotState.init()
+
     val replies = SnapshotState.updateWith(
       ClientId("bla"),
       Seq(PublishQ(
@@ -97,6 +102,8 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
   }
 
   test("should fail to update an object without hash provided") {
+    SnapshotState.init()
+
     val replies = SnapshotState.updateWith(
       ClientId("bla"),Seq(PublishQ(uri = new URI("rsync://host/zzz.cer"), tag = None, hash = None, base64 = Base64("cccc="))))
 
@@ -104,6 +111,8 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
   }
 
   test("should fail to update an object if hashes do not match") {
+    SnapshotState.init()
+
     val replies = SnapshotState.updateWith(
       ClientId("bla"),
       Seq(PublishQ(
@@ -116,6 +125,8 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
   }
 
   test("should fail to withdraw an object if there's no such object") {
+    SnapshotState.init()
+
     val replies = SnapshotState.updateWith(
       ClientId("bla"),Seq(WithdrawQ(uri = new URI("rsync://host/not-existing-uri.cer"), tag = None, hash = "whatever")))
 
@@ -123,6 +134,8 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
   }
 
   test("should fail to withdraw an object if hashes do not match") {
+    SnapshotState.init()
+
     val replies = SnapshotState.updateWith(
       ClientId("bla"),Seq(WithdrawQ(uri = new URI("rsync://host/zzz.cer"), tag = None, hash = "WRONGHASH")))
 
@@ -130,6 +143,8 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
   }
 
   test("should create 2 entries in delta map after 2 updates") {
+    SnapshotState.init()
+
     SnapshotState.updateWith(ClientId("bla"), Seq(PublishQ(uri = new URI("rsync://host/cert1.cer"), tag = None, hash = None, base64 = Base64("cccc="))))
 
     SnapshotState.updateWith(ClientId("bla"), Seq(PublishQ(uri = new URI("rsync://host/cert2.cer"), tag = None, hash = None, base64 = Base64("bbbb="))))
@@ -157,6 +172,7 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
       override val repositoryWriter = repositoryWriterSpy
       override val notificationState = notificationStateSpy
     }
+    snapshotStateService.init()
 
     val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
     val notificationStateBefore = notificationStateSpy.get
@@ -182,6 +198,8 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
       override val repositoryWriter = repositoryWriterSpy
       override val notificationState = notificationStateSpy
     }
+    snapshotStateService.init()
+    reset(repositoryWriterSpy)
 
     val withdraw = WithdrawQ(new URI("rsync://host/zzz.cer"), None, "BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7")
 
@@ -194,13 +212,14 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
   test("should not update the snapshot state when writing it to the filesystem throws an error") {
     val repositoryWriterSpy = spy(getRepositoryWriter)
     val notificationStateSpy = getNotificationState
-    doThrow(new IllegalArgumentException()).when(repositoryWriterSpy).writeSnapshot(anyString(), any[ServerState], any[Snapshot])
 
     val snapshotStateService = new SnapshotStateService {
       override val repositoryWriter = repositoryWriterSpy
       override val notificationState = notificationStateSpy
       logger.debug("force logger to instantiate!")
     }
+    snapshotStateService.init()
+    doThrow(new IllegalArgumentException()).when(repositoryWriterSpy).writeSnapshot(anyString(), any[ServerState], any[Snapshot])
 
     val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
 
@@ -222,6 +241,7 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
       override val notificationState = notificationStateSpy
       override lazy val deltaStore = deltaStoreSpy
     }
+    snapshotStateService.init()
 
     val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
     val notificationStateBefore = notificationStateSpy.get
@@ -237,13 +257,14 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
 
     val repositoryWriterSpy = spy(getRepositoryWriter)
     val notificationStateSpy = getNotificationState
-    doThrow(new IllegalArgumentException()).when(repositoryWriterSpy).writeNotification(anyString(), any[Notification])
 
     val snapshotStateService = new SnapshotStateService {
       override val repositoryWriter = repositoryWriterSpy
       override val notificationState = notificationStateSpy
       logger.debug("force logger to instantiate!")
     }
+    snapshotStateService.init()
+    doThrow(new IllegalArgumentException()).when(repositoryWriterSpy).writeNotification(anyString(), any[Notification])
 
     val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
     val notificationStateBefore = notificationStateSpy.get
