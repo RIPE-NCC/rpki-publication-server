@@ -199,12 +199,13 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
     val snapshotStateService = new SnapshotStateService {
       override val repositoryWriter = repositoryWriterSpy
       override val notificationState = notificationStateSpy
+      logger.debug("force logger to instantiate!")
     }
 
     val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
 
     val reply = snapshotStateService.updateWith(ClientId("client1"), Seq(publish))
-    reply.tail should equal(Seq(ReportError(BaseError.CouldNotPersist, Some("Could not write XML files to filesystem: null"))))
+    reply should equal(Seq(ReportError(BaseError.CouldNotPersist, Some("A problem occurred while persisting the changes: java.lang.IllegalArgumentException"))))
     verify(repositoryWriterSpy).deleteSnapshot(anyString(), any[ServerState])
   }
 
@@ -214,7 +215,7 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
     val repositoryWriterSpy = spy(getRepositoryWriter)
     val notificationStateSpy = getNotificationState
     val deltaStoreSpy = spy(new DeltaStore)
-    doThrow(new IllegalArgumentException()).when(deltaStoreSpy).addDelta(any[ClientId], any[Delta])
+    doThrow(new IllegalArgumentException()).when(deltaStoreSpy).addDeltaAction(any[ClientId], any[Delta])
 
     val snapshotStateService = new SnapshotStateService {
       override val repositoryWriter = repositoryWriterSpy
@@ -241,6 +242,7 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
     val snapshotStateService = new SnapshotStateService {
       override val repositoryWriter = repositoryWriterSpy
       override val notificationState = notificationStateSpy
+      logger.debug("force logger to instantiate!")
     }
 
     val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
@@ -248,7 +250,7 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
 
     val reply = snapshotStateService.updateWith(ClientId("client1"), Seq(publish))
 
-    reply.tail should equal(Seq(ReportError(BaseError.CouldNotPersist, Some("Could not write XML files to filesystem: null"))))
+    reply should equal(Seq(ReportError(BaseError.CouldNotPersist, Some("A problem occurred while persisting the changes: java.lang.IllegalArgumentException"))))
     verify(repositoryWriterSpy).deleteSnapshot(anyString(), any[ServerState])
     verify(repositoryWriterSpy).deleteDelta(anyString(), any[ServerState])
     verify(repositoryWriterSpy).deleteNotification(anyString())
