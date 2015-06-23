@@ -2,8 +2,6 @@ package net.ripe.rpki.publicationserver
 
 import scala.io.BufferedSource
 
-case class Base64(value: String)
-
 trait MessageParser[T] {
 
   def Schema: String

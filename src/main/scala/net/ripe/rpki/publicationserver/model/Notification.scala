@@ -33,19 +33,6 @@ case class Notification(sessionId: UUID, serial: BigInt, snapshot: SnapshotLocat
     </notification>
 }
 
-
-trait Urls {
-  lazy val conf = wire[ConfigWrapper]
-
-  lazy val repositoryUri = conf.locationRepositoryUri
-
-  def snapshotUrl(serverState: ServerState) = {
-    val ServerState(sessionId, serial) = serverState
-    repositoryUri + "/" + sessionId + "/" + serial + "/snapshot.xml"
-  }
-  def deltaUrl(delta: Delta) = repositoryUri + "/" + delta.sessionId + "/" + delta.serial + "/delta.xml"
-}
-
 object Notification extends Hashing with Urls {
 
   def create(snapshot: Snapshot, serverState: ServerState, deltas: Seq[Delta]): Notification = {

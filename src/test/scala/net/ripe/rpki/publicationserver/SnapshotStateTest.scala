@@ -6,7 +6,7 @@ import java.util.UUID
 
 import net.ripe.rpki.publicationserver.model._
 import net.ripe.rpki.publicationserver.store.fs.RepositoryWriter
-import net.ripe.rpki.publicationserver.store.{DeltaStore, Migrations}
+import net.ripe.rpki.publicationserver.store.{ServerStateStore, DeltaStore, Migrations}
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 
@@ -16,12 +16,33 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
 
   private var sessionId: UUID = _
 
+  private val deltaStore = new DeltaStore
+
+  private val serverStateStore = new ServerStateStore
+
   before {
     serial = 1L
     sessionId = conf.currentSessionId
-    SnapshotState.deltaStore.clear()
-    SnapshotState.serverStateStore.clear()
+    deltaStore.clear()
+    serverStateStore.clear()
     Migrations.initServerState()
+  }
+
+  test("should write the snapshot and delta's from the db to the filesystem on init") {
+    val mockRepositoryWriter = spy(new RepositoryWriter)
+    val mockDeltaStore = spy(new DeltaStore)
+
+    val snapshotState = new SnapshotStateService {
+      override val repositoryWriter = mockRepositoryWriter
+      override lazy val deltaStore = mockDeltaStore
+    }
+    when(mockDeltaStore.getDeltas).thenReturn(Seq(Delta(sessionId, 1L, Seq.empty)))
+
+    snapshotState.init(sessionId)
+
+    verify(mockDeltaStore).initCache(sessionId)
+    verify(mockRepositoryWriter).writeSnapshot(any[String], any[ServerState], any[Snapshot])
+    verify(mockRepositoryWriter).writeDelta(any[String], any[Delta])
   }
 
   test("should add an object with publish") {
@@ -182,7 +203,7 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
     verify(repositoryWriterSpy).deleteSnapshot(anyString(), any[ServerState])
   }
 
-  test("should not update the snapshot, delta and notification state when updating delta throws an error") {
+  test("should not update the notification state when updating delta throws an error") {
     SnapshotState.objectStore.clear()
 
     val repositoryWriterSpy = spy(getRepositoryWriter)
