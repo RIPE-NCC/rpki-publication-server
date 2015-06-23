@@ -6,7 +6,7 @@ import java.util.UUID
 
 import net.ripe.rpki.publicationserver.model._
 import net.ripe.rpki.publicationserver.store.fs.RepositoryWriter
-import net.ripe.rpki.publicationserver.store.{ServerStateStore, DeltaStore, Migrations}
+import net.ripe.rpki.publicationserver.store.{ObjectStore, ServerStateStore, DeltaStore, Migrations}
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 
@@ -19,6 +19,11 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
   private val deltaStore = new DeltaStore
 
   private val serverStateStore = new ServerStateStore
+
+  private val objectStore = new ObjectStore
+
+  objectStore.clear()
+  SnapshotState.deltaStore.clear()
 
   before {
     serial = 1L
