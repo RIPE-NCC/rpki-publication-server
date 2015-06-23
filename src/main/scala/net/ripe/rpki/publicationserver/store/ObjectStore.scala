@@ -23,6 +23,8 @@ class ObjectStore extends Hashing {
 
   def listAll: Seq[RRDPObject] = getSeq(objects)
 
+  def getAllAction = mapQ(objects)
+
   def insertAction(clientId: ClientId, obj: RRDPObject) = {
     val (base64, hash, uri) = obj
     objects += (base64.value, hash.hash, uri.toString, clientId.value)
@@ -51,11 +53,13 @@ class ObjectStore extends Hashing {
 
   def clear() = Await.result(db.run(objects.delete), Duration.Inf)
 
+  private def mapQ(q: Query[RepoObject, (String, String, String, String), Seq]) = q.result.map {
+    _.map { o =>
+      val (b64, h, u, _) = o
+      (Base64(b64), Hash(h), new URI(u))
+    }
+  }
+
   private def getSeq(q: Query[RepoObject, (String, String, String, String), Seq]): Seq[RRDPObject] =
-    Await.result(db.run(q.result).map {
-      _.map { o =>
-        val (b64, h, u, _) = o
-        (Base64(b64), Hash(h), new URI(u))
-      }
-    }, Duration.Inf)
+    Await.result(db.run(mapQ(q)), Duration.Inf)
 }

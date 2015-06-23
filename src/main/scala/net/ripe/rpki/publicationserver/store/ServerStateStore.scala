@@ -24,5 +24,7 @@ class ServerStateStore {
     Await.result(f, Duration.Inf)
   }
 
+  def updateAction(serverState: ServerState) = serverStates.update(serverState)
+
   def clear() = Await.result(db.run(serverStates.delete), Duration.Inf)
 }
