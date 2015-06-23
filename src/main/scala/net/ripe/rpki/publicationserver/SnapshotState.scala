@@ -80,6 +80,7 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
           _           <- serverStateStore.updateAction(newServerState)
           objActions  <- objectStore.getAllAction
           x <- {
+            // TODO Saving to the XML files should be asynchronous
             val deltas = deltaStore.getDeltas
             val snapshot = Snapshot(newServerState, objActions)
             val newNotification = Notification.create(snapshot, newServerState, deltas)
