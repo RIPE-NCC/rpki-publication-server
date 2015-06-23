@@ -75,11 +75,11 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
         val deltaAction = deltaStore.addDeltaAction(clientId, Delta(sessionId, newServerState.serialNumber, validPdus))
 
         val action = (for {
-          _           <- DBIO.seq(actions: _*)
-          _           <- DBIO.seq(deltaAction)
-          _           <- serverStateStore.updateAction(newServerState)
-          objActions  <- objectStore.getAllAction
-          x <- {
+          _             <- DBIO.seq(actions: _*)
+          _             <- DBIO.seq(deltaAction)
+          _             <- serverStateStore.updateAction(newServerState)
+          objActions    <- objectStore.getAllAction
+          fsWriteResult <- {
             // TODO Saving to the XML files should be asynchronous
             val deltas = deltaStore.getDeltas
             val snapshot = Snapshot(newServerState, objActions)
@@ -93,7 +93,7 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
                 DBIO.failed(e)
             }
           }
-        } yield x
+        } yield fsWriteResult
           ).transactionally
 
         Await.result(db.run(action), Duration.Inf)
