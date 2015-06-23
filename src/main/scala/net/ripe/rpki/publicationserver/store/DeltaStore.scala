@@ -16,15 +16,15 @@ class DeltaStore extends Hashing {
 
   private var deltaMap = Map[Long, Delta]()
 
-  def addDelta(clientId: ClientId, delta: Delta) = {
+  def addDeltaAction(clientId: ClientId, delta: Delta) = {
     val ClientId(cId) = clientId
     val actions = delta.pdus.map {
       case PublishQ(u, tag, Some(h), b64) =>
-        deltas += ((u.toString, h, b64.value, cId, delta.serial, 'P'))
+        deltas += ((u.toString, Some(h), Some(b64.value), cId, delta.serial, 'P'))
       case PublishQ(u, tag, None, b64) =>
-        deltas += ((u.toString, null, b64.value, cId, delta.serial, 'P'))
+        deltas += ((u.toString, None, Some(b64.value), cId, delta.serial, 'P'))
       case WithdrawQ(u, tag, h) =>
-        deltas += ((u.toString, h, "", cId, delta.serial, 'W'))
+        deltas += ((u.toString, Some(h), None, cId, delta.serial, 'W'))
     }
 
     if (actions.isEmpty) {
@@ -43,9 +43,9 @@ class DeltaStore extends Hashing {
     deltaMap = changes.groupBy(_._5).map { p =>
       val (serial, pws) = p
       val pdus = pws.map {
-        case (uri, hash, b64, _, serial, 'P') =>
-          PublishQ(new URI(uri), None, Option(hash), Base64(b64))
-        case (uri, hash, _, _, serial, 'W') =>
+        case (uri, hash, Some(b64), _, _, 'P') =>
+          PublishQ(new URI(uri), None, hash, Base64(b64))
+        case (uri, Some(hash), _, _, _, 'W') =>
           WithdrawQ(new URI(uri), None, hash)
       }
       (serial, Delta(sessionId, serial, pdus))

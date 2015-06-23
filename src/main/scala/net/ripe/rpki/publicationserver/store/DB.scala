@@ -44,16 +44,16 @@ object DB {
     private def unMapRow(s: ServerState) = Some((s.sessionId.toString, s.serialNumber))
   }
 
-  class DeltaPdu(tag: Tag) extends Table[(String, String, String, String, Long, Char)](tag, "DELTAS") {
+  class DeltaPdu(tag: Tag) extends Table[(String, Option[String], Option[String], String, Long, Char)](tag, "DELTAS") {
     def uri = column[String]("URI")
-    def hash = column[String]("HASH")
-    def base64 = column[String]("BASE64")
+    def hash = column[Option[String]]("HASH")
+    def base64 = column[Option[String]]("BASE64")
     def clientId = column[String]("CLIENT_ID")
     def serial = column[Long]("SERIAL")
     def changeType = column[Char]("CHANGE_TYPE")
 
     def pk = primaryKey("pk_a", (uri, serial, changeType))
-    def * = (base64, hash, uri, clientId, serial, changeType)
+    def * = (uri, hash, base64, clientId, serial, changeType)
   }
 
   val objects = TableQuery[RepoObject]
