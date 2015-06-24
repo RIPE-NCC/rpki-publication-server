@@ -14,7 +14,6 @@ class ConfigWrapper {
   lazy val locationRepositoryPath = getConfig.getString("locations.repository.path")
   lazy val locationRepositoryUri  = getConfig.getString("locations.repository.uri")
   lazy val locationLogfile = getConfig.getString("locations.logfile")
-  lazy val currentSessionId = UUID.fromString(getConfig.getString("current.session.id"))
 }
 
 object ConfigWrapper {

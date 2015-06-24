@@ -2,28 +2,22 @@ package net.ripe.rpki.publicationserver.store.fs
 
 import java.io.{File, FileWriter}
 import java.nio.file._
-import java.util.UUID
+import com.softwaremill.macwire.MacwireMacros._
 
 import net.ripe.rpki.publicationserver._
+import net.ripe.rpki.publicationserver.model.{Snapshot, ServerState, Notification, Delta}
 
 import scala.util.{Failure, Try}
-import scala.xml.Elem
 
 class RepositoryWriter extends Logging {
 
-  def writeNewState(rootDir: String, newSnapshot: RepositoryState, newNotification: Notification) = {
+  def writeNewState(rootDir: String, serverState: ServerState, deltas: Seq[Delta], newNotification: Notification, snapshot: Snapshot) =
     Try {
-      writeSnapshot(rootDir, newSnapshot)
+      writeSnapshot(rootDir, serverState, snapshot)
       try {
-        if (newSnapshot.deltas.nonEmpty) {
-          newSnapshot.latestDelta match {
-            case None =>
-              val message = s"Could not find the latest delta, sessionId=${newSnapshot.sessionId}, serial=${newSnapshot.serial}"
-              logger.error(message)
-              throw new IllegalStateException(message)
-            case Some(delta) =>
-              writeDelta(rootDir, delta)
-          }
+        if (deltas.nonEmpty) {
+          val latestDelta = deltas.maxBy(_.serial)
+          writeDelta(rootDir, latestDelta)
         } else {
           logger.info("No deltas found in current snapshot")
         }
@@ -32,46 +26,46 @@ class RepositoryWriter extends Logging {
         } catch {
           case e: Exception =>
             logger.error("Could not write notification file: ", e)
-            deleteNotification(rootDir, newSnapshot)
+            deleteNotification(rootDir)
             throw e
         }
       } catch {
         case e: Exception =>
           logger.error("An error occurred, removing delta: ", e)
-          deleteDelta(rootDir, newSnapshot)
+          deleteDelta(rootDir, serverState)
           throw e
       }
-    }.recoverWith { case e : Exception =>
-        logger.error("An error occurred, removing snapshot: ", e)
-        deleteSnapshot(rootDir, newSnapshot)
-        Failure(e)
+    }.recoverWith { case e: Exception =>
+      logger.error("An error occurred, removing snapshot: ", e)
+      deleteSnapshot(rootDir, serverState)
+      Failure(e)
     }
-  }
 
-  def writeSnapshot(rootDir: String, snapshot: RepositoryState) = {
-    val stateDir = getStateDir(rootDir, snapshot.sessionId, snapshot.serial)
-    writeFile(snapshot.serialize, new File(stateDir, "snapshot.xml"))
+  def writeSnapshot(rootDir: String, serverState: ServerState, snapshot: Snapshot) = {
+    val ServerState(sessionId, serial) = serverState
+    val stateDir = getStateDir(rootDir, sessionId.toString, serial)
+    writeFile(snapshot.serialized, new File(stateDir, "snapshot.xml"))
   }
 
   def writeDelta(rootDir: String, delta: Delta) = {
-    val stateDir = getStateDir(rootDir, delta.sessionId, delta.serial)
-    writeFile(delta.serialize, new File(stateDir, "delta.xml"))
+    val stateDir = getStateDir(rootDir, delta.sessionId.toString, delta.serial)
+    writeFile(delta.serialize.mkString, new File(stateDir, "delta.xml"))
   }
 
   def writeNotification(rootDir: String, notification: Notification) = {
     val root = getRootFolder(rootDir)
 
     val tmpFile = new File(root, "notification_tmp.xml")
-    writeFile(notification.serialize, tmpFile)
+    writeFile(notification.serialized, tmpFile)
 
     val source = Paths.get(tmpFile.toURI)
     val target = Paths.get(new File(root, "notification.xml").toURI)
     Files.move(source, target, StandardCopyOption.REPLACE_EXISTING)
   }
 
-  private def writeFile(elem: Elem, file: File) = {
+  private def writeFile(content: String, file: File) = {
     val writer = new FileWriter(file)
-    try writer.write(elem.mkString)
+    try writer.write(content)
     finally writer.close()
   }
 
@@ -81,9 +75,9 @@ class RepositoryWriter extends Logging {
     root
   }
 
-  private def getStateDir(rootDir: String, sessionId: UUID, serial: BigInt): File = {
+  private def getStateDir(rootDir: String, sessionId: String, serial: Long): File = {
     val root = getRootFolder(rootDir)
-    dir(dir(root, sessionId.toString), serial.toString())
+    dir(dir(root, sessionId), serial.toString)
   }
 
   private def dir(d: File, name: String) = {
@@ -92,21 +86,21 @@ class RepositoryWriter extends Logging {
     _dir
   }
 
-  def deleteSessionFile(rootDir: String, snapshot: RepositoryState, name: String) = {
-    val sessionDir = new File(new File(rootDir), snapshot.sessionId.toString)
-    val serialDir = new File(sessionDir, snapshot.serial.toString)
+  def deleteSessionFile(rootDir: String, serverState: ServerState, name: String) = {
+    val ServerState(sessionId, serial) = serverState
+    val sessionDir = new File(new File(rootDir), sessionId.toString)
+    val serialDir = new File(sessionDir, serial.toString)
     del(new File(serialDir, "snapshot.xml"))
   }
 
   def del(f: File) = Files.deleteIfExists(Paths.get(f.toURI))
 
-  def deleteSnapshot(rootDir: String, snapshot: RepositoryState) = deleteSessionFile(rootDir, snapshot, "snapshot.xml")
+  def deleteSnapshot(rootDir: String, serverState: ServerState) = deleteSessionFile(rootDir, serverState, "snapshot.xml")
 
-  def deleteDelta(rootDir: String, snapshot: RepositoryState) = deleteSessionFile(rootDir, snapshot, "delta.xml")
+  def deleteDelta(rootDir: String, serverState: ServerState) = deleteSessionFile(rootDir, serverState, "delta.xml")
 
-  def deleteNotification(rootDir: String, snapshot: RepositoryState) = {
+  def deleteNotification(rootDir: String) = {
     del(new File(rootDir, "notification.xml"))
     del(new File(rootDir, "notification_tmp.xml"))
   }
-
 }

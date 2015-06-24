@@ -5,10 +5,11 @@ import java.util.concurrent.Executors
 
 import akka.actor.Actor
 import com.softwaremill.macwire.MacwireMacros._
-import net.ripe.rpki.publicationserver.store.fs.SnapshotReader
+import net.ripe.rpki.publicationserver.model.ClientId
+import net.ripe.rpki.publicationserver.parsing.PublicationMessageParser
+import net.ripe.rpki.publicationserver.store.Migrations
 import org.slf4j.LoggerFactory
-import spray.http.HttpHeaders.{`Cache-Control`, `Content-Type`}
-import spray.http.MediaTypes._
+import spray.http.HttpHeaders.`Content-Type`
 import spray.http._
 import spray.httpx.unmarshalling._
 import spray.routing._
@@ -24,22 +25,9 @@ class PublicationServiceActor extends Actor with PublicationService with RRDPSer
   def receive = runRoute(publicationRoutes ~ rrdpRoutes)
 
   override def preStart() = {
-    val initialSnapshot = SnapshotReader.readSnapshotFromNotification(repositoryPath = conf.locationRepositoryPath, repositoryUri = conf.locationRepositoryUri)
-    initialSnapshot match {
-      case Left(err@BaseError(_, _)) =>
-        serviceLogger.error(s"Error occured while reading initial snapshot: $err")
-      case Right(None) =>
-        val snapshot = RepositoryState.emptySnapshot
-        RepositoryState.initializeWith(snapshot)
-        RepositoryState.writeRepositoryState(snapshot)
-      case Right(Some(is)) =>
-        RepositoryState.initializeWith(is)
-    }
+    Migrations.migrate()
+    SnapshotState.init()
   }
-}
-
-trait RepositoryPath {
-  val repositoryPath = wire[ConfigWrapper].locationRepositoryPath
 }
 
 trait PublicationService extends HttpService with RepositoryPath {
@@ -54,7 +42,7 @@ trait PublicationService extends HttpService with RepositoryPath {
 
   val healthChecks = wire[HealthChecks]
 
-  lazy val conf = wire[ConfigWrapper]
+  val conf = wire[ConfigWrapper]
 
   implicit val BufferedSourceUnmarshaller =
     Unmarshaller[BufferedSource](spray.http.ContentTypeRange.*) {
@@ -67,7 +55,7 @@ trait PublicationService extends HttpService with RepositoryPath {
 
   val publicationRoutes =
     path("") {
-      post {
+      post { parameter ("clientId") { clientId =>
         optionalHeaderValue(checkContentType) { ct =>
           serviceLogger.info("Post request received")
           if (ct.isEmpty) {
@@ -75,7 +63,7 @@ trait PublicationService extends HttpService with RepositoryPath {
           }
           respondWithMediaType(RpkiPublicationType) {
             entity(as[BufferedSource]){ e =>
-              onComplete(Future(processRequest(e))(executor = singleThreadEC)) {
+              onComplete(Future(processRequest(ClientId(clientId))(e))(executor = singleThreadEC)) {
                 case Success(result) =>
                   complete(result)
                 case Failure(error) =>
@@ -86,14 +74,14 @@ trait PublicationService extends HttpService with RepositoryPath {
           }
         }
       }
-    } ~
+    } } ~
       path("monitoring" / "healthcheck") {
         get {
           complete(healthChecks.healthString)
         }
       }
 
-  private def processRequest(xmlMessage: BufferedSource) = {
+  private def processRequest(clientId: ClientId) (xmlMessage: BufferedSource) = {
     def logErrors(errors: Seq[ReplyPdu]): Unit = {
       serviceLogger.warn(s"Request contained ${errors.size} PDU(s) with errors:")
       errors.foreach { e =>
@@ -103,7 +91,7 @@ trait PublicationService extends HttpService with RepositoryPath {
 
     val response = msgParser.parse(xmlMessage) match {
       case Right(QueryMessage(pdus)) =>
-        val elements = RepositoryState.updateWith(pdus)
+        val elements = SnapshotState.updateWith(clientId, pdus)
         elements.filter(_.isInstanceOf[ReportError]) match {
           case Seq() =>
             serviceLogger.info("Request handled successfully")
@@ -113,7 +101,7 @@ trait PublicationService extends HttpService with RepositoryPath {
         ReplyMsg(elements).serialize
 
       case Right(ListMessage()) =>
-        ReplyMsg(RepositoryState.listReply).serialize
+        ReplyMsg(SnapshotState.list(clientId)).serialize
 
       case Left(msgError) =>
         serviceLogger.warn("Error while handling request: {}", msgError)
@@ -132,34 +120,4 @@ trait PublicationService extends HttpService with RepositoryPath {
   }
 }
 
-
-trait RRDPService extends HttpService with RepositoryPath {
-  val immutableContentValiditySeconds: Long = 31536000 // ~one year
-
-  val rrdpRoutes =
-    path("notification.xml") {
-      respondWithHeader(`Cache-Control`(CacheDirectives.`no-cache`)) {
-        serve(s"$repositoryPath/notification.xml")
-      }
-    } ~
-    path(JavaUUID / IntNumber / "snapshot.xml") { (sessionId, serial) =>
-      serveImmutableContent(s"$repositoryPath/$sessionId/$serial/snapshot.xml")
-    } ~
-    path(JavaUUID / IntNumber / "delta.xml") { (sessionId, serial) =>
-      serveImmutableContent(s"$repositoryPath/$sessionId/$serial/delta.xml")
-    }
-
-  private def serveImmutableContent(filename: => String) = {
-    respondWithHeader(`Cache-Control`(CacheDirectives.`max-age`(immutableContentValiditySeconds))) {
-      serve(filename)
-    }
-  }
-
-  private def serve(filename: => String) = get {
-    respondWithMediaType(`application/xhtml+xml`) {
-      getFromFile(filename)
-    }
-  }
-
-}
 

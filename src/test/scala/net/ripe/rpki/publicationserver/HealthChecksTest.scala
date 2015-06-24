@@ -2,7 +2,7 @@ package net.ripe.rpki.publicationserver
 
 import spray.json._
 
-class HealthChecksSpec extends PublicationServerBaseSpec {
+class HealthChecksTest extends PublicationServerBaseTest {
   val healthChecks = new HealthChecks()
 
   test("should return build info in json format") {

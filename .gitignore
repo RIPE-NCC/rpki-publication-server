@@ -1,6 +1,7 @@
 target
 *.iml
-*.log
+*.log*
+*.db
 .idea/
 .classpath
 .project

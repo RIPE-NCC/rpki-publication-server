@@ -1,8 +1,9 @@
 package net.ripe.rpki.publicationserver
 
 import java.net.URI
-import java.util.UUID
 
+import net.ripe.rpki.publicationserver.model.ClientId
+import net.ripe.rpki.publicationserver.store.ObjectStore
 import org.mockito.Mockito._
 import org.slf4j.Logger
 import spray.http.HttpHeaders.RawHeader
@@ -11,7 +12,7 @@ import spray.testkit.ScalatestRouteTest
 
 import scala.io.Source
 
-class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRouteTest {
+class PublicationServiceTest extends PublicationServerBaseTest with ScalatestRouteTest {
   def actorRefFactory = system
 
   trait Context {
@@ -21,12 +22,15 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
   def publicationService = new PublicationService with Context {
   }
 
+  val objectStore = new ObjectStore
+
   before {
-    RepositoryState.initializeWith(RepositoryState.emptySnapshot)
+    objectStore.clear()
+    SnapshotState.init()
   }
 
   test("should return a response with content-type application/rpki-publication") {
-    POST("/", getFile("/publish.xml")) ~> publicationService.publicationRoutes ~> check {
+    POST("/?clientId=1234", getFile("/publish.xml")) ~> publicationService.publicationRoutes ~> check {
       contentType.toString() should include("application/rpki-publication")
     }
   }
@@ -42,7 +46,7 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
     val withdrawXml = getFile("/withdraw.xml")
     val contentType = HttpHeaders.`Content-Type`(MediaType.custom("application/rpki-publication"))
 
-    HttpRequest(HttpMethods.POST, "/", List(contentType), withdrawXml.mkString) ~> service.publicationRoutes ~> check {
+    HttpRequest(HttpMethods.POST, "/?clientId=1234", List(contentType), withdrawXml.mkString) ~> service.publicationRoutes ~> check {
       verify(logSpy).warn("Request contained 1 PDU(s) with errors:")
       verify(logSpy).info("No object [rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer] found.")
     }
@@ -58,7 +62,7 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
     val publishXml = getFile("/publish.xml")
     val contentType = HttpHeaders.`Content-Type`(ContentType(MediaTypes.`application/xml`))
 
-    HttpRequest(HttpMethods.POST, "/", List(contentType), publishXml.mkString) ~> service.publicationRoutes ~> check {
+    HttpRequest(HttpMethods.POST, "/?clientId=1234", List(contentType), publishXml.mkString) ~> service.publicationRoutes ~> check {
       verify(logSpy).warn("Request uses wrong media type: {}", "application/xml")
     }
   }
@@ -67,7 +71,7 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
     val publishXml = getFile("/publish.xml")
     val publishXmlResponse = getFile("/publishResponse.xml")
 
-    POST("/", publishXml) ~> publicationService.publicationRoutes ~> check {
+    POST("/?clientId=1234", publishXml) ~> publicationService.publicationRoutes ~> check {
       val response = responseAs[String]
       trim(response) should be(trim(publishXmlResponse.mkString))
     }
@@ -77,35 +81,33 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
     val publishXml = getFile("/publishWithTag.xml")
     val publishXmlResponse = getFile("/publishWithTagResponse.xml")
 
-    POST("/", publishXml) ~> publicationService.publicationRoutes ~> check {
+    POST("/?clientId=1234", publishXml) ~> publicationService.publicationRoutes ~> check {
       val response = responseAs[String]
       trim(response) should be(trim(publishXmlResponse.mkString))
     }
   }
 
   test("should return an ok response for a valid withdraw request") {
-    val pdus = Map(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer") -> (Base64("bla"), Hash("deadf00d")))
-    val state0 = RepositoryState(UUID.randomUUID(), BigInt(1), pdus, Map.empty)
-    RepositoryState.initializeWith(state0)
+    val pdus = Seq(PublishQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), None, None, Base64("bla")))
+    SnapshotState.updateWith(ClientId("1234"), pdus)
 
     val withdrawXml = getFile("/withdraw.xml")
     val withdrawXmlResponse = getFile("/withdrawResponse.xml")
 
-    POST("/", withdrawXml) ~> publicationService.publicationRoutes ~> check {
+    POST("/?clientId=1234", withdrawXml) ~> publicationService.publicationRoutes ~> check {
       val response = responseAs[String]
       trim(response) should be(trim(withdrawXmlResponse.mkString))
     }
   }
 
   test("should return the tag in the response if it was present in the withdraw request") {
-    val pdus = Map(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer") -> (Base64("bla"), Hash("deadf00d")))
-    val state0 = RepositoryState(UUID.randomUUID(), BigInt(1), pdus, Map.empty)
-    RepositoryState.initializeWith(state0)
+    val pdus = Seq(PublishQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), None, None, Base64("bla")))
+    SnapshotState.updateWith(ClientId("1234"), pdus)
 
     val withdrawXml = getFile("/withdrawWithTag.xml")
     val withdrawXmlResponse = getFile("/withdrawWithTagResponse.xml")
 
-    POST("/", withdrawXml) ~> publicationService.publicationRoutes ~> check {
+    POST("/?clientId=1234", withdrawXml) ~> publicationService.publicationRoutes ~> check {
       val response = responseAs[String]
       trim(response) should be(trim(withdrawXmlResponse.mkString))
     }
@@ -115,34 +117,66 @@ class PublicationServiceSpec extends PublicationServerBaseSpec with ScalatestRou
     val invalidPublishXml = getFile("/publishResponse.xml")
     val publishError = getFile("/errorResponse.xml")
 
-    POST("/", invalidPublishXml) ~> publicationService.publicationRoutes ~> check {
+    POST("/?clientId=1234", invalidPublishXml) ~> publicationService.publicationRoutes ~> check {
       val response = responseAs[String]
       trim(response) should be(trim(publishError.mkString))
     }
   }
 
   test("should return a list response for list request") {
-    POST("/", getFile("/publish.xml")) ~> publicationService.publicationRoutes ~> check {
+    POST("/?clientId=1234", getFile("/publish.xml")) ~> publicationService.publicationRoutes ~> check {
       response.status.isSuccess should be(true)
     }
 
     val listXml = getFile("/list.xml")
     val listXmlResponse = getFile("/listResponse.xml")
-    POST("/", listXml) ~> publicationService.publicationRoutes ~> check {
+    POST("/?clientId=1234", listXml) ~> publicationService.publicationRoutes ~> check {
       val response = responseAs[String]
       trim(response) should be(trim(listXmlResponse.mkString))
     }
   }
 
   test("should execute list query even if <list/> doesn't go first") {
-    POST("/", getFile("/publish.xml")) ~> publicationService.publicationRoutes ~> check {
+    POST("/?clientId=1234", getFile("/publish.xml")) ~> publicationService.publicationRoutes ~> check {
       response.status.isSuccess should be(true)
     }
 
-    val publishXml = getFile("/dubiousListRequest.xml")
+    val listXml = getFile("/dubiousListRequest.xml")
     val listXmlResponse = getFile("/listResponse.xml")
 
-    POST("/", publishXml) ~> publicationService.publicationRoutes ~> check {
+    POST("/?clientId=1234", listXml) ~> publicationService.publicationRoutes ~> check {
+      val response = responseAs[String]
+      trim(response) should be(trim(listXmlResponse.mkString))
+    }
+  }
+
+  test("should list only the published object of the specified client") {
+    POST("/?clientId=1234", getFile("/publish.xml")) ~> publicationService.publicationRoutes ~> check {
+      response.status.isSuccess should be(true)
+    }
+    POST("/?clientId=1235", getFile("/publish_2.xml")) ~> publicationService.publicationRoutes ~> check {
+      response.status.isSuccess should be(true)
+    }
+
+    val listXml = getFile("/list.xml")
+    val listXmlResponse = getFile("/listResponse.xml")
+    POST("/?clientId=1234", listXml) ~> publicationService.publicationRoutes ~> check {
+      val response = responseAs[String]
+      trim(response) should be(trim(listXmlResponse.mkString))
+    }
+  }
+
+  test("should list both published objects of the specified client") {
+    POST("/?clientId=1234", getFile("/publish.xml")) ~> publicationService.publicationRoutes ~> check {
+      response.status.isSuccess should be(true)
+    }
+    POST("/?clientId=1234", getFile("/publish_2.xml")) ~> publicationService.publicationRoutes ~> check {
+      response.status.isSuccess should be(true)
+    }
+
+    val listXml = getFile("/list.xml")
+    val listXmlResponse = getFile("/listResponse_2.xml")
+    POST("/?clientId=1234", listXml) ~> publicationService.publicationRoutes ~> check {
       val response = responseAs[String]
       trim(response) should be(trim(listXmlResponse.mkString))
     }

@@ -1,8 +1,8 @@
-package net.ripe.rpki.publicationserver
+package net.ripe.rpki.publicationserver.parsing
+
+import net.ripe.rpki.publicationserver.BaseError
 
 import scala.io.BufferedSource
-
-case class Base64(value: String)
 
 trait MessageParser[T] {
 
