@@ -132,7 +132,6 @@ case ${FIRST_ARG} in
         parse_config_line "jvm.memory.maximum" JVM_XMX
 
         info "Starting ${APP_NAME}..."
-        info "writing logs under log directory"
         info "Publication server is available on port 7788"
 
         # in the beginning of the script we do "cd <path>/bin",
