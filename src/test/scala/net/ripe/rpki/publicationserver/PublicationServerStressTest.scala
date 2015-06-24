@@ -6,6 +6,7 @@ import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store.ObjectStore
 import spray.testkit.ScalatestRouteTest
 
+import scala.collection.immutable
 import scala.concurrent.{Promise, Await, Future}
 import scala.concurrent.duration.Duration
 
@@ -43,25 +44,34 @@ class PublicationServerStressTest extends PublicationServerBaseTest with Scalate
     }
   }
 
+  val oneSecond = 1000000000L
+
   test("should get correct result for one client request") {
-    publishAndRetrieve(ClientId("1234"), Promise())
+    val futures = getPublishRetrieveFutures(1)
+
+    futures.foreach(f => Await.ready(f, Duration.fromNanos(oneSecond * 1)))
   }
 
   test("should get correct results for 100 sequential client requests") {
-    (0 until 100).foreach(i => publishAndRetrieve(ClientId(i.toString), Promise()))
+    val futures = getPublishRetrieveFutures(100)
+    futures.foreach(f => Await.ready(f, Duration.fromNanos(oneSecond * 1)))
   }
 
   test("should get correct results for 100 parallel client requests") {
-    val futures = (0 until 100).map(i => {
+    val futures = getPublishRetrieveFutures(100)
+    val futureSequence = Future.sequence(futures)
+    Await.ready(futureSequence, Duration.fromNanos(oneSecond * 100))
+  }
+
+  def getPublishRetrieveFutures(nr: Int) = {
+    val futures = (0 until nr).map(i => {
       val promise = Promise[Unit]()
       Future {
         publishAndRetrieve(ClientId(i.toString), promise)
       }
       promise.future
     })
-    val f = Future.sequence(futures)
-    val oneSecond = 1000000000L
-    Await.ready(f, Duration.fromNanos(oneSecond * 100))
+    futures
   }
 
   def getPublishRequest(uri: String, content: String) =
