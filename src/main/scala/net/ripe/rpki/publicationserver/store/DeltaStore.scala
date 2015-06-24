@@ -5,6 +5,8 @@ import java.util.UUID
 
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.model.{ClientId, Delta}
+import slick.dbio
+import slick.dbio.Effect.{Transactional, Write}
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration

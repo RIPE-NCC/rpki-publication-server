@@ -45,7 +45,7 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
 
     snapshotState.init()
 
-    verify(mockDeltaStore).initCache(sessionId)
+    verify(mockDeltaStore).initCache(any[UUID])
     verify(mockRepositoryWriter).writeSnapshot(any[String], any[ServerState], any[Snapshot])
     verify(mockRepositoryWriter).writeDelta(any[String], any[Delta])
   }
