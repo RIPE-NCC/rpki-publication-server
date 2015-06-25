@@ -3,7 +3,6 @@ package net.ripe.rpki.publicationserver
 import java.util.UUID
 
 import akka.actor.ActorRef
-import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver.model._
 import net.ripe.rpki.publicationserver.store.fs.WriteCommand
 import net.ripe.rpki.publicationserver.store.{DB, DeltaStore, ObjectStore, ServerStateStore}
@@ -21,8 +20,6 @@ object SnapshotState extends SnapshotStateService {
 }
 
 trait SnapshotStateService extends Urls with Logging with Hashing {
-
-  val notificationState = wire[NotificationState]
 
   val db = DB.db
 

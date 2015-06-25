@@ -5,13 +5,13 @@ import java.nio.file.{Path, Paths}
 import java.util.UUID
 
 import akka.actor.ActorSystem
+import akka.testkit.{TestActorRef, TestProbe}
 import com.typesafe.config.ConfigFactory
 import net.ripe.rpki.publicationserver.model._
-import net.ripe.rpki.publicationserver.store.fs.{FSWriterActor, RepositoryWriter}
-import net.ripe.rpki.publicationserver.store.{ObjectStore, ServerStateStore, DeltaStore, Migrations}
+import net.ripe.rpki.publicationserver.store.fs.{FSWriterActor, RepositoryWriter, WriteCommand}
+import net.ripe.rpki.publicationserver.store.{DeltaStore, Migrations, ObjectStore, ServerStateStore}
 import org.mockito.Matchers._
 import org.mockito.Mockito._
-import akka.testkit.TestActorRef
 
 class SnapshotStateTest extends PublicationServerBaseTest with Urls {
 
@@ -168,114 +168,48 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
     ))
   }
 
-  test("should update the snapshot and the notification and write them to the filesystem when a message is successfully processed") {
+  test("should write the snapshot and the deltas to the filesystem when a message is successfully processed") {
     SnapshotState.objectStore.clear()
 
-    val repositoryWriterSpy = spy(getRepositoryWriter)
-    val notificationStateSpy = getNotificationState
-    val snapshotStateService = new SnapshotStateService {
-      override val notificationState = notificationStateSpy
-    }
-    snapshotStateService.init(fsWriterRef)
+    val fsWriterSpy = TestProbe()
+    SnapshotState.init(fsWriterSpy.ref)
+    fsWriterSpy.expectMsgType[WriteCommand]
 
     val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
-    val notificationStateBefore = notificationStateSpy.get
 
-    snapshotStateService.updateWith(ClientId("client1"), Seq(publish))
-
-    verify(repositoryWriterSpy).writeNewState(anyString(), any[ServerState], any[Seq[Delta]], any[Notification], any[Snapshot])
-    notificationStateSpy.get should not equal notificationStateBefore
-  }
-
-  def getNotificationState: NotificationState = {
-    val notificationState = new NotificationState()
-    notificationState.update(Notification.create(Snapshot(ServerState(sessionId, serial), Seq.empty), ServerState(sessionId, serial), Seq()))
-    notificationState
+    SnapshotState.updateWith(ClientId("client1"), Seq(publish))
+    fsWriterSpy.expectMsgType[WriteCommand]
   }
 
   test("should not write a snapshot to the filesystem when a message contained an error") {
     SnapshotState.objectStore.clear()
 
-    val repositoryWriterSpy = spy(getRepositoryWriter)
-    val notificationStateSpy = getNotificationState
-    val snapshotStateService = new SnapshotStateService {
-      override val notificationState = notificationStateSpy
-    }
-    snapshotStateService.init(fsWriterRef)
-    reset(repositoryWriterSpy)
+    val fsWriterSpy = TestProbe()
+    SnapshotState.init(fsWriterSpy.ref)
+    fsWriterSpy.expectMsgType[WriteCommand]
 
     val withdraw = WithdrawQ(new URI("rsync://host/zzz.cer"), None, "BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7")
 
     // The withdraw will fail because the SnapshotState is still empty
-    snapshotStateService.updateWith(ClientId("client1"), Seq(withdraw))
-
-    verifyNoMoreInteractions(repositoryWriterSpy)
-  }
-
-  test("should not update the snapshot state when writing it to the filesystem throws an error") {
-    val repositoryWriterSpy = spy(getRepositoryWriter)
-    val notificationStateSpy = getNotificationState
-
-    val snapshotStateService = new SnapshotStateService {
-      override val notificationState = notificationStateSpy
-      logger.debug("force logger to instantiate!")
-    }
-    snapshotStateService.init(fsWriterRef)
-    doThrow(new IllegalArgumentException()).when(repositoryWriterSpy).writeSnapshot(anyString(), any[ServerState], any[Snapshot])
-
-    val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
-
-    val reply = snapshotStateService.updateWith(ClientId("client1"), Seq(publish))
-    reply should equal(Seq(ReportError(BaseError.CouldNotPersist, Some("A problem occurred while persisting the changes: java.lang.IllegalArgumentException"))))
-    verify(repositoryWriterSpy).deleteSnapshot(anyString(), any[ServerState])
+    fsWriterSpy.expectNoMsg()
   }
 
   test("should not update the notification state when updating delta throws an error") {
     SnapshotState.objectStore.clear()
 
-    val repositoryWriterSpy = spy(getRepositoryWriter)
-    val notificationStateSpy = getNotificationState
     val deltaStoreSpy = spy(new DeltaStore)
     doThrow(new IllegalArgumentException()).when(deltaStoreSpy).addDeltaAction(any[ClientId], any[Delta])
 
     val snapshotStateService = new SnapshotStateService {
-      override val notificationState = notificationStateSpy
       override lazy val deltaStore = deltaStoreSpy
     }
     snapshotStateService.init(fsWriterRef)
 
     val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
-    val notificationStateBefore = notificationStateSpy.get
 
     val reply = snapshotStateService.updateWith(ClientId("client1"), Seq(publish))
 
     reply.head should equal(ReportError(BaseError.CouldNotPersist, Some("A problem occurred while persisting the changes: java.lang.IllegalArgumentException")))
-    notificationStateSpy.get should equal(notificationStateBefore)
-  }
-
-  test("should not update the snapshot, delta and notification state when updating the notification throws an error") {
-    SnapshotState.objectStore.clear()
-
-    val repositoryWriterSpy = spy(getRepositoryWriter)
-    val notificationStateSpy = getNotificationState
-
-    val snapshotStateService = new SnapshotStateService {
-      override val notificationState = notificationStateSpy
-      logger.debug("force logger to instantiate!")
-    }
-    snapshotStateService.init(fsWriterRef)
-    doThrow(new IllegalArgumentException()).when(repositoryWriterSpy).writeNotification(anyString(), any[Notification])
-
-    val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
-    val notificationStateBefore = notificationStateSpy.get
-
-    val reply = snapshotStateService.updateWith(ClientId("client1"), Seq(publish))
-
-    reply should equal(Seq(ReportError(BaseError.CouldNotPersist, Some("A problem occurred while persisting the changes: java.lang.IllegalArgumentException"))))
-    verify(repositoryWriterSpy).deleteSnapshot(anyString(), any[ServerState])
-    verify(repositoryWriterSpy).deleteDelta(anyString(), any[ServerState])
-    verify(repositoryWriterSpy).deleteNotification(anyString())
-    notificationStateSpy.get should equal(notificationStateBefore)
   }
   
   def getRepositoryWriter: RepositoryWriter = new MockRepositoryWriter()
