@@ -6,7 +6,7 @@ import net.ripe.rpki.publicationserver.model.{Delta, Notification, ServerState, 
 import net.ripe.rpki.publicationserver.store.DB
 import net.ripe.rpki.publicationserver.{Logging, Urls}
 
-import scala.util.Failure
+import scala.util.{Success, Failure}
 
 case class WriteCommand(newServerState: ServerState, objects: Seq[DB.RRDPObject], deltas: Seq[Delta])
 
@@ -21,6 +21,8 @@ class FSWriterActor extends Actor with Logging with Urls {
       val snapshot = Snapshot(newServerState, objects)
       val newNotification = Notification.create(snapshot, newServerState, deltas)
       repositoryWriter.writeNewState(conf.locationRepositoryPath, newServerState, deltas, newNotification, snapshot) match {
+        case Success(timestamp) =>
+          // TODO cleanup snapshots
         case Failure(e) =>
           logger.error("Could not write XML files to filesystem: " + e.getMessage, e)
       }

@@ -2,6 +2,7 @@ package net.ripe.rpki.publicationserver
 
 import java.net.URI
 import java.nio.file.Paths
+import java.nio.file.attribute.FileTime
 import java.util.UUID
 
 import akka.actor.ActorSystem
@@ -220,7 +221,7 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
   class MockRepositoryWriter extends RepositoryWriter {
     override def writeSnapshot(rootDir: String, serverState: ServerState, snapshot: Snapshot) = Paths.get("")
     override def writeDelta(rootDir: String, delta: Delta) = Paths.get("")
-    override def writeNotification(rootDir: String, notification: Notification) = Paths.get("")
+    override def writeNotification(rootDir: String, notification: Notification) = FileTime.fromMillis(0)
   }
 
 }

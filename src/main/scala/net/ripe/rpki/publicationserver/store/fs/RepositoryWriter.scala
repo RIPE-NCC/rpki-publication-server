@@ -1,15 +1,16 @@
 package net.ripe.rpki.publicationserver.store.fs
 
 import java.nio.file._
+import java.nio.file.attribute.FileTime
 
 import net.ripe.rpki.publicationserver._
-import net.ripe.rpki.publicationserver.model.{Snapshot, ServerState, Notification, Delta}
+import net.ripe.rpki.publicationserver.model.{Delta, Notification, ServerState, Snapshot}
 
 import scala.util.{Failure, Try}
 
 class RepositoryWriter extends Logging {
 
-  def writeNewState(rootDir: String, serverState: ServerState, deltas: Seq[Delta], newNotification: Notification, snapshot: Snapshot) =
+  def writeNewState(rootDir: String, serverState: ServerState, deltas: Seq[Delta], newNotification: Notification, snapshot: Snapshot): Try[FileTime] =
     Try {
       writeSnapshot(rootDir, serverState, snapshot)
       try {
@@ -32,10 +33,12 @@ class RepositoryWriter extends Logging {
       Failure(e)
     }
 
+  private val snapshotFilename: String = "snapshot.xml"
+
   def writeSnapshot(rootDir: String, serverState: ServerState, snapshot: Snapshot) = {
     val ServerState(sessionId, serial) = serverState
     val stateDir = getStateDir(rootDir, sessionId.toString, serial)
-    writeFile(snapshot.serialized, stateDir.resolve("snapshot.xml"))
+    writeFile(snapshot.serialized, stateDir.resolve(snapshotFilename))
   }
 
   def writeDelta(rootDir: String, delta: Delta) = {
@@ -43,14 +46,16 @@ class RepositoryWriter extends Logging {
     writeFile(delta.serialize.mkString, stateDir.resolve("delta.xml"))
   }
 
-  def writeNotification(rootDir: String, notification: Notification) = {
+  def writeNotification(rootDir: String, notification: Notification): FileTime = {
     val root = getRootFolder(rootDir)
 
     val tmpFile = Files.createTempFile(root, "notification.", ".xml")
     try {
       writeFile(notification.serialized, tmpFile)
       val target = root.resolve("notification.xml")
+      val previousNotificationTimestamp: FileTime = Files.getLastModifiedTime(target)
       Files.move(tmpFile, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+      previousNotificationTimestamp
     } finally {
       Files.deleteIfExists(tmpFile)
     }
@@ -70,10 +75,14 @@ class RepositoryWriter extends Logging {
 
   def deleteSessionFile(rootDir: String, serverState: ServerState, name: String) = {
     val ServerState(sessionId, serial) = serverState
-    Files.deleteIfExists(Paths.get(rootDir, sessionId.toString, serial.toString, "snapshot.xml"))
+    Files.deleteIfExists(Paths.get(rootDir, sessionId.toString, serial.toString, name))
   }
 
-  def deleteSnapshot(rootDir: String, serverState: ServerState) = deleteSessionFile(rootDir, serverState, "snapshot.xml")
+  def deleteSnapshotsOlderThan(rootDir: String, timestamp: FileTime): Unit = {
+    Files.walkFileTree(Paths.get(rootDir), new RemovingFileVisitor(timestamp, Paths.get(snapshotFilename)))
+  }
+
+  def deleteSnapshot(rootDir: String, serverState: ServerState) = deleteSessionFile(rootDir, serverState, snapshotFilename)
 
   def deleteDelta(rootDir: String, serverState: ServerState) = deleteSessionFile(rootDir, serverState, "delta.xml")
 
