@@ -6,9 +6,8 @@ import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store.ObjectStore
 import spray.testkit.ScalatestRouteTest
 
-import scala.collection.immutable
-import scala.concurrent.{Promise, Await, Future}
 import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, Future, Promise}
 
 class PublicationServerStressTest extends PublicationServerBaseTest with ScalatestRouteTest with Hashing {
   def actorRefFactory = system
@@ -48,7 +47,6 @@ class PublicationServerStressTest extends PublicationServerBaseTest with Scalate
 
   test("should get correct result for one client request") {
     val futures = getPublishRetrieveFutures(1)
-
     futures.foreach(f => Await.ready(f, Duration.fromNanos(oneSecond * 1)))
   }
 

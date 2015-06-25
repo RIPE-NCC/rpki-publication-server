@@ -3,7 +3,7 @@ package net.ripe.rpki.publicationserver
 import java.io.ByteArrayInputStream
 import java.util.concurrent.Executors
 
-import akka.actor.Actor
+import akka.actor.{Props, ActorRef, ActorRefFactory, Actor}
 import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.parsing.PublicationMessageParser
@@ -18,7 +18,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.io.{BufferedSource, Source}
 import scala.util.{Failure, Success}
 
-class PublicationServiceActor extends Actor with PublicationService with RRDPService {
+class PublicationServiceActor(fsWriterFactory: ActorRefFactory => ActorRef) extends Actor with PublicationService with RRDPService {
 
   def actorRefFactory = context
 
@@ -26,8 +26,13 @@ class PublicationServiceActor extends Actor with PublicationService with RRDPSer
 
   override def preStart() = {
     Migrations.migrate()
-    SnapshotState.init()
+    val fsWriter = fsWriterFactory(context)
+    SnapshotState.init(fsWriter)
   }
+}
+
+object PublicationServiceActor {
+  def props(actorRefFactory: ActorRefFactory => ActorRef) = Props(new PublicationServiceActor(actorRefFactory))
 }
 
 trait PublicationService extends HttpService with RepositoryPath {

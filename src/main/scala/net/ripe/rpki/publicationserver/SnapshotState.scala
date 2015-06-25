@@ -2,15 +2,15 @@ package net.ripe.rpki.publicationserver
 
 import java.util.UUID
 
+import akka.actor.{ActorRef, Props, Actor}
 import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver.model._
-import net.ripe.rpki.publicationserver.store.fs.RepositoryWriter
+import net.ripe.rpki.publicationserver.store.fs.{WriteCommand, FSWriterActor, RepositoryWriter}
 import net.ripe.rpki.publicationserver.store.{DB, DeltaStore, ObjectStore, ServerStateStore}
 import slick.dbio.DBIO
 import slick.driver.H2Driver.api._
 
 import scala.concurrent.Await
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success}
 
@@ -22,8 +22,6 @@ object SnapshotState extends SnapshotStateService {
 }
 
 trait SnapshotStateService extends Urls with Logging with Hashing {
-
-  val repositoryWriter = wire[RepositoryWriter]
 
   val notificationState = wire[NotificationState]
 
@@ -39,19 +37,25 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
 
   val semaphore = new Object()
 
-  def init() = {
+  var fsWriter: ActorRef = _
+
+  def init(fsWriterActor: ActorRef) = {
+    fsWriter = fsWriterActor
+
     sessionId = serverStateStore.get.sessionId
 
     logger.info("Initializing delta cache")
     deltaStore.initCache(sessionId)
 
-    val serverState = serverStateStore.get
-    val snapshot = Snapshot(serverState, objectStore.listAll)
-    logger.info("Writing snapshot")
-    repositoryWriter.writeSnapshot(conf.locationRepositoryPath, serverState, snapshot)
-
-    logger.info("Writing delta's")
-    deltaStore.getDeltas.foreach(repositoryWriter.writeDelta(conf.locationRepositoryPath, _))
+    // TODO pass this as a message to fsWriter!
+//
+//    val serverState = serverStateStore.get
+//    val snapshot = Snapshot(serverState, objectStore.listAll)
+//    logger.info("Writing snapshot")
+//    repositoryWriter.writeSnapshot(conf.locationRepositoryPath, serverState, snapshot)
+//
+//    logger.info("Writing delta's")
+//    deltaStore.getDeltas.foreach(repositoryWriter.writeDelta(conf.locationRepositoryPath, _))
   }
 
   def list(clientId: ClientId) = semaphore.synchronized {
@@ -76,30 +80,16 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
       val validPdus = results.collect { case Right((_, _, qPdu)) => qPdu }
 
       try {
+        val publishActions = DBIO.seq(actions: _*)
         val deltaAction = deltaStore.addDeltaAction(clientId, Delta(sessionId, newServerState.serialNumber, validPdus))
+        val serverStateAction = serverStateStore.updateAction(newServerState)
+        val allActions = DBIO.seq(publishActions, deltaAction, serverStateAction).transactionally
+        Await.result(db.run(allActions), Duration.Inf)
 
-        val action = (for {
-          _ <- DBIO.seq(actions: _*)
-          _ <- DBIO.seq(deltaAction)
-          _ <- serverStateStore.updateAction(newServerState)
-          objActions <- objectStore.getAllAction
-          fsWriteResult <- {
-            // TODO Saving to the XML files should be asynchronous
-            val deltas = deltaStore.getDeltas
-            val snapshot = Snapshot(newServerState, objActions)
-            val newNotification = Notification.create(snapshot, newServerState, deltas)
-            repositoryWriter.writeNewState(conf.locationRepositoryPath, newServerState, deltas, newNotification, snapshot) match {
-              case Success(_) =>
-                notificationState.update(newNotification)
-                DBIO.successful(replies)
-              case Failure(e) =>
-                logger.error("Could not write XML files to filesystem: " + e.getMessage, e)
-                DBIO.failed(e)
-            }
-          }
-        } yield fsWriteResult).transactionally
+        val objects = objectStore.listAll
+        val deltas = deltaStore.getDeltas
+        writeFiles(newServerState, objects, deltas)
 
-        Await.result(db.run(action), Duration.Inf)
         replies
       } catch {
         case e: Exception =>
@@ -107,6 +97,10 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
           Seq(ReportError(BaseError.CouldNotPersist, Some(s"A problem occurred while persisting the changes: " + e)))
       }
     }
+  }
+
+  def writeFiles(newServerState: ServerState, objects: Seq[DB.RRDPObject], deltas: Seq[Delta]) = {
+    fsWriter ! WriteCommand(newServerState: ServerState, objects: Seq[DB.RRDPObject], deltas: Seq[Delta])
   }
 
   /*

@@ -1,10 +1,11 @@
 package net.ripe.rpki.publicationserver
 
-import akka.actor.{ActorSystem, Props}
+import akka.actor.{ActorRefFactory, ActorSystem}
 import akka.io.IO
 import akka.pattern.ask
 import akka.util.Timeout
 import com.softwaremill.macwire.MacwireMacros._
+import net.ripe.rpki.publicationserver.store.fs.FSWriterActor
 import org.slf4j.LoggerFactory
 import spray.can.Http
 
@@ -18,7 +19,9 @@ object Boot extends App {
 
   implicit val system = ActorSystem("on-spray-can")
 
-  val service = system.actorOf(Props[PublicationServiceActor], "publication-service")
+  val fsWriterFactory = (context:ActorRefFactory) => context.actorOf(FSWriterActor.props)
+
+  val service = system.actorOf(PublicationServiceActor.props(fsWriterFactory), "publication-service")
 
   implicit val timeout = Timeout(5.seconds)
 
