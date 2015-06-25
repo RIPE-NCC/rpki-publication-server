@@ -19,14 +19,7 @@ class RepositoryWriter extends Logging {
         } else {
           logger.info("No deltas found in current snapshot")
         }
-        try {
-          writeNotification(rootDir, newNotification)
-        } catch {
-          case e: Exception =>
-            logger.error("Could not write notification file: ", e)
-            deleteNotification(rootDir)
-            throw e
-        }
+        writeNotification(rootDir, newNotification)
       } catch {
         case e: Exception =>
           logger.error("An error occurred, removing delta: ", e)
