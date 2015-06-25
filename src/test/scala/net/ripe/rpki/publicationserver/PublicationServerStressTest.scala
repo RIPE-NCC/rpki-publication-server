@@ -54,7 +54,7 @@ class PublicationServerStressTest extends PublicationServerBaseTest with Scalate
 
   test("should get correct results for 100 sequential client requests") {
     val futures = getPublishRetrieveFutures(100)
-    futures.foreach(f => Await.ready(f, Duration.fromNanos(oneSecond * 1)))
+    futures.foreach(f => Await.ready(f, Duration.fromNanos(oneSecond * 3)))
   }
 
   test("should get correct results for 100 parallel client requests") {
