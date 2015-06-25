@@ -2,7 +2,6 @@ package net.ripe.rpki.publicationserver
 
 import java.util.UUID
 
-import akka.testkit.TestActorRef
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store.ObjectStore
 import net.ripe.rpki.publicationserver.store.fs.FSWriterActor
@@ -13,7 +12,8 @@ import scala.concurrent.{Await, Future, Promise}
 
 class PublicationServerStressTest extends PublicationServerBaseTest with ScalatestRouteTest with Hashing {
 
-  val fsWriterRef = TestActorRef[FSWriterActor]
+  // Use the production actorsystem for the fsWriterActor and not the one from ScalatestRouterTest, because the latter is single threaded!
+  val fsWriterRef = system.actorOf(FSWriterActor.props)
 
   def actorRefFactory = system
 
@@ -57,7 +57,9 @@ class PublicationServerStressTest extends PublicationServerBaseTest with Scalate
 
   test("should get correct results for 100 sequential client requests") {
     val futures = getPublishRetrieveFutures(100)
-    futures.foreach(f => Await.ready(f, Duration.fromNanos(oneSecond * 1)))
+    futures.foreach(f => {
+      Await.ready(f, Duration.fromNanos(oneSecond * 10))
+    })
   }
 
   test("should get correct results for 100 parallel client requests") {

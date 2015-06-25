@@ -1,7 +1,7 @@
 package net.ripe.rpki.publicationserver
 
 import java.net.URI
-import java.nio.file.{Path, Paths}
+import java.nio.file.Paths
 import java.util.UUID
 
 import akka.actor.ActorSystem
