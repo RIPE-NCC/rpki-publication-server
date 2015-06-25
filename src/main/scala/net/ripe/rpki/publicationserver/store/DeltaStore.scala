@@ -1,12 +1,10 @@
 package net.ripe.rpki.publicationserver.store
 
 import java.net.URI
-import java.util.UUID
+import java.util.{Date, UUID}
 
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.model.{ClientId, Delta}
-import slick.dbio
-import slick.dbio.Effect.{Transactional, Write}
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
@@ -52,6 +50,21 @@ class DeltaStore extends Hashing {
       }
       (serial, Delta(sessionId, serial, pdus))
     }
+  }
+
+  def checkDeltaSetSize(snapshotSize: Long) = {
+    var accDeltaSize = 0L
+    deltaMap.toSeq.sortBy(-_._1).map { p =>
+      val (_, delta) = p
+      accDeltaSize += delta.binarySize
+      if (accDeltaSize > snapshotSize)
+        delta.markForDeletion(oneHourLater)
+      else delta
+    }
+  }
+
+  def oneHourLater: Date = {
+    new Date(new Date().getTime + 60 * 60 * 1000 * 1000)
   }
 
   def clear() = {

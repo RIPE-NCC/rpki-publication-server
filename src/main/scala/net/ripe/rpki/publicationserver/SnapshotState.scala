@@ -79,7 +79,6 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
         Await.result(db.run(allActions), Duration.Inf)
 
         writeFiles(newServerState)
-
         replies
       } catch {
         case e: Exception =>
@@ -90,10 +89,10 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
   }
 
   def writeFiles(newServerState: ServerState) = {
-    val objects = objectStore.listAll
-    val deltas = deltaStore.getDeltas
+    val snapshot = Snapshot(newServerState, objectStore.listAll)
+    val deltas = deltaStore.checkDeltaSetSize(snapshot.binarySize)
 
-    fsWriter ! WriteCommand(newServerState, objects, deltas)
+    fsWriter ! WriteCommand(newServerState, snapshot.pdus, deltas)
   }
 
   /*

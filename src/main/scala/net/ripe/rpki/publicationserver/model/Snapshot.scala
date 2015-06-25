@@ -1,3 +1,5 @@
+
+
 package net.ripe.rpki.publicationserver.model
 
 import net.ripe.rpki.publicationserver.Hashing
@@ -8,7 +10,10 @@ import scala.xml.{Elem, Node}
 case class Snapshot(serverState: ServerState, pdus: Seq[DB.RRDPObject]) extends Hashing {
 
   lazy val serialized = serialize.mkString
-  lazy val contentHash = hash(serialized.getBytes)
+  private lazy val bytes = serialized.getBytes
+
+  lazy val contentHash = hash(bytes)
+  lazy val binarySize = bytes.length
 
   def serialize = {
     val ServerState(sessionId, serial) = serverState
