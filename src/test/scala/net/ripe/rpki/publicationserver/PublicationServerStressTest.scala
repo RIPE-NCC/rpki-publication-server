@@ -2,14 +2,19 @@ package net.ripe.rpki.publicationserver
 
 import java.util.UUID
 
+import akka.testkit.TestActorRef
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store.ObjectStore
+import net.ripe.rpki.publicationserver.store.fs.FSWriterActor
 import spray.testkit.ScalatestRouteTest
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future, Promise}
 
 class PublicationServerStressTest extends PublicationServerBaseTest with ScalatestRouteTest with Hashing {
+
+  val fsWriterRef = TestActorRef[FSWriterActor]
+
   def actorRefFactory = system
 
   trait Context {
@@ -22,7 +27,7 @@ class PublicationServerStressTest extends PublicationServerBaseTest with Scalate
 
   before {
     objectStore.clear()
-    SnapshotState.init()
+    SnapshotState.init(fsWriterRef)
   }
 
   def publishAndRetrieve(clientId: ClientId, promise: Promise[Unit]) = {

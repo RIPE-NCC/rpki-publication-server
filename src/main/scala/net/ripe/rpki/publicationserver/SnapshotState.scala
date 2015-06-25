@@ -2,17 +2,16 @@ package net.ripe.rpki.publicationserver
 
 import java.util.UUID
 
-import akka.actor.{ActorRef, Props, Actor}
+import akka.actor.ActorRef
 import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver.model._
-import net.ripe.rpki.publicationserver.store.fs.{WriteCommand, FSWriterActor, RepositoryWriter}
+import net.ripe.rpki.publicationserver.store.fs.WriteCommand
 import net.ripe.rpki.publicationserver.store.{DB, DeltaStore, ObjectStore, ServerStateStore}
 import slick.dbio.DBIO
 import slick.driver.H2Driver.api._
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
-import scala.util.{Failure, Success}
 
 /**
  * Holds the global snapshot state
@@ -47,15 +46,8 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
     logger.info("Initializing delta cache")
     deltaStore.initCache(sessionId)
 
-    // TODO pass this as a message to fsWriter!
-//
-//    val serverState = serverStateStore.get
-//    val snapshot = Snapshot(serverState, objectStore.listAll)
-//    logger.info("Writing snapshot")
-//    repositoryWriter.writeSnapshot(conf.locationRepositoryPath, serverState, snapshot)
-//
-//    logger.info("Writing delta's")
-//    deltaStore.getDeltas.foreach(repositoryWriter.writeDelta(conf.locationRepositoryPath, _))
+    val serverState = serverStateStore.get
+    writeFiles(serverState)
   }
 
   def list(clientId: ClientId) = semaphore.synchronized {
@@ -86,9 +78,7 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
         val allActions = DBIO.seq(publishActions, deltaAction, serverStateAction).transactionally
         Await.result(db.run(allActions), Duration.Inf)
 
-        val objects = objectStore.listAll
-        val deltas = deltaStore.getDeltas
-        writeFiles(newServerState, objects, deltas)
+        writeFiles(newServerState)
 
         replies
       } catch {
@@ -99,8 +89,11 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
     }
   }
 
-  def writeFiles(newServerState: ServerState, objects: Seq[DB.RRDPObject], deltas: Seq[Delta]) = {
-    fsWriter ! WriteCommand(newServerState: ServerState, objects: Seq[DB.RRDPObject], deltas: Seq[Delta])
+  def writeFiles(newServerState: ServerState) = {
+    val objects = objectStore.listAll
+    val deltas = deltaStore.getDeltas
+
+    fsWriter ! WriteCommand(newServerState, objects, deltas)
   }
 
   /*

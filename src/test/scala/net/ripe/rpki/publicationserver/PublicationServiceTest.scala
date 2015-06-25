@@ -2,14 +2,21 @@ package net.ripe.rpki.publicationserver
 
 import java.net.URI
 
+import akka.actor.ActorSystem
+import akka.testkit.TestActorRef
+import com.typesafe.config.ConfigFactory
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store.ObjectStore
+import net.ripe.rpki.publicationserver.store.fs.FSWriterActor
 import org.mockito.Mockito._
 import org.slf4j.Logger
 import spray.http._
 import spray.testkit.ScalatestRouteTest
 
 class PublicationServiceTest extends PublicationServerBaseTest with ScalatestRouteTest {
+
+  val fsWriterRef = TestActorRef[FSWriterActor]
+
   def actorRefFactory = system
 
   trait Context {
@@ -22,7 +29,7 @@ class PublicationServiceTest extends PublicationServerBaseTest with ScalatestRou
 
   before {
     objectStore.clear()
-    SnapshotState.init()
+    SnapshotState.init(fsWriterRef)
   }
 
   test("should return a response with content-type application/rpki-publication") {
