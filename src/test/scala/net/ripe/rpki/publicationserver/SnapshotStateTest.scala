@@ -194,22 +194,25 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
     fsWriterSpy.expectNoMsg()
   }
 
-  test("should not update the notification state when updating delta throws an error") {
+  test("should not write a snapshot to the filesystem when updating delta throws an error") {
     SnapshotState.objectStore.clear()
 
     val deltaStoreSpy = spy(new DeltaStore)
     doThrow(new IllegalArgumentException()).when(deltaStoreSpy).addDeltaAction(any[ClientId], any[Delta])
 
+    val fsWriterSpy = TestProbe()
     val snapshotStateService = new SnapshotStateService {
       override lazy val deltaStore = deltaStoreSpy
     }
-    snapshotStateService.init(fsWriterRef)
+    snapshotStateService.init(fsWriterSpy.ref)
+    fsWriterSpy.expectMsgType[WriteCommand]
 
     val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
 
     val reply = snapshotStateService.updateWith(ClientId("client1"), Seq(publish))
 
     reply.head should equal(ReportError(BaseError.CouldNotPersist, Some("A problem occurred while persisting the changes: java.lang.IllegalArgumentException")))
+    fsWriterSpy.expectNoMsg()
   }
   
   def getRepositoryWriter: RepositoryWriter = new MockRepositoryWriter()

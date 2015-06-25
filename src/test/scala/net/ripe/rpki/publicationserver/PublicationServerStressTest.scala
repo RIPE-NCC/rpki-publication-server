@@ -85,7 +85,7 @@ class PublicationServerStressTest extends PublicationServerBaseTest with Scalate
        |   xmlns="http://www.hactrn.net/uris/rpki/publication-spec/">
        | <publish
        |     uri="$uri">
-                        |   $content
+       | $content
         | </publish>
         |</msg>
     """.stripMargin
@@ -97,7 +97,7 @@ class PublicationServerStressTest extends PublicationServerBaseTest with Scalate
        |       version="3"
        |       xmlns="http://www.hactrn.net/uris/rpki/publication-spec/">
        |   <list uri="$uri"
-                            |         hash="${hash.hash}"/>
-                                                          |</msg>
+       |         hash="${hash.hash}"/>
+       |</msg>
     """.stripMargin
 }
