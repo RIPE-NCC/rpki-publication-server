@@ -54,17 +54,17 @@ class DeltaStore extends Hashing {
 
   def checkDeltaSetSize(snapshotSize: Long) = {
     var accDeltaSize = 0L
-    deltaMap.toSeq.sortBy(-_._1).map { p =>
-      val (_, delta) = p
+    deltaMap.toSeq.sortBy(_._1).zipWithIndex.map { p =>
+      val ((_, delta), index) = p
       accDeltaSize += delta.binarySize
-      if (accDeltaSize > snapshotSize)
+      if (accDeltaSize > snapshotSize && index > 0)
         delta.markForDeletion(oneHourLater)
       else delta
     }
   }
 
   def oneHourLater: Date = {
-    new Date(new Date().getTime + 60 * 60 * 1000 * 1000)
+    new Date(new Date().getTime + 60 * 60 * 1000)
   }
 
   def clear() = {

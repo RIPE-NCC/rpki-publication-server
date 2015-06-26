@@ -182,6 +182,21 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
     fsWriterSpy.expectMsgType[WriteCommand]
   }
 
+  test("should clean old deltas when updating filesystem") {
+    SnapshotState.objectStore.clear()
+    SnapshotState.deltaStore
+
+    val fsWriterSpy = TestProbe()
+    val deltaCleanSpy = TestProbe()
+    SnapshotState.init(fsWriterSpy.ref, deltaCleanSpy.ref)
+    fsWriterSpy.expectMsgType[WriteCommand]
+
+    val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
+
+    SnapshotState.updateWith(ClientId("client1"), Seq(publish))
+    fsWriterSpy.expectMsgType[WriteCommand]
+  }
+
   test("should not write a snapshot to the filesystem when a message contained an error") {
     SnapshotState.objectStore.clear()
 

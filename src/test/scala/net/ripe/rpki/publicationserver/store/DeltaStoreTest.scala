@@ -28,4 +28,36 @@ class DeltaStoreTest extends PublicationServerBaseTest {
     deltas.head should be(delta)
   }
 
+  test("should mark deltas for deletion when their size if bigger than the threshold") {
+    val sessionId = UUID.randomUUID()
+    val delta1 = Delta(sessionId, 1L, Seq(PublishQ(uri = new URI("rsync://host/zzz1.cer"), tag = None, hash = None, base64 = Base64("aaaa="))))
+    deltaStore.addDeltaAction(ClientId("client1"), delta1)
+
+    val delta2 = Delta(sessionId, 2L, Seq(PublishQ(uri = new URI("rsync://host/zzz2.cer"), tag = None, hash = None, base64 = Base64("bbbb="))))
+    deltaStore.addDeltaAction(ClientId("client1"), delta2)
+
+    val delta3 = Delta(sessionId, 3L, Seq(PublishQ(uri = new URI("rsync://host/zzz3.cer"), tag = None, hash = None, base64 = Base64("cccc="))))
+    deltaStore.addDeltaAction(ClientId("client1"), delta3)
+
+    val checked = deltaStore.checkDeltaSetSize(delta1.binarySize + delta2.binarySize / 2)
+
+    checked.head.whenToDelete should be(None)
+    checked.tail.head.whenToDelete shouldNot be(None)
+    checked.tail.tail.head.whenToDelete shouldNot be(None)
+  }
+
+  test("should not mark the latest delta for deletion") {
+    val sessionId = UUID.randomUUID()
+    val delta1 = Delta(sessionId, 1L, Seq(PublishQ(uri = new URI("rsync://host/zzz1.cer"), tag = None, hash = None, base64 = Base64("aaaa="))))
+    deltaStore.addDeltaAction(ClientId("client1"), delta1)
+
+    val delta2 = Delta(sessionId, 2L, Seq(PublishQ(uri = new URI("rsync://host/zzz2.cer"), tag = None, hash = None, base64 = Base64("bbbb="))))
+    deltaStore.addDeltaAction(ClientId("client1"), delta2)
+
+    val checked = deltaStore.checkDeltaSetSize(delta1.binarySize / 2)
+
+    checked.head.whenToDelete should be(None)
+    checked.tail.head.whenToDelete shouldNot be(None)
+  }
+
 }
