@@ -28,7 +28,7 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
 
   lazy val serverStateStore = new ServerStateStore
 
-  lazy val deltaStore = new DeltaStore
+  lazy val deltaStore = DeltaStore.get
 
   var sessionId: UUID = _
 

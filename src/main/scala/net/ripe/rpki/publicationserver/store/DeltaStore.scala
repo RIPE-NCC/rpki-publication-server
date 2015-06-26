@@ -80,3 +80,9 @@ class DeltaStore extends Hashing {
   }
 
 }
+
+object DeltaStore {
+  lazy val store = new DeltaStore
+
+  def get = store
+}

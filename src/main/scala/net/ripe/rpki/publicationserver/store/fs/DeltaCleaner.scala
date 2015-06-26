@@ -10,8 +10,7 @@ case class CleanCommand(newServerState: ServerState, deltas: Seq[Delta])
 
 class DeltaCleanActor extends Actor with Logging with Urls {
 
-  // TODO Share the same cache between different referencing parties
-  private val deltaStore = wire[DeltaStore]
+  private val deltaStore = DeltaStore.get
 
   private val repositoryWriter = wire[RepositoryWriter]
 

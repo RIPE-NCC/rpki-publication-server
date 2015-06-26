@@ -8,7 +8,7 @@ import net.ripe.rpki.publicationserver.{Base64, PublishQ, PublicationServerBaseT
 
 class DeltaStoreTest extends PublicationServerBaseTest {
 
-  val deltaStore = new DeltaStore
+  val deltaStore = DeltaStore.get
 
   before {
     deltaStore.clear()

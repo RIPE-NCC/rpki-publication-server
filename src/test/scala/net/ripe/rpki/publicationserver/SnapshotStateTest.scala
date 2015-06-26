@@ -20,7 +20,7 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
 
   private var sessionId: UUID = _
 
-  private val deltaStore = new DeltaStore
+  private val deltaStore = DeltaStore.get
 
   private val serverStateStore = new ServerStateStore
 
