@@ -71,4 +71,12 @@ class DeltaStore extends Hashing {
     Await.result(db.run(deltas.delete), Duration.Inf)
     deltaMap = Map.empty
   }
+
+  def delete(ds: Seq[Delta]) = {
+    DBIO.seq(ds.map { d =>
+      deltas.filter(_.serial === d.serial).delete
+    }: _*).transactionally
+    deltaMap = deltaMap -- ds.map(_.serial)
+  }
+
 }

@@ -61,17 +61,14 @@ class RepositoryWriter extends Logging {
     }
   }
 
-  private def writeFile(content: String, path: Path) = {
+  private def writeFile(content: String, path: Path) =
     Files.write(path, content.getBytes("UTF-8"))
-  }
 
-  private def getRootFolder(rootDir: String): Path = {
+  private def getRootFolder(rootDir: String): Path =
     Files.createDirectories(Paths.get(rootDir))
-  }
 
-  private def getStateDir(rootDir: String, sessionId: String, serial: Long): Path = {
+  private def getStateDir(rootDir: String, sessionId: String, serial: Long): Path =
     Files.createDirectories(Paths.get(rootDir, sessionId, String.valueOf(serial)))
-  }
 
   def deleteSessionFile(rootDir: String, serverState: ServerState, name: String) = {
     val ServerState(sessionId, serial) = serverState
@@ -86,7 +83,12 @@ class RepositoryWriter extends Logging {
 
   def deleteDelta(rootDir: String, serverState: ServerState) = deleteSessionFile(rootDir, serverState, "delta.xml")
 
-  def deleteNotification(rootDir: String) = {
+  def deleteNotification(rootDir: String) =
     Files.deleteIfExists(Paths.get(rootDir, "notification.xml"))
-  }
+
+  def deleteDeltas(rootDir: String, deltas: Seq[Delta]) =
+    deltas.foreach { d =>
+      deleteDelta(rootDir, ServerState(d.sessionId, d.serial))
+    }
+
 }

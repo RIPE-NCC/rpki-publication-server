@@ -1,10 +1,11 @@
 package net.ripe.rpki.publicationserver
 
 import java.util.UUID
+import java.util.Date
 
 import akka.actor.ActorRef
 import net.ripe.rpki.publicationserver.model._
-import net.ripe.rpki.publicationserver.store.fs.WriteCommand
+import net.ripe.rpki.publicationserver.store.fs.{CleanCommand, WriteCommand}
 import net.ripe.rpki.publicationserver.store.{DB, DeltaStore, ObjectStore, ServerStateStore}
 import slick.dbio.DBIO
 import slick.driver.H2Driver.api._
@@ -34,9 +35,11 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
   val semaphore = new Object()
 
   var fsWriter: ActorRef = _
+  var deltaCleaner: ActorRef = _
 
-  def init(fsWriterActor: ActorRef) = {
+  def init(fsWriterActor: ActorRef, deltaCleanActor: ActorRef) = {
     fsWriter = fsWriterActor
+    deltaCleaner = deltaCleanActor
 
     sessionId = serverStateStore.get.sessionId
 
@@ -44,7 +47,7 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
     deltaStore.initCache(sessionId)
 
     val serverState = serverStateStore.get
-    writeFiles(serverState)
+    updateFS(serverState)
   }
 
   def list(clientId: ClientId) = semaphore.synchronized {
@@ -75,7 +78,7 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
         val allActions = DBIO.seq(publishActions, deltaAction, serverStateAction).transactionally
         Await.result(db.run(allActions), Duration.Inf)
 
-        writeFiles(newServerState)
+        updateFS(newServerState)
         replies
       } catch {
         case e: Exception =>
@@ -85,11 +88,13 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
     }
   }
 
-  def writeFiles(newServerState: ServerState) = {
+  def updateFS(newServerState: ServerState) = {
     val snapshot = Snapshot(newServerState, objectStore.listAll)
     val deltas = deltaStore.checkDeltaSetSize(snapshot.binarySize)
 
+    val now = new Date().getTime
     fsWriter ! WriteCommand(newServerState, snapshot.pdus, deltas)
+    deltaCleaner ! CleanCommand(newServerState, deltas.filter(_.whenToDelete.exists(_.getTime < now)))
   }
 
   /*

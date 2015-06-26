@@ -5,7 +5,7 @@ import akka.io.IO
 import akka.pattern.ask
 import akka.util.Timeout
 import com.softwaremill.macwire.MacwireMacros._
-import net.ripe.rpki.publicationserver.store.fs.FSWriterActor
+import net.ripe.rpki.publicationserver.store.fs.{DeltaCleanActor, FSWriterActor}
 import org.slf4j.LoggerFactory
 import spray.can.Http
 
@@ -20,8 +20,9 @@ object Boot extends App {
   implicit val system = ActorSystem("on-spray-can")
 
   val fsWriterFactory = (context:ActorRefFactory) => context.actorOf(FSWriterActor.props)
+  val deltaCleanerFactory = (context:ActorRefFactory) => context.actorOf(DeltaCleanActor.props)
 
-  val service = system.actorOf(PublicationServiceActor.props(fsWriterFactory), "publication-service")
+  val service = system.actorOf(PublicationServiceActor.props(fsWriterFactory, deltaCleanerFactory), "publication-service")
 
   implicit val timeout = Timeout(5.seconds)
 

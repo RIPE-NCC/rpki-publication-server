@@ -9,7 +9,7 @@ import akka.actor.ActorSystem
 import akka.testkit.{TestActorRef, TestProbe}
 import com.typesafe.config.ConfigFactory
 import net.ripe.rpki.publicationserver.model._
-import net.ripe.rpki.publicationserver.store.fs.{FSWriterActor, RepositoryWriter, WriteCommand}
+import net.ripe.rpki.publicationserver.store.fs._
 import net.ripe.rpki.publicationserver.store.{DeltaStore, Migrations, ObjectStore, ServerStateStore}
 import org.mockito.Matchers._
 import org.mockito.Mockito._
@@ -29,6 +29,7 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
   implicit private val system = ActorSystem("MyActorSystem", ConfigFactory.load())
   
   private val fsWriterRef = TestActorRef[FSWriterActor]
+  private val deltaCleanerRef = TestActorRef[DeltaCleanActor]
 
   objectStore.clear()
   SnapshotState.deltaStore.clear()
@@ -49,7 +50,7 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
     }
     when(mockDeltaStore.getDeltas).thenReturn(Seq(Delta(sessionId, 1L, Seq.empty)))
 
-    snapshotState.init(fsWriterRef)
+    snapshotState.init(fsWriterRef, deltaCleanerRef)
 
     verify(mockDeltaStore).initCache(any[UUID])
 //    verify(mockRepositoryWriter).writeSnapshot(any[String], any[ServerState], any[Snapshot])
@@ -57,7 +58,7 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
   }
 
   test("should add an object with publish") {
-    SnapshotState.init(fsWriterRef)
+    SnapshotState.init(fsWriterRef, deltaCleanerRef)
 
     SnapshotState.updateWith(ClientId("bla"), Seq(PublishQ(uri = new URI("rsync://host/zzz.cer"), tag = None, hash = None, base64 = Base64("aaaa="))))
 
@@ -71,7 +72,7 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
   }
 
   test("should update an object with publish and republish") {
-    SnapshotState.init(fsWriterRef)
+    SnapshotState.init(fsWriterRef, deltaCleanerRef)
 
     val replies = SnapshotState.updateWith(
       ClientId("bla"),
@@ -94,7 +95,7 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
   }
 
   test("should fail to update an object which is not in the snapshot") {
-    SnapshotState.init(fsWriterRef)
+    SnapshotState.init(fsWriterRef, deltaCleanerRef)
 
     val replies = SnapshotState.updateWith(
       ClientId("bla"),
@@ -108,7 +109,7 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
   }
 
   test("should fail to update an object without hash provided") {
-    SnapshotState.init(fsWriterRef)
+    SnapshotState.init(fsWriterRef, deltaCleanerRef)
 
     val replies = SnapshotState.updateWith(
       ClientId("bla"),Seq(PublishQ(uri = new URI("rsync://host/zzz.cer"), tag = None, hash = None, base64 = Base64("cccc="))))
@@ -117,7 +118,7 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
   }
 
   test("should fail to update an object if hashes do not match") {
-    SnapshotState.init(fsWriterRef)
+    SnapshotState.init(fsWriterRef, deltaCleanerRef)
 
     val replies = SnapshotState.updateWith(
       ClientId("bla"),
@@ -131,7 +132,7 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
   }
 
   test("should fail to withdraw an object if there's no such object") {
-    SnapshotState.init(fsWriterRef)
+    SnapshotState.init(fsWriterRef, deltaCleanerRef)
 
     val replies = SnapshotState.updateWith(
       ClientId("bla"),Seq(WithdrawQ(uri = new URI("rsync://host/not-existing-uri.cer"), tag = None, hash = "whatever")))
@@ -140,7 +141,7 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
   }
 
   test("should fail to withdraw an object if hashes do not match") {
-    SnapshotState.init(fsWriterRef)
+    SnapshotState.init(fsWriterRef, deltaCleanerRef)
 
     val replies = SnapshotState.updateWith(
       ClientId("bla"),Seq(WithdrawQ(uri = new URI("rsync://host/zzz.cer"), tag = None, hash = "WRONGHASH")))
@@ -149,7 +150,7 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
   }
 
   test("should create 2 entries in delta map after 2 updates") {
-    SnapshotState.init(fsWriterRef)
+    SnapshotState.init(fsWriterRef, deltaCleanerRef)
 
     SnapshotState.updateWith(ClientId("bla"), Seq(PublishQ(uri = new URI("rsync://host/cert1.cer"), tag = None, hash = None, base64 = Base64("cccc="))))
 
@@ -173,7 +174,8 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
     SnapshotState.objectStore.clear()
 
     val fsWriterSpy = TestProbe()
-    SnapshotState.init(fsWriterSpy.ref)
+    val deltaCleanSpy = TestProbe()
+    SnapshotState.init(fsWriterSpy.ref, deltaCleanSpy.ref)
     fsWriterSpy.expectMsgType[WriteCommand]
 
     val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
@@ -186,13 +188,16 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
     SnapshotState.objectStore.clear()
 
     val fsWriterSpy = TestProbe()
-    SnapshotState.init(fsWriterSpy.ref)
+    val deltaCleanSpy = TestProbe()
+    SnapshotState.init(fsWriterSpy.ref, deltaCleanSpy.ref)
     fsWriterSpy.expectMsgType[WriteCommand]
+    deltaCleanSpy.expectMsgType[CleanCommand]
 
     val withdraw = WithdrawQ(new URI("rsync://host/zzz.cer"), None, "BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7")
 
     // The withdraw will fail because the SnapshotState is still empty
     fsWriterSpy.expectNoMsg()
+    deltaCleanSpy.expectNoMsg()
   }
 
   test("should not write a snapshot to the filesystem when updating delta throws an error") {
@@ -202,11 +207,13 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
     doThrow(new IllegalArgumentException()).when(deltaStoreSpy).addDeltaAction(any[ClientId], any[Delta])
 
     val fsWriterSpy = TestProbe()
+    val deltaCleanSpy = TestProbe()
     val snapshotStateService = new SnapshotStateService {
       override lazy val deltaStore = deltaStoreSpy
     }
-    snapshotStateService.init(fsWriterSpy.ref)
+    snapshotStateService.init(fsWriterSpy.ref, deltaCleanSpy.ref)
     fsWriterSpy.expectMsgType[WriteCommand]
+    deltaCleanSpy.expectMsgType[CleanCommand]
 
     val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
 
@@ -214,6 +221,7 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
 
     reply.head should equal(ReportError(BaseError.CouldNotPersist, Some("A problem occurred while persisting the changes: java.lang.IllegalArgumentException")))
     fsWriterSpy.expectNoMsg()
+    deltaCleanSpy.expectNoMsg()
   }
   
   def getRepositoryWriter: RepositoryWriter = new MockRepositoryWriter()
