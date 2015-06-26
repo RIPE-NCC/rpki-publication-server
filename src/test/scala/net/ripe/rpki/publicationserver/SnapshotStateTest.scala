@@ -53,8 +53,6 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
     snapshotState.init(fsWriterRef, deltaCleanerRef)
 
     verify(mockDeltaStore).initCache(any[UUID])
-//    verify(mockRepositoryWriter).writeSnapshot(any[String], any[ServerState], any[Snapshot])
-//    verify(mockRepositoryWriter).writeDelta(any[String], any[Delta])
   }
 
   test("should add an object with publish") {
@@ -191,7 +189,6 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
     val deltaCleanSpy = TestProbe()
     SnapshotState.init(fsWriterSpy.ref, deltaCleanSpy.ref)
     fsWriterSpy.expectMsgType[WriteCommand]
-    deltaCleanSpy.expectMsgType[CleanCommand]
 
     val withdraw = WithdrawQ(new URI("rsync://host/zzz.cer"), None, "BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7")
 
@@ -213,10 +210,8 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
     }
     snapshotStateService.init(fsWriterSpy.ref, deltaCleanSpy.ref)
     fsWriterSpy.expectMsgType[WriteCommand]
-    deltaCleanSpy.expectMsgType[CleanCommand]
 
     val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
-
     val reply = snapshotStateService.updateWith(ClientId("client1"), Seq(publish))
 
     reply.head should equal(ReportError(BaseError.CouldNotPersist, Some("A problem occurred while persisting the changes: java.lang.IllegalArgumentException")))

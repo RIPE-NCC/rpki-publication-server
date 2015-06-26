@@ -94,7 +94,10 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
 
     val now = new Date().getTime
     fsWriter ! WriteCommand(newServerState, snapshot.pdus, deltas)
-    deltaCleaner ! CleanCommand(newServerState, deltas.filter(_.whenToDelete.exists(_.getTime < now)))
+    val deltasToDelete = deltas.filter(_.whenToDelete.exists(_.getTime < now))
+    if (deltasToDelete.nonEmpty) {
+      deltaCleaner ! CleanCommand(newServerState, deltasToDelete)
+    }
   }
 
   /*
