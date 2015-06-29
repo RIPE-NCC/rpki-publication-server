@@ -6,6 +6,7 @@ import java.util.{Date, UUID}
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.model.{ClientId, Delta}
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
@@ -73,12 +74,15 @@ class DeltaStore extends Hashing {
   }
 
   def delete(ds: Seq[Delta]) = {
-    DBIO.seq(ds.map { d =>
-      deltas.filter(_.serial === d.serial).delete
-    }: _*).transactionally
-    deltaMap = deltaMap -- ds.map(_.serial)
-  }
+    val q = DBIO.seq(
+      DBIO.seq(ds.map { d =>
+        deltas.filter(_.serial === d.serial).delete
+      }: _*),
+      liftDB(deltaMap = deltaMap -- ds.map(_.serial))
+    ).transactionally
 
+    Await.result(db.run(q), Duration.Inf)
+  }
 }
 
 object DeltaStore {
