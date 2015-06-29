@@ -19,7 +19,7 @@ object SnapshotState extends SnapshotStateService {
 
 }
 
-trait SnapshotStateService extends Urls with Logging with Hashing {
+trait SnapshotStateService extends Config with Logging with Hashing {
 
   val db = DB.db
 
@@ -87,6 +87,7 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
     }
   }
 
+  def snapshotRetainPeriod = conf.snapshotRetainPeriod
 
   /*
    * TODO Check if the client doesn't try to modify objects that belong to other client

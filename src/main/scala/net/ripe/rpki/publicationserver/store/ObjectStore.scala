@@ -63,3 +63,8 @@ class ObjectStore extends Hashing {
   private def getSeq(q: Query[RepoObject, (String, String, String, String), Seq]): Seq[RRDPObject] =
     Await.result(db.run(mapQ(q)), Duration.Inf)
 }
+
+object ObjectStore {
+  // it's stateless, so we can return new instance every time
+  def get = new ObjectStore
+}

@@ -33,7 +33,7 @@ case class Notification(sessionId: UUID, serial: BigInt, snapshot: SnapshotLocat
     </notification>
 }
 
-object Notification extends Hashing with Urls {
+object Notification extends Hashing with Config {
 
   def create(snapshot: Snapshot, serverState: ServerState, deltas: Seq[Delta]): Notification = {
     val snapshotLocator = SnapshotLocator(snapshotUrl(serverState), snapshot.contentHash)
