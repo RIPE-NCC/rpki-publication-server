@@ -20,7 +20,7 @@ object SnapshotState extends SnapshotStateService {
 
 }
 
-trait SnapshotStateService extends Urls with Logging with Hashing {
+trait SnapshotStateService extends Config with Logging with Hashing {
 
   val db = DB.db
 
@@ -88,17 +88,10 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
     }
   }
 
-  def updateFS(newServerState: ServerState) = {
-    val snapshot = Snapshot(newServerState, objectStore.listAll)
-    val deltas = deltaStore.checkDeltaSetSize(snapshot.binarySize)
+  def updateFS(newServerState: ServerState) = fsWriter ! WriteCommand(newServerState)
 
-    val now = new Date().getTime
-    fsWriter ! WriteCommand(newServerState, snapshot.pdus, deltas)
-    val deltasToDelete = deltas.filter(_.whenToDelete.exists(_.getTime < now))
-    if (deltasToDelete.nonEmpty) {
-      deltaCleaner ! CleanCommand(newServerState, deltasToDelete)
-    }
-  }
+
+  def snapshotRetainPeriod = conf.snapshotRetainPeriod
 
   /*
    * TODO Check if the client doesn't try to modify objects that belong to other client

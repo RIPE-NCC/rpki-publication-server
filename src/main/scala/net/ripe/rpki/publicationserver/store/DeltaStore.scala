@@ -6,7 +6,6 @@ import java.util.{Date, UUID}
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.model.{ClientId, Delta}
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
@@ -53,20 +52,18 @@ class DeltaStore extends Hashing {
     }
   }
 
-  def checkDeltaSetSize(snapshotSize: Long) = {
+  def checkDeltaSetSize(snapshotSize: Long, retainPeriod: Long) = {
     var accDeltaSize = 0L
     deltaMap.toSeq.sortBy(_._1).zipWithIndex.map { p =>
       val ((_, delta), index) = p
       accDeltaSize += delta.binarySize
       if (accDeltaSize > snapshotSize && index > 0)
-        delta.markForDeletion(oneHourLater)
+        delta.markForDeletion(afterRetainPeriod(retainPeriod))
       else delta
     }
   }
 
-  def oneHourLater: Date = {
-    new Date(new Date().getTime + 60 * 60 * 1000)
-  }
+  def afterRetainPeriod(period: Long): Date = new Date(new Date().getTime + period)
 
   def clear() = {
     Await.result(db.run(deltas.delete), Duration.Inf)

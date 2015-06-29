@@ -3,12 +3,12 @@ package net.ripe.rpki.publicationserver.store.fs
 import akka.actor.{Actor, Props}
 import net.ripe.rpki.publicationserver.model.{Delta, ServerState}
 import net.ripe.rpki.publicationserver.store.DeltaStore
-import net.ripe.rpki.publicationserver.{Logging, Urls}
+import net.ripe.rpki.publicationserver.{Logging, Config}
 import com.softwaremill.macwire.MacwireMacros._
 
 case class CleanCommand(newServerState: ServerState, deltas: Seq[Delta])
 
-class DeltaCleanActor extends Actor with Logging with Urls {
+class DeltaCleanActor extends Actor with Logging with Config {
 
   private val deltaStore = DeltaStore.get
 
