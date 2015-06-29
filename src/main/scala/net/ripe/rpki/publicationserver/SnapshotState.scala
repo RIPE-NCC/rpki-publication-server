@@ -34,11 +34,9 @@ trait SnapshotStateService extends Config with Logging with Hashing {
   val semaphore = new Object()
 
   var fsWriter: ActorRef = _
-  var deltaCleaner: ActorRef = _
 
-  def init(fsWriterActor: ActorRef, deltaCleanActor: ActorRef) = {
+  def init(fsWriterActor: ActorRef) = {
     fsWriter = fsWriterActor
-    deltaCleaner = deltaCleanActor
 
     sessionId = serverStateStore.get.sessionId
 

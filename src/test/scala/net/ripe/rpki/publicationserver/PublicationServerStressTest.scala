@@ -4,7 +4,7 @@ import java.util.UUID
 
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store.ObjectStore
-import net.ripe.rpki.publicationserver.store.fs.{DeltaCleanActor, FSWriterActor}
+import net.ripe.rpki.publicationserver.store.fs.FSWriterActor
 import spray.testkit.ScalatestRouteTest
 
 import scala.concurrent.duration.Duration
@@ -14,7 +14,6 @@ class PublicationServerStressTest extends PublicationServerBaseTest with Scalate
 
   // Use the production actorsystem for the fsWriterActor and not the one from ScalatestRouterTest, because the latter is single threaded!
   val fsWriterRef = system.actorOf(FSWriterActor.props)
-  val deltaCleanerRef = system.actorOf(DeltaCleanActor.props)
 
   def actorRefFactory = system
 
@@ -28,7 +27,7 @@ class PublicationServerStressTest extends PublicationServerBaseTest with Scalate
 
   before {
     objectStore.clear()
-    SnapshotState.init(fsWriterRef, deltaCleanerRef)
+    SnapshotState.init(fsWriterRef)
   }
 
   def publishAndRetrieve(clientId: ClientId, promise: Promise[Unit]) = {

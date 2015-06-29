@@ -18,7 +18,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.io.{BufferedSource, Source}
 import scala.util.{Failure, Success}
 
-class PublicationServiceActor(fsWriterFactory: ActorRefFactory => ActorRef, deltaCleanFactory: ActorRefFactory => ActorRef)
+class PublicationServiceActor(fsWriterFactory: ActorRefFactory => ActorRef)
   extends Actor with PublicationService with RRDPService {
 
   def actorRefFactory = context
@@ -28,14 +28,13 @@ class PublicationServiceActor(fsWriterFactory: ActorRefFactory => ActorRef, delt
   override def preStart() = {
     Migrations.migrate()
     val fsWriter = fsWriterFactory(context)
-    val deltaCleaner = deltaCleanFactory(context)
-    SnapshotState.init(fsWriter, deltaCleaner)
+    SnapshotState.init(fsWriter)
   }
 }
 
 object PublicationServiceActor {
-  def props(actorRefFactory: ActorRefFactory => ActorRef, actorRefFactory1: ActorRefFactory => ActorRef) =
-    Props(new PublicationServiceActor(actorRefFactory, actorRefFactory1))
+  def props(actorRefFactory: ActorRefFactory => ActorRef) =
+    Props(new PublicationServiceActor(actorRefFactory))
 }
 
 trait PublicationService extends HttpService with RepositoryPath {
