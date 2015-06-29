@@ -19,8 +19,8 @@ object Boot extends App {
 
   implicit val system = ActorSystem("on-spray-can")
 
-  val fsWriterFactory = (context:ActorRefFactory) => context.actorOf(FSWriterActor.props)
   val deltaCleanerFactory = (context:ActorRefFactory) => context.actorOf(DeltaCleanActor.props)
+  val fsWriterFactory = (context:ActorRefFactory) => context.actorOf(FSWriterActor.props(deltaCleanerFactory))
 
   val service = system.actorOf(PublicationServiceActor.props(fsWriterFactory, deltaCleanerFactory), "publication-service")
 

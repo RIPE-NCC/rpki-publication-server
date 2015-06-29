@@ -16,13 +16,17 @@ class RemovingFileVisitor(timestamp: FileTime, filenameToDelete: Path) extends S
 
   override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
     if (file.endsWith(filenameToDelete) && isModifiedBefore(file)) {
+      logger.debug(s"Removing $file")
       Files.deleteIfExists(file)
     }
     FileVisitResult.CONTINUE
   }
 
   override def postVisitDirectory(dir: Path, exc: IOException): FileVisitResult = {
-    if (isEmptyDir(dir) && isCreatedBefore(dir)) Files.deleteIfExists(dir)
+    if (isEmptyDir(dir) && isCreatedBefore(dir)) {
+      logger.debug(s"Removing $dir")
+      Files.deleteIfExists(dir)
+    }
     FileVisitResult.CONTINUE
   }
 

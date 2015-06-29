@@ -1,6 +1,6 @@
 package net.ripe.rpki.publicationserver
 
-import java.util.UUID
+import java.util.concurrent.TimeUnit
 
 import com.typesafe.config.ConfigFactory
 
@@ -14,6 +14,7 @@ class ConfigWrapper {
   lazy val locationRepositoryPath = getConfig.getString("locations.repository.path")
   lazy val locationRepositoryUri  = getConfig.getString("locations.repository.uri")
   lazy val locationLogfile = getConfig.getString("locations.logfile")
+  lazy val snapshotRetainPeriod = getConfig.getDuration("snapshot.retainPeriod", TimeUnit.MILLISECONDS)
 }
 
 object ConfigWrapper {
