@@ -3,7 +3,7 @@ package net.ripe.rpki.publicationserver
 import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver.model.{Delta, ServerState}
 
-trait Urls {
+trait Config {
   lazy val conf = wire[ConfigWrapper]
 
   lazy val repositoryUri = conf.locationRepositoryUri
