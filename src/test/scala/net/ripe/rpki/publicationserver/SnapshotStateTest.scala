@@ -14,7 +14,7 @@ import net.ripe.rpki.publicationserver.store.{DeltaStore, Migrations, ObjectStor
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 
-class SnapshotStateTest extends PublicationServerBaseTest with Urls {
+class SnapshotStateTest extends PublicationServerBaseTest with Config with Hashing {
 
   private var serial: Long = _
 
@@ -233,7 +233,35 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
     fsWriterSpy.expectNoMsg()
     deltaCleanSpy.expectNoMsg()
   }
-  
+
+  test("should delete older deltas when they are too big") {
+    SnapshotState.objectStore.clear()
+
+    val deltaStoreSpy = spy(new DeltaStore)
+    val fsWriterSpy = TestProbe()
+    val deltaCleanSpy = TestProbe()
+    val snapshotStateService = new SnapshotStateService {
+      override lazy val deltaStore = deltaStoreSpy
+      override def snapshotRetainPeriod = -1L
+    }
+    snapshotStateService.init(fsWriterSpy.ref, deltaCleanSpy.ref)
+    fsWriterSpy.expectMsgType[WriteCommand]
+
+    val publish1 = PublishQ(new URI("rsync://host/xxx.cer"), None, None, Base64("aaaa="))
+    val withdraw1 = WithdrawQ(new URI("rsync://host/xxxss.cer"), None, "BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7")
+
+    val publish2 = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("bbbbbb="))
+    val withdraw2 = WithdrawQ(new URI("rsync://host/zzz.cer"), None, stringify(hash(Base64("bbbbbb="))))
+
+    snapshotStateService.updateWith(ClientId("client1"), Seq(publish1))
+    snapshotStateService.updateWith(ClientId("client1"), Seq(withdraw1))
+    snapshotStateService.updateWith(ClientId("client2"), Seq(publish2))
+    snapshotStateService.updateWith(ClientId("client2"), Seq(withdraw2))
+
+    deltaCleanSpy.expectNoMsg()
+  }
+
+
   def getRepositoryWriter: RepositoryWriter = new MockRepositoryWriter()
 
   class MockRepositoryWriter extends RepositoryWriter {
