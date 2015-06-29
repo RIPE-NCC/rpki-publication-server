@@ -1,11 +1,10 @@
 package net.ripe.rpki.publicationserver
 
 import java.util.UUID
-import java.util.Date
 
 import akka.actor.ActorRef
 import net.ripe.rpki.publicationserver.model._
-import net.ripe.rpki.publicationserver.store.fs.{CleanCommand, WriteCommand}
+import net.ripe.rpki.publicationserver.store.fs.WriteCommand
 import net.ripe.rpki.publicationserver.store.{DB, DeltaStore, ObjectStore, ServerStateStore}
 import slick.dbio.DBIO
 import slick.driver.H2Driver.api._
@@ -47,7 +46,7 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
     deltaStore.initCache(sessionId)
 
     val serverState = serverStateStore.get
-    updateFS(serverState)
+    fsWriter ! WriteCommand(serverState)
   }
 
   def list(clientId: ClientId) = semaphore.synchronized {
@@ -78,7 +77,7 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
         val allActions = DBIO.seq(publishActions, deltaAction, serverStateAction).transactionally
         Await.result(db.run(allActions), Duration.Inf)
 
-        updateFS(newServerState)
+        fsWriter ! WriteCommand(newServerState)
         replies
       } catch {
         case e: Exception =>
@@ -88,17 +87,6 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
     }
   }
 
-  def updateFS(newServerState: ServerState) = {
-    val snapshot = Snapshot(newServerState, objectStore.listAll)
-    val deltas = deltaStore.checkDeltaSetSize(snapshot.binarySize)
-
-    val now = new Date().getTime
-    fsWriter ! WriteCommand(newServerState, snapshot.pdus, deltas)
-    val deltasToDelete = deltas.filter(_.whenToDelete.exists(_.getTime < now))
-    if (deltasToDelete.nonEmpty) {
-      deltaCleaner ! CleanCommand(newServerState, deltasToDelete)
-    }
-  }
 
   /*
    * TODO Check if the client doesn't try to modify objects that belong to other client
