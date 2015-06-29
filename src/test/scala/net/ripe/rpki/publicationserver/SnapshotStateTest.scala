@@ -239,7 +239,7 @@ class SnapshotStateTest extends PublicationServerBaseTest with Urls {
   class MockRepositoryWriter extends RepositoryWriter {
     override def writeSnapshot(rootDir: String, serverState: ServerState, snapshot: Snapshot) = Paths.get("")
     override def writeDelta(rootDir: String, delta: Delta) = Paths.get("")
-    override def writeNotification(rootDir: String, notification: Notification) = FileTime.fromMillis(0)
+    override def writeNotification(rootDir: String, notification: Notification) = None
   }
 
 }
