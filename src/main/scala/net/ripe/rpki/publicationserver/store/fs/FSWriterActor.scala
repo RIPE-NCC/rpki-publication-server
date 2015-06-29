@@ -24,8 +24,9 @@ class FSWriterActor extends Actor with Logging with Urls {
       val newNotification = Notification.create(snapshot, newServerState, deltas)
       repositoryWriter.writeNewState(conf.locationRepositoryPath, newServerState, deltas, newNotification, snapshot) match {
         case Success(Some(timestamp)) =>
-          logger.info(s"Removing snapshots older than $timestamp")
-          repositoryWriter.deleteSnapshotsOlderThan(conf.locationRepositoryPath, applyRetainPeriod(timestamp))
+          val cleanupTimestamp = applyRetainPeriod(timestamp)
+          logger.info(s"Removing snapshots older than $cleanupTimestamp")
+          repositoryWriter.deleteSnapshotsOlderThan(conf.locationRepositoryPath, cleanupTimestamp)
         case Success(None) =>
           logger.info("No previous snapshots to clean")
         case Failure(e) =>
