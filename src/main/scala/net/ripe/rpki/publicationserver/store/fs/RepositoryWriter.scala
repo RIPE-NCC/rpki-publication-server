@@ -10,7 +10,7 @@ import scala.util.{Failure, Try}
 
 class RepositoryWriter extends Logging {
 
-  def writeNewState(rootDir: String, serverState: ServerState, deltas: Seq[Delta], newNotification: Notification, snapshot: Snapshot): Try[FileTime] =
+  def writeNewState(rootDir: String, serverState: ServerState, deltas: Seq[Delta], newNotification: Notification, snapshot: Snapshot): Try[Option[FileTime]] =
     Try {
       writeSnapshot(rootDir, serverState, snapshot)
       try {
@@ -46,14 +46,14 @@ class RepositoryWriter extends Logging {
     writeFile(delta.serialize.mkString, stateDir.resolve("delta.xml"))
   }
 
-  def writeNotification(rootDir: String, notification: Notification): FileTime = {
+  def writeNotification(rootDir: String, notification: Notification): Option[FileTime] = {
     val root = getRootFolder(rootDir)
 
     val tmpFile = Files.createTempFile(root, "notification.", ".xml")
     try {
       writeFile(notification.serialized, tmpFile)
       val target = root.resolve("notification.xml")
-      val previousNotificationTimestamp: FileTime = Files.getLastModifiedTime(target)
+      val previousNotificationTimestamp = Try(Files.getLastModifiedTime(target)).toOption
       Files.move(tmpFile, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
       previousNotificationTimestamp
     } finally {

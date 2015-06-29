@@ -2,7 +2,6 @@ package net.ripe.rpki.publicationserver
 
 import java.util.UUID
 
-import akka.actor.ActorRefFactory
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store.ObjectStore
 import net.ripe.rpki.publicationserver.store.fs.{DeltaCleanActor, FSWriterActor}
@@ -14,8 +13,7 @@ import scala.concurrent.{Await, Future, Promise}
 class PublicationServerStressTest extends PublicationServerBaseTest with ScalatestRouteTest with Hashing {
 
   // Use the production actorsystem for the fsWriterActor and not the one from ScalatestRouterTest, because the latter is single threaded!
-  val deltaCleanerFactory = (context:ActorRefFactory) => context.actorOf(DeltaCleanActor.props)
-  val fsWriterRef = system.actorOf(FSWriterActor.props(deltaCleanerFactory))
+  val fsWriterRef = system.actorOf(FSWriterActor.props)
   val deltaCleanerRef = system.actorOf(DeltaCleanActor.props)
 
   def actorRefFactory = system

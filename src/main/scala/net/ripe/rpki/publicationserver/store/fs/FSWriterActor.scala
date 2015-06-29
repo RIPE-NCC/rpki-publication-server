@@ -12,11 +12,9 @@ import scala.util.{Failure, Success}
 
 case class WriteCommand(newServerState: ServerState, objects: Seq[DB.RRDPObject], deltas: Seq[Delta])
 
-class FSWriterActor(deltaCleanFactory: ActorRefFactory => ActorRef) extends Actor with Logging with Urls {
+class FSWriterActor extends Actor with Logging with Urls {
 
   val repositoryWriter = wire[RepositoryWriter]
-
-  val deltaCleaner = deltaCleanFactory(context)
 
   override def receive = {
     case WriteCommand(newServerState: ServerState, objects: Seq[DB.RRDPObject], deltas: Seq[Delta]) =>
@@ -25,8 +23,11 @@ class FSWriterActor(deltaCleanFactory: ActorRefFactory => ActorRef) extends Acto
       val snapshot = Snapshot(newServerState, objects)
       val newNotification = Notification.create(snapshot, newServerState, deltas)
       repositoryWriter.writeNewState(conf.locationRepositoryPath, newServerState, deltas, newNotification, snapshot) match {
-        case Success(timestamp) =>
-           deltaCleaner ! CleanSnapshotsCommand(applyRetainPeriod(timestamp))
+        case Success(Some(timestamp)) =>
+          logger.info(s"Removing snapshots older than $timestamp")
+          repositoryWriter.deleteSnapshotsOlderThan(conf.locationRepositoryPath, applyRetainPeriod(timestamp))
+        case Success(None) =>
+          logger.info("No previous snapshots to clean")
         case Failure(e) =>
           logger.error("Could not write XML files to filesystem: " + e.getMessage, e)
       }
@@ -36,6 +37,6 @@ class FSWriterActor(deltaCleanFactory: ActorRefFactory => ActorRef) extends Acto
 }
 
 object FSWriterActor {
-  def props(actorRefFactory: ActorRefFactory => ActorRef) = Props(new FSWriterActor(actorRefFactory))
+  def props = Props(new FSWriterActor())
 }
 
