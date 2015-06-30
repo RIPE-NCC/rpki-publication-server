@@ -57,7 +57,7 @@ class DeltaStore extends Hashing {
   def checkDeltaSetSize(snapshotSize: Long, retainPeriod: Duration) = {
     var accDeltaSize = 0L
     var thresholdIndex : Option[Long] = None
-    val deltas = deltaMap.toSeq.sortBy(_._1).zipWithIndex.map { p =>
+    val deltas = deltaMap.toSeq.sortBy(-_._1).zipWithIndex.map { p =>
       val ((serial, delta), index) = p
       accDeltaSize += delta.binarySize
       if (accDeltaSize > snapshotSize && index > 0) {

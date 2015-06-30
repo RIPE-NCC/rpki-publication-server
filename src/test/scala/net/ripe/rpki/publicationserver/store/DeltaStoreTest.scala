@@ -44,8 +44,11 @@ class DeltaStoreTest extends PublicationServerBaseTest {
     val (checked, _, _) = deltaStore.checkDeltaSetSize(delta1.binarySize + delta2.binarySize / 2, Duration.Zero)
 
     checked.head.whenToDelete should be(None)
+    checked.head.serial should be(3)
     checked.tail.head.whenToDelete shouldNot be(None)
+    checked.tail.head.serial should be(2)
     checked.tail.tail.head.whenToDelete shouldNot be(None)
+    checked.tail.tail.head.serial should be(1)
   }
 
   test("should not mark the latest delta for deletion") {
@@ -59,7 +62,9 @@ class DeltaStoreTest extends PublicationServerBaseTest {
     val (checked, _, _) = deltaStore.checkDeltaSetSize(delta1.binarySize / 2, Duration.Zero)
 
     checked.head.whenToDelete should be(None)
+    checked.head.serial should be(2)
     checked.tail.head.whenToDelete shouldNot be(None)
+    checked.tail.head.serial should be(1)
   }
 
 }
