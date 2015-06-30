@@ -41,7 +41,7 @@ class DeltaStoreTest extends PublicationServerBaseTest {
     val delta3 = Delta(sessionId, 3L, Seq(PublishQ(uri = new URI("rsync://host/zzz3.cer"), tag = None, hash = None, base64 = Base64("cccc="))))
     deltaStore.addDeltaAction(ClientId("client1"), delta3)
 
-    val (checked, _, _) = deltaStore.checkDeltaSetSize(delta1.binarySize + delta2.binarySize / 2, Duration.Zero)
+    val (checked, _, _) = deltaStore.markOldestDeltasForDeletion(delta1.binarySize + delta2.binarySize / 2, Duration.Zero)
 
     checked.head.whenToDelete should be(None)
     checked.head.serial should be(3)
@@ -49,6 +49,11 @@ class DeltaStoreTest extends PublicationServerBaseTest {
     checked.tail.head.serial should be(2)
     checked.tail.tail.head.whenToDelete shouldNot be(None)
     checked.tail.tail.head.serial should be(1)
+
+    val deltas = deltaStore.getDeltas
+    deltas.head.whenToDelete shouldNot be(None)
+    deltas.tail.head.whenToDelete shouldNot be(None)
+    deltas.tail.tail.head.whenToDelete should be(None)
   }
 
   test("should not mark the latest delta for deletion") {
@@ -59,12 +64,16 @@ class DeltaStoreTest extends PublicationServerBaseTest {
     val delta2 = Delta(sessionId, 2L, Seq(PublishQ(uri = new URI("rsync://host/zzz2.cer"), tag = None, hash = None, base64 = Base64("bbbb="))))
     deltaStore.addDeltaAction(ClientId("client1"), delta2)
 
-    val (checked, _, _) = deltaStore.checkDeltaSetSize(delta1.binarySize / 2, Duration.Zero)
+    val (checked, _, _) = deltaStore.markOldestDeltasForDeletion(delta1.binarySize / 2, Duration.Zero)
 
     checked.head.whenToDelete should be(None)
     checked.head.serial should be(2)
     checked.tail.head.whenToDelete shouldNot be(None)
     checked.tail.head.serial should be(1)
+
+    val deltas = deltaStore.getDeltas
+    deltas.head.whenToDelete shouldNot be(None)
+    deltas.tail.head.whenToDelete should be(None)
   }
 
 }
