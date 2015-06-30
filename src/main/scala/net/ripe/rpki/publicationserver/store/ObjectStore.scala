@@ -21,7 +21,11 @@ class ObjectStore extends Hashing {
     getSeq(objects.filter(_.clientId === cId))
   }
 
-  def listAll: Seq[RRDPObject] = getSeq(objects)
+  def listAll(serial: Long): Seq[RRDPObject] = {
+    getSeq(for {
+      (o, ss) <- objects.join(serverStates.filter(_.serialNumber === serial))
+    } yield o)
+  }
 
   def getAllAction = mapQ(objects)
 

@@ -38,6 +38,8 @@ class DeltaStore extends Hashing {
 
   def getDeltas = deltaMap.values.toSeq.sortBy(_.serial)
 
+  def getDelta(serial: Long) = deltaMap.get(serial)
+
   def initCache(sessionId: UUID) = {
     val changes = Await.result(db.run(deltas.result), Duration.Inf)
     deltaMap = changes.groupBy(_._5).map { p =>

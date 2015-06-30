@@ -1,7 +1,6 @@
 package net.ripe.rpki.publicationserver.store.fs
 
 import java.nio.file.attribute.FileTime
-import java.util.Date
 
 import akka.actor._
 import com.softwaremill.macwire.MacwireMacros._
@@ -28,25 +27,41 @@ class FSWriterActor extends Actor with Logging with Config {
     case CleanSnapshotsCommand(timestamp) =>
       cleanupSnapshots(timestamp)
     case WriteCommand(newServerState: ServerState) =>
-      logger.info("Writing snapshot and delta to filesystem")
+
+      deltaStore.getDelta(newServerState.serialNumber) match {
+        case None =>
+          logger.error(s"Could not find delta ${newServerState.serialNumber}")
+        case Some(delta) =>
+          logger.info(s"Writing delta ${newServerState.serialNumber} to filesystem")
+          repositoryWriter.writeDelta(conf.locationRepositoryPath, delta).recover {
+            case e: Exception =>
+              logger.error(s"Could not write delta ${newServerState.serialNumber}", e)
+          }
+      }
+
       val now = System.currentTimeMillis
 
-      val objects = objectStore.listAll
-      val snapshot = Snapshot(newServerState, objects)
+      val objects = objectStore.listAll(newServerState.serialNumber)
+      if (objects.isEmpty) {
+        logger.info(s"Skipping snapshot ${newServerState.serialNumber}")
+      } else {
+        logger.info(s"Writing snapshot ${newServerState.serialNumber} to filesystem")
+        val snapshot = Snapshot(newServerState, objects)
 
-      val deltas = deltaStore.checkDeltaSetSize(snapshot.binarySize, conf.snapshotRetainPeriod)
-      lazy val deltasToPublish = deltas.filter(_.whenToDelete.isEmpty)
-      lazy val deltasToDelete = deltas.filter(_.whenToDelete.exists(_.getTime < now))
+        val deltas = deltaStore.checkDeltaSetSize(snapshot.binarySize, conf.snapshotRetainPeriod)
+        lazy val deltasToPublish = deltas.filter(_.whenToDelete.isEmpty)
+        lazy val deltasToDelete = deltas.filter(_.whenToDelete.exists(_.getTime < now))
 
-      val newNotification = Notification.create(snapshot, newServerState, deltasToPublish)
-      repositoryWriter.writeNewState(conf.locationRepositoryPath, newServerState, deltasToPublish, newNotification, snapshot) match {
-        case Success(Some(timestamp)) =>
-          scheduleSnapshotCleanup(timestamp)
-          cleanupDeltas(deltasToDelete)
-        case Success(None) =>
-          logger.info("No previous snapshots to clean")
-        case Failure(e) =>
-          logger.error("Could not write XML files to filesystem: " + e.getMessage, e)
+        val newNotification = Notification.create(snapshot, newServerState, deltasToPublish)
+        repositoryWriter.writeNewState(conf.locationRepositoryPath, newServerState, newNotification, snapshot) match {
+          case Success(Some(timestamp)) =>
+            scheduleSnapshotCleanup(timestamp)
+            cleanupDeltas(deltasToDelete)
+          case Success(None) =>
+            logger.info("No previous snapshots to clean")
+          case Failure(e) =>
+            logger.error("Could not write XML files to filesystem: " + e.getMessage, e)
+        }
       }
   }
 

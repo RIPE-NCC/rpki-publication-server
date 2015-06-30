@@ -10,23 +10,10 @@ import scala.util.{Failure, Try}
 
 class RepositoryWriter extends Logging {
 
-  def writeNewState(rootDir: String, serverState: ServerState, deltas: Seq[Delta], newNotification: Notification, snapshot: Snapshot): Try[Option[FileTime]] =
+  def writeNewState(rootDir: String, serverState: ServerState, newNotification: Notification, snapshot: Snapshot): Try[Option[FileTime]] =
     Try {
       writeSnapshot(rootDir, serverState, snapshot)
-      try {
-        if (deltas.nonEmpty) {
-          val latestDelta = deltas.maxBy(_.serial)
-          writeDelta(rootDir, latestDelta)
-        } else {
-          logger.info("No deltas found in current snapshot")
-        }
-        writeNotification(rootDir, newNotification)
-      } catch {
-        case e: Exception =>
-          logger.error("An error occurred, removing delta: ", e)
-          deleteDelta(rootDir, serverState)
-          throw e
-      }
+      writeNotification(rootDir, newNotification)
     }.recoverWith { case e: Exception =>
       logger.error("An error occurred, removing snapshot: ", e)
       deleteSnapshot(rootDir, serverState)
@@ -41,7 +28,7 @@ class RepositoryWriter extends Logging {
     writeFile(snapshot.serialized, stateDir.resolve(snapshotFilename))
   }
 
-  def writeDelta(rootDir: String, delta: Delta) = {
+  def writeDelta(rootDir: String, delta: Delta) = Try {
     val stateDir = getStateDir(rootDir, delta.sessionId.toString, delta.serial)
     writeFile(delta.serialize.mkString, stateDir.resolve("delta.xml"))
   }

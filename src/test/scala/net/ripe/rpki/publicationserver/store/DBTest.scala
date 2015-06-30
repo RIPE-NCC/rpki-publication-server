@@ -4,7 +4,7 @@ import java.net.URI
 import java.util.UUID
 
 import net.ripe.rpki.publicationserver.model.ClientId
-import net.ripe.rpki.publicationserver.{Hash, Base64, PublicationServerBaseTest}
+import net.ripe.rpki.publicationserver.{Base64, Hash, PublicationServerBaseTest}
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
@@ -16,9 +16,12 @@ class DBTest extends PublicationServerBaseTest {
 
   val db = DB.db
   val objectStore = new ObjectStore
+  val serverStateStore = new ServerStateStore
 
   before {
-    Migrations.migrate
+    Migrations.migrate()
+    serverStateStore.clear()
+    Migrations.initServerState()
     objectStore.clear()
   }
 
@@ -36,10 +39,10 @@ class DBTest extends PublicationServerBaseTest {
       case e: Throwable => // that should happen
     }
 
-    objectStore.listAll should have size 0
+    objectStore.listAll(serverStateStore.get.serialNumber) should have size 0
 
     Await.result(db.run(DBIO.seq(i).transactionally), Duration.Inf)
-    objectStore.listAll should have size 1
+    objectStore.listAll(serverStateStore.get.serialNumber) should have size 1
   }
 
 }

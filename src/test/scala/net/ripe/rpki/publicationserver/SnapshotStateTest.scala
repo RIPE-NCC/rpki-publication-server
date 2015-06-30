@@ -14,6 +14,7 @@ import org.mockito.Matchers._
 import org.mockito.Mockito._
 
 import scala.concurrent.duration.Duration
+import scala.util.Try
 
 class SnapshotStateTest extends PublicationServerBaseTest with Config with Hashing {
 
@@ -266,7 +267,7 @@ class SnapshotStateTest extends PublicationServerBaseTest with Config with Hashi
 
   class MockRepositoryWriter extends RepositoryWriter {
     override def writeSnapshot(rootDir: String, serverState: ServerState, snapshot: Snapshot) = Paths.get("")
-    override def writeDelta(rootDir: String, delta: Delta) = Paths.get("")
+    override def writeDelta(rootDir: String, delta: Delta) = Try(Paths.get(""))
     override def writeNotification(rootDir: String, notification: Notification) = None
   }
 
