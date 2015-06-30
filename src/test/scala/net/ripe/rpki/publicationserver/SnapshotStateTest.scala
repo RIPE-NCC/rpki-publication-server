@@ -240,16 +240,16 @@ class SnapshotStateTest extends PublicationServerBaseTest with Config with Hashi
 
     val deltaStoreSpy = spy(new DeltaStore)
     val fsWriterSpy = TestProbe()
-    val deltaCleanSpy = TestProbe()
     val snapshotStateService = new SnapshotStateService {
       override lazy val deltaStore = deltaStoreSpy
       override def snapshotRetainPeriod = Duration.Zero
     }
     snapshotStateService.init(fsWriterSpy.ref)
-    fsWriterSpy.expectMsgType[WriteCommand]
+    fsWriterSpy.expectMsg(WriteCommand(ServerState(sessionId, 1)))
+    fsWriterSpy.expectNoMsg()
 
     val publish1 = PublishQ(new URI("rsync://host/xxx.cer"), None, None, Base64("aaaa="))
-    val withdraw1 = WithdrawQ(new URI("rsync://host/xxxss.cer"), None, "BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7")
+    val withdraw1 = WithdrawQ(new URI("rsync://host/xxx.cer"), None, "BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7")
 
     val publish2 = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("bbbbbb="))
     val withdraw2 = WithdrawQ(new URI("rsync://host/zzz.cer"), None, stringify(hash(Base64("bbbbbb="))))
@@ -259,7 +259,6 @@ class SnapshotStateTest extends PublicationServerBaseTest with Config with Hashi
     snapshotStateService.updateWith(ClientId("client2"), Seq(publish2))
     snapshotStateService.updateWith(ClientId("client2"), Seq(withdraw2))
 
-    deltaCleanSpy.expectNoMsg()
   }
 
 
