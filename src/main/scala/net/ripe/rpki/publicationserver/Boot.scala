@@ -13,7 +13,7 @@ import scala.concurrent.duration._
 
 object Boot extends App {
 
-  val conf = wire[ConfigWrapper]
+  val conf = wire[AppConfig]
 
   setupLogging()
 

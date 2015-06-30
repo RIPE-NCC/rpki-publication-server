@@ -6,11 +6,19 @@ import com.typesafe.config.ConfigFactory
 
 import scala.concurrent.duration.Duration
 
+trait ConfigWrapper {
+  def port : Int
+  def locationRepositoryPath : String
+  def locationRepositoryUri : String
+  def locationLogfile : String
+  def snapshotRetainPeriod : Duration
+}
+
 /**
  * Helper class which can be wired into clients while making sure that the config file is loaded only once.
  */
-class ConfigWrapper {
-  def getConfig = ConfigWrapper.config
+class AppConfig extends ConfigWrapper {
+  def getConfig = AppConfig.config
 
   lazy val port = getConfig.getInt("port")
   lazy val locationRepositoryPath = getConfig.getString("locations.repository.path")
@@ -19,6 +27,6 @@ class ConfigWrapper {
   lazy val snapshotRetainPeriod = Duration(getConfig.getDuration("snapshot.retainPeriod", TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS)
 }
 
-object ConfigWrapper {
+object AppConfig {
   lazy val config = ConfigFactory.load()
 }

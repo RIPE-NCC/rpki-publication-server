@@ -4,7 +4,7 @@ import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver.model.{Delta, ServerState}
 
 trait Config {
-  lazy val conf = wire[ConfigWrapper]
+  lazy val conf = wire[AppConfig]
 
   lazy val repositoryUri = conf.locationRepositoryUri
 

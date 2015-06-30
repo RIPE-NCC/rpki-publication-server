@@ -13,7 +13,7 @@ class RepositoryWriterTest extends PublicationServerBaseTest {
 
   val rootDir = Files.createTempDirectory(Paths.get("/tmp"),"test")
 
-  test("should") {
+  test("should delete old snapshots") {
     val timestamp = System.currentTimeMillis()
     val repoFiles = setupTestRepo(timestamp)
     val deleteTimestamp = timestamp - 5000

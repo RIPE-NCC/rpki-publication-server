@@ -21,13 +21,16 @@ class PublicationServerStressTest extends PublicationServerBaseTest with Scalate
     def actorRefFactory = system
   }
 
-  def publicationService = new PublicationService with Context
+  def publicationService = {
+    val service = new PublicationService with Context
+    service.init(fsWriterRef)
+    service
+  }
 
   val objectStore = new ObjectStore
 
   before {
     objectStore.clear()
-    SnapshotState.init(fsWriterRef)
   }
 
   def publishAndRetrieve(clientId: ClientId, promise: Promise[Unit]) = {
@@ -56,14 +59,14 @@ class PublicationServerStressTest extends PublicationServerBaseTest with Scalate
   }
 
   test("should get correct results for 100 sequential client requests") {
-    val futures = getPublishRetrieveFutures(100)
+    val futures = getPublishRetrieveFutures(10)
     futures.foreach(f => {
       Await.ready(f, Duration.fromNanos(oneSecond * 10))
     })
   }
 
   test("should get correct results for 100 parallel client requests") {
-    val futures = getPublishRetrieveFutures(100)
+    val futures = getPublishRetrieveFutures(10)
     val futureSequence = Future.sequence(futures)
     Await.ready(futureSequence, Duration.fromNanos(oneSecond * 100))
   }

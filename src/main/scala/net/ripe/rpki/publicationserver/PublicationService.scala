@@ -37,7 +37,7 @@ object PublicationServiceActor {
     Props(new PublicationServiceActor(actorRefFactory))
 }
 
-trait PublicationService extends HttpService with RepositoryPath {
+trait PublicationService extends HttpService with RepositoryPath with SnapshotStateService {
 
   val MediaTypeString = "application/rpki-publication"
   val RpkiPublicationType = MediaType.custom(MediaTypeString)
@@ -48,8 +48,6 @@ trait PublicationService extends HttpService with RepositoryPath {
   val msgParser = wire[PublicationMessageParser]
 
   val healthChecks = wire[HealthChecks]
-
-  val conf = wire[ConfigWrapper]
 
   implicit val BufferedSourceUnmarshaller =
     Unmarshaller[BufferedSource](spray.http.ContentTypeRange.*) {
@@ -98,7 +96,7 @@ trait PublicationService extends HttpService with RepositoryPath {
 
     val response = msgParser.parse(xmlMessage) match {
       case Right(QueryMessage(pdus)) =>
-        val elements = SnapshotState.updateWith(clientId, pdus)
+        val elements = updateWith(clientId, pdus)
         elements.filter(_.isInstanceOf[ReportError]) match {
           case Seq() =>
             serviceLogger.info("Request handled successfully")
@@ -108,7 +106,7 @@ trait PublicationService extends HttpService with RepositoryPath {
         ReplyMsg(elements).serialize
 
       case Right(ListMessage()) =>
-        ReplyMsg(SnapshotState.list(clientId)).serialize
+        ReplyMsg(list(clientId)).serialize
 
       case Left(msgError) =>
         serviceLogger.warn("Error while handling request: {}", msgError)

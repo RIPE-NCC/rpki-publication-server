@@ -16,10 +16,12 @@ import scala.concurrent.duration.Duration
  * Holds the global snapshot state
  */
 object SnapshotState extends SnapshotStateService {
-
+  val semaphore = new Object()
 }
 
 trait SnapshotStateService extends Config with Logging with Hashing {
+
+  import SnapshotState.semaphore
 
   val db = DB.db
 
@@ -30,8 +32,6 @@ trait SnapshotStateService extends Config with Logging with Hashing {
   lazy val deltaStore = DeltaStore.get
 
   var sessionId: UUID = _
-
-  val semaphore = new Object()
 
   var fsWriter: ActorRef = _
 
