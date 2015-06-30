@@ -6,14 +6,17 @@ import java.util.Date
 import akka.actor._
 import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver.model.{Delta, Notification, ServerState, Snapshot}
-import net.ripe.rpki.publicationserver.store.{ObjectStore, DeltaStore, DB}
-import net.ripe.rpki.publicationserver.{Logging, Config}
+import net.ripe.rpki.publicationserver.store.{DeltaStore, ObjectStore}
+import net.ripe.rpki.publicationserver.{Config, Logging}
 
 import scala.util.{Failure, Success}
 
+
 case class WriteCommand(newServerState: ServerState)
+case class CleanSnapshotsCommand(timestamp: FileTime)
 
 class FSWriterActor extends Actor with Logging with Config {
+  import context._
 
   val repositoryWriter = wire[RepositoryWriter]
 
@@ -22,9 +25,11 @@ class FSWriterActor extends Actor with Logging with Config {
   private val objectStore = ObjectStore.get
 
   override def receive = {
+    case CleanSnapshotsCommand(timestamp) =>
+      cleanupSnapshots(timestamp)
     case WriteCommand(newServerState: ServerState) =>
-      logger.info("Writing snapshot and delta's to filesystem")
-      val now = new Date().getTime
+      logger.info("Writing snapshot and delta to filesystem")
+      val now = System.currentTimeMillis
 
       val objects = objectStore.listAll
       val snapshot = Snapshot(newServerState, objects)
@@ -36,12 +41,8 @@ class FSWriterActor extends Actor with Logging with Config {
       val newNotification = Notification.create(snapshot, newServerState, deltasToPublish)
       repositoryWriter.writeNewState(conf.locationRepositoryPath, newServerState, deltasToPublish, newNotification, snapshot) match {
         case Success(Some(timestamp)) =>
-          logger.info(s"Removing snapshots older than $timestamp")
-          repositoryWriter.deleteSnapshotsOlderThan(conf.locationRepositoryPath, applyRetainPeriod(timestamp))
-          if (deltasToDelete.nonEmpty) {
-            deltaStore.delete(deltasToDelete)
-            repositoryWriter.deleteDeltas(conf.locationRepositoryPath, deltasToDelete)
-          }
+          scheduleSnapshotCleanup(timestamp)
+          cleanupDeltas(deltasToDelete)
         case Success(None) =>
           logger.info("No previous snapshots to clean")
         case Failure(e) =>
@@ -49,7 +50,22 @@ class FSWriterActor extends Actor with Logging with Config {
       }
   }
 
-  def applyRetainPeriod(timestamp: FileTime) = FileTime.from(timestamp.toInstant.minusMillis(conf.snapshotRetainPeriod))
+  def scheduleSnapshotCleanup(timestamp: FileTime): Unit = {
+    system.scheduler.scheduleOnce(conf.snapshotRetainPeriod, self, CleanSnapshotsCommand(timestamp))
+  }
+
+  def cleanupSnapshots(timestamp: FileTime): Unit = {
+    logger.info(s"Removing snapshots older than $timestamp")
+    repositoryWriter.deleteSnapshotsOlderThan(conf.locationRepositoryPath, timestamp)
+  }
+  
+  def cleanupDeltas(deltasToDelete: => Seq[Delta]): Unit = {
+    if (deltasToDelete.nonEmpty) {
+      logger.info("Removing deltas: " + deltasToDelete.map(_.serial).mkString(","))
+      deltaStore.delete(deltasToDelete)
+      repositoryWriter.deleteDeltas(conf.locationRepositoryPath, deltasToDelete)
+    }
+  }
 }
 
 object FSWriterActor {

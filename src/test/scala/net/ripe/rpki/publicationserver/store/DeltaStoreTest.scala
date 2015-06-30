@@ -6,6 +6,8 @@ import java.util.UUID
 import net.ripe.rpki.publicationserver.model.{ClientId, Delta}
 import net.ripe.rpki.publicationserver.{Base64, PublishQ, PublicationServerBaseTest}
 
+import scala.concurrent.duration.Duration
+
 class DeltaStoreTest extends PublicationServerBaseTest {
 
   val deltaStore = DeltaStore.get
@@ -39,7 +41,7 @@ class DeltaStoreTest extends PublicationServerBaseTest {
     val delta3 = Delta(sessionId, 3L, Seq(PublishQ(uri = new URI("rsync://host/zzz3.cer"), tag = None, hash = None, base64 = Base64("cccc="))))
     deltaStore.addDeltaAction(ClientId("client1"), delta3)
 
-    val checked = deltaStore.checkDeltaSetSize(delta1.binarySize + delta2.binarySize / 2, 1L)
+    val checked = deltaStore.checkDeltaSetSize(delta1.binarySize + delta2.binarySize / 2, Duration.Zero)
 
     checked.head.whenToDelete should be(None)
     checked.tail.head.whenToDelete shouldNot be(None)
@@ -54,7 +56,7 @@ class DeltaStoreTest extends PublicationServerBaseTest {
     val delta2 = Delta(sessionId, 2L, Seq(PublishQ(uri = new URI("rsync://host/zzz2.cer"), tag = None, hash = None, base64 = Base64("bbbb="))))
     deltaStore.addDeltaAction(ClientId("client1"), delta2)
 
-    val checked = deltaStore.checkDeltaSetSize(delta1.binarySize / 2, 1L)
+    val checked = deltaStore.checkDeltaSetSize(delta1.binarySize / 2, Duration.Zero)
 
     checked.head.whenToDelete should be(None)
     checked.tail.head.whenToDelete shouldNot be(None)

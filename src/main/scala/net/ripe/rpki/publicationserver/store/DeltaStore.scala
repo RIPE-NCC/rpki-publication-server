@@ -52,7 +52,7 @@ class DeltaStore extends Hashing {
     }
   }
 
-  def checkDeltaSetSize(snapshotSize: Long, retainPeriod: Long) = {
+  def checkDeltaSetSize(snapshotSize: Long, retainPeriod: Duration): Seq[Delta] = {
     var accDeltaSize = 0L
     deltaMap.toSeq.sortBy(_._1).zipWithIndex.map { p =>
       val ((_, delta), index) = p
@@ -63,7 +63,7 @@ class DeltaStore extends Hashing {
     }
   }
 
-  def afterRetainPeriod(period: Long): Date = new Date(new Date().getTime + period)
+  def afterRetainPeriod(period: Duration): Date = new Date(System.currentTimeMillis() + period.toMillis)
 
   def clear() = {
     Await.result(db.run(deltas.delete), Duration.Inf)

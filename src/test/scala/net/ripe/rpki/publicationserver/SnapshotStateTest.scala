@@ -2,7 +2,6 @@ package net.ripe.rpki.publicationserver
 
 import java.net.URI
 import java.nio.file.Paths
-import java.nio.file.attribute.FileTime
 import java.util.UUID
 
 import akka.actor.ActorSystem
@@ -13,6 +12,8 @@ import net.ripe.rpki.publicationserver.store.fs._
 import net.ripe.rpki.publicationserver.store.{DeltaStore, Migrations, ObjectStore, ServerStateStore}
 import org.mockito.Matchers._
 import org.mockito.Mockito._
+
+import scala.concurrent.duration.Duration
 
 class SnapshotStateTest extends PublicationServerBaseTest with Config with Hashing {
 
@@ -241,7 +242,7 @@ class SnapshotStateTest extends PublicationServerBaseTest with Config with Hashi
     val deltaCleanSpy = TestProbe()
     val snapshotStateService = new SnapshotStateService {
       override lazy val deltaStore = deltaStoreSpy
-      override def snapshotRetainPeriod = -1L
+      override def snapshotRetainPeriod = Duration.Zero
     }
     snapshotStateService.init(fsWriterSpy.ref)
     fsWriterSpy.expectMsgType[WriteCommand]
