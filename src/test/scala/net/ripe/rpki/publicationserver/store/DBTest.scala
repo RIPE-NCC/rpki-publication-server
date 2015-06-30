@@ -25,7 +25,7 @@ class DBTest extends PublicationServerBaseTest {
     objectStore.clear()
   }
 
-  test("should rollback transaction in case lifted calculation failed") {
+  test("should rollback transaction in case lifted calculation fails") {
     def crash = throw new Exception("I'm dying")
 
     val clientId = ClientId(UUID.randomUUID().toString)
