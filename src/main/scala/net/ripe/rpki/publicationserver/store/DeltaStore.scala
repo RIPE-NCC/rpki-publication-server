@@ -54,15 +54,19 @@ class DeltaStore extends Hashing {
     }
   }
 
-  def checkDeltaSetSize(snapshotSize: Long, retainPeriod: Duration): Seq[Delta] = {
+  def checkDeltaSetSize(snapshotSize: Long, retainPeriod: Duration) = {
     var accDeltaSize = 0L
-    deltaMap.toSeq.sortBy(_._1).zipWithIndex.map { p =>
-      val ((_, delta), index) = p
+    var thresholdIndex : Option[Long] = None
+    val deltas = deltaMap.toSeq.sortBy(_._1).zipWithIndex.map { p =>
+      val ((serial, delta), index) = p
       accDeltaSize += delta.binarySize
-      if (accDeltaSize > snapshotSize && index > 0)
+      if (accDeltaSize > snapshotSize && index > 0) {
+        if (thresholdIndex.isEmpty) thresholdIndex = Some(serial)
         delta.markForDeletion(afterRetainPeriod(retainPeriod))
+      }
       else delta
     }
+    (deltas, accDeltaSize, thresholdIndex)
   }
 
   def afterRetainPeriod(period: Duration): Date = new Date(System.currentTimeMillis() + period.toMillis)
