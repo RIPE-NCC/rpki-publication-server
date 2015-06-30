@@ -78,8 +78,8 @@ class FSWriterActor extends Actor with Logging with Config {
   def cleanupDeltas(deltasToDelete: => Seq[Delta]): Unit = {
     if (deltasToDelete.nonEmpty) {
       logger.info("Removing deltas: " + deltasToDelete.map(_.serial).mkString(","))
-      deltaStore.delete(deltasToDelete)
       repositoryWriter.deleteDeltas(conf.locationRepositoryPath, deltasToDelete)
+      deltaStore.delete(deltasToDelete)
     }
   }
 }
