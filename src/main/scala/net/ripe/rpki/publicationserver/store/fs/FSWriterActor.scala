@@ -49,7 +49,9 @@ class FSWriterActor extends Actor with Logging with Config {
         val snapshot = Snapshot(newServerState, objects)
 
         val (deltas, accSize, thresholdSerial) = deltaStore.markOldestDeltasForDeletion(snapshot.binarySize, conf.snapshotRetainPeriod)
-        logger.info(s"Deltas older than $thresholdSerial will be scheduled for cleansing, the total size of newer deltas is $accSize")
+        thresholdSerial.foreach { lastSerial =>
+          logger.info(s"Deltas older than $lastSerial will be scheduled for cleansing, the total size of newer deltas is $accSize")
+        }
         lazy val deltasToPublish = deltas.filter(_.whenToDelete.isEmpty)
         lazy val deltasToDelete = deltas.filter(_.whenToDelete.exists(_.getTime < now))
 
