@@ -3,7 +3,6 @@ package net.ripe.rpki.publicationserver
 import java.net.URI
 import java.nio.file.{Files, Paths}
 import java.util.UUID
-import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorSystem
 import akka.testkit.{TestActorRef, TestProbe}
@@ -11,143 +10,73 @@ import com.typesafe.config.ConfigFactory
 import net.ripe.rpki.publicationserver.model._
 import net.ripe.rpki.publicationserver.store.fs._
 import net.ripe.rpki.publicationserver.store.{DeltaStore, Migrations, ObjectStore, ServerStateStore}
-import org.mockito.Matchers._
-import org.mockito.Mockito._
+import spray.testkit.ScalatestRouteTest
 
 import scala.concurrent.duration.Duration
+import scala.concurrent.duration._
 import scala.util.Try
 
-class RepositoryStateTest extends PublicationServerBaseTest with Hashing {
+class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteTest with Hashing {
 
   private var serial: Long = _
 
   private var sessionId: UUID = _
 
-  private val deltaStore = DeltaStore.get
+  private val theDeltaStore = DeltaStore.get
 
-  private val serverStateStore = new ServerStateStore
+  private val theServerStateStore = new ServerStateStore
 
-  private val objectStore = new ObjectStore
+  private val theObjectStore = new ObjectStore
 
-  implicit private val system = ActorSystem("MyActorSystem", ConfigFactory.load())
+  // TODO Remove (of tune) it after debugging
+  implicit val customTimeout = RouteTestTimeout(6000.seconds)
+
+  override implicit val system = ActorSystem("MyActorSystem", ConfigFactory.load())
   
   private val fsWriterRef = TestActorRef[FSWriterActor]
 
   val rootDir = Files.createTempDirectory(Paths.get("/tmp"),"test")
 
+  val conf_ = new AppConfig {
+    override lazy val snapshotRetainPeriod = Duration.Zero
+    override lazy val locationRepositoryPath = rootDir.toString
+  }
 
-    val conf_ = new AppConfig {
-      override lazy val snapshotRetainPeriod = Duration.Zero
-      override lazy val locationRepositoryPath = rootDir.toString
+  trait Context {
+    def actorRefFactory = system
+  }
+
+  def publicationService = {
+    val service = new PublicationService with Context {
+      override lazy val objectStore = theObjectStore
+      override lazy val serverStateStore = theServerStateStore
+      override lazy val deltaStore = theDeltaStore
     }
-
-
-  objectStore.clear()
-  SnapshotState.deltaStore.clear()
+    service.init(fsWriterRef)
+    service
+  }
 
   before {
     serial = 1L
-    deltaStore.clear()
-    serverStateStore.clear()
+    theObjectStore.clear()
+    theDeltaStore.clear()
+    theServerStateStore.clear()
     Migrations.initServerState()
-    sessionId = serverStateStore.get.sessionId
+    sessionId = theServerStateStore.get.sessionId
   }
 
+  test("should schedule deltas for deletion in case their total size is bigger than the size of the request") {
+    val publishXml = getFile("/publish.xml")
+    val publishXmlResponse = getFile("/publishResponse.xml")
 
-  test("should write the snapshot and the deltas to the filesystem when a message is successfully processed") {
-    SnapshotState.objectStore.clear()
-
-    val fsWriterSpy = TestProbe()
-
-    SnapshotState.init(fsWriterSpy.ref)
-    fsWriterSpy.expectMsgType[WriteCommand]
-
-    val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
-
-    SnapshotState.updateWith(ClientId("client1"), Seq(publish))
-    fsWriterSpy.expectMsgType[WriteCommand]
-  }
-
-  test("should clean old deltas when updating filesystem") {
-    SnapshotState.objectStore.clear()
-    SnapshotState.deltaStore
-
-    val fsWriterSpy = TestProbe()
-    val deltaCleanSpy = TestProbe()
-    SnapshotState.init(fsWriterSpy.ref)
-    fsWriterSpy.expectMsgType[WriteCommand]
-
-    val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
-
-    SnapshotState.updateWith(ClientId("client1"), Seq(publish))
-    fsWriterSpy.expectMsgType[WriteCommand]
-  }
-
-  test("should not write a snapshot to the filesystem when a message contained an error") {
-    SnapshotState.objectStore.clear()
-
-    val fsWriterSpy = TestProbe()
-    val deltaCleanSpy = TestProbe()
-    SnapshotState.init(fsWriterSpy.ref)
-    fsWriterSpy.expectMsgType[WriteCommand]
-
-    val withdraw = WithdrawQ(new URI("rsync://host/zzz.cer"), None, "BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7")
-
-    // The withdraw will fail because the SnapshotState is still empty
-    fsWriterSpy.expectNoMsg()
-    deltaCleanSpy.expectNoMsg()
-  }
-
-  test("should not write a snapshot to the filesystem when updating delta throws an error") {
-    SnapshotState.objectStore.clear()
-
-    val deltaStoreSpy = spy(new DeltaStore)
-    doThrow(new IllegalArgumentException()).when(deltaStoreSpy).addDeltaAction(any[ClientId], any[Delta])
-
-    val fsWriterSpy = TestProbe()
-    val deltaCleanSpy = TestProbe()
-    val snapshotStateService = new SnapshotStateService with Config {
-      override lazy val deltaStore = deltaStoreSpy
+    POST("/?clientId=1234", publishXml.mkString) ~> publicationService.publicationRoutes ~> check {
+      val response = responseAs[String]
+      trim(response) should be(trim(publishXmlResponse.mkString))
     }
-    snapshotStateService.init(fsWriterSpy.ref)
-    fsWriterSpy.expectMsgType[WriteCommand]
-
-    val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
-    val reply = snapshotStateService.updateWith(ClientId("client1"), Seq(publish))
-
-    reply.head should equal(ReportError(BaseError.CouldNotPersist, Some("A problem occurred while persisting the changes: java.lang.IllegalArgumentException")))
-    fsWriterSpy.expectNoMsg()
-    deltaCleanSpy.expectNoMsg()
   }
+  
 
-  test("should delete older deltas when they are too big") {
-    SnapshotState.objectStore.clear()
-
-    val deltaStoreSpy = spy(new DeltaStore)
-    val fsWriterSpy = TestProbe()
-    val snapshotStateService = new SnapshotStateService {
-      override lazy val deltaStore = deltaStoreSpy
-      override def snapshotRetainPeriod = Duration(-1L, TimeUnit.SECONDS)
-    }
-    snapshotStateService.init(fsWriterSpy.ref)
-    fsWriterSpy.expectMsg(WriteCommand(ServerState(sessionId, 1)))
-    fsWriterSpy.expectNoMsg()
-
-    val publish1 = PublishQ(new URI("rsync://host/xxx.cer"), None, None, Base64("aaaa="))
-    val withdraw1 = WithdrawQ(new URI("rsync://host/xxx.cer"), None, "BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7")
-
-    val publish2 = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("bbbbbb="))
-    val withdraw2 = WithdrawQ(new URI("rsync://host/zzz.cer"), None, stringify(hash(Base64("bbbbbb="))))
-
-    snapshotStateService.updateWith(ClientId("client1"), Seq(publish1))
-    snapshotStateService.updateWith(ClientId("client1"), Seq(withdraw1))
-    snapshotStateService.updateWith(ClientId("client2"), Seq(publish2))
-    snapshotStateService.updateWith(ClientId("client2"), Seq(withdraw2))
-
-  }
-
-
-  def getRepositoryWriter: RepositoryWriter = new MockRepositoryWriter()
+  def getRepositoryWriter = new MockRepositoryWriter()
 
   class MockRepositoryWriter extends RepositoryWriter {
     override def writeSnapshot(rootDir: String, serverState: ServerState, snapshot: Snapshot) = Paths.get("")
