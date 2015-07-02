@@ -2,30 +2,26 @@ package net.ripe.rpki.publicationserver
 
 import java.util.UUID
 
-import com.softwaremill.macwire.MacwireMacros._
+import akka.actor.ActorRef
 import net.ripe.rpki.publicationserver.model._
-import net.ripe.rpki.publicationserver.store.fs.RepositoryWriter
+import net.ripe.rpki.publicationserver.store.fs.WriteCommand
 import net.ripe.rpki.publicationserver.store.{DB, DeltaStore, ObjectStore, ServerStateStore}
 import slick.dbio.DBIO
 import slick.driver.H2Driver.api._
 
 import scala.concurrent.Await
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
-import scala.util.{Failure, Success}
 
 /**
  * Holds the global snapshot state
  */
 object SnapshotState extends SnapshotStateService {
-
+  val semaphore = new Object()
 }
 
-trait SnapshotStateService extends Urls with Logging with Hashing {
+trait SnapshotStateService extends Config with Logging with Hashing {
 
-  val repositoryWriter = wire[RepositoryWriter]
-
-  val notificationState = wire[NotificationState]
+  import SnapshotState.semaphore
 
   val db = DB.db
 
@@ -33,25 +29,22 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
 
   lazy val serverStateStore = new ServerStateStore
 
-  lazy val deltaStore = new DeltaStore
+  lazy val deltaStore = DeltaStore.get
 
   var sessionId: UUID = _
 
-  val semaphore = new Object()
+  var fsWriter: ActorRef = _
 
-  def init() = {
+  def init(fsWriterActor: ActorRef) = {
+    fsWriter = fsWriterActor
+
     sessionId = serverStateStore.get.sessionId
 
     logger.info("Initializing delta cache")
     deltaStore.initCache(sessionId)
 
     val serverState = serverStateStore.get
-    val snapshot = Snapshot(serverState, objectStore.listAll)
-    logger.info("Writing snapshot")
-    repositoryWriter.writeSnapshot(conf.locationRepositoryPath, serverState, snapshot)
-
-    logger.info("Writing delta's")
-    deltaStore.getDeltas.foreach(repositoryWriter.writeDelta(conf.locationRepositoryPath, _))
+    fsWriter ! WriteCommand(serverState)
   }
 
   def list(clientId: ClientId) = semaphore.synchronized {
@@ -76,30 +69,13 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
       val validPdus = results.collect { case Right((_, _, qPdu)) => qPdu }
 
       try {
+        val publishActions = DBIO.seq(actions: _*)
         val deltaAction = deltaStore.addDeltaAction(clientId, Delta(sessionId, newServerState.serialNumber, validPdus))
+        val serverStateAction = serverStateStore.updateAction(newServerState)
+        val allActions = DBIO.seq(publishActions, deltaAction, serverStateAction).transactionally
+        Await.result(db.run(allActions), Duration.Inf)
 
-        val action = (for {
-          _ <- DBIO.seq(actions: _*)
-          _ <- DBIO.seq(deltaAction)
-          _ <- serverStateStore.updateAction(newServerState)
-          objActions <- objectStore.getAllAction
-          fsWriteResult <- {
-            // TODO Saving to the XML files should be asynchronous
-            val deltas = deltaStore.getDeltas
-            val snapshot = Snapshot(newServerState, objActions)
-            val newNotification = Notification.create(snapshot, newServerState, deltas)
-            repositoryWriter.writeNewState(conf.locationRepositoryPath, newServerState, deltas, newNotification, snapshot) match {
-              case Success(_) =>
-                notificationState.update(newNotification)
-                DBIO.successful(replies)
-              case Failure(e) =>
-                logger.error("Could not write XML files to filesystem: " + e.getMessage, e)
-                DBIO.failed(e)
-            }
-          }
-        } yield fsWriteResult).transactionally
-
-        Await.result(db.run(action), Duration.Inf)
+        fsWriter ! WriteCommand(newServerState)
         replies
       } catch {
         case e: Exception =>
@@ -108,6 +84,8 @@ trait SnapshotStateService extends Urls with Logging with Hashing {
       }
     }
   }
+
+  def snapshotRetainPeriod = conf.snapshotRetainPeriod
 
   /*
    * TODO Check if the client doesn't try to modify objects that belong to other client

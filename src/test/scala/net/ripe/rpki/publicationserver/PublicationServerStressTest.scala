@@ -4,26 +4,33 @@ import java.util.UUID
 
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store.ObjectStore
+import net.ripe.rpki.publicationserver.store.fs.FSWriterActor
 import spray.testkit.ScalatestRouteTest
 
-import scala.collection.immutable
-import scala.concurrent.{Promise, Await, Future}
 import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, Future, Promise}
 
 class PublicationServerStressTest extends PublicationServerBaseTest with ScalatestRouteTest with Hashing {
+
+  // Use the production actorsystem for the fsWriterActor and not the one from ScalatestRouterTest, because the latter is single threaded!
+  val fsWriterRef = system.actorOf(FSWriterActor.props)
+
   def actorRefFactory = system
 
   trait Context {
     def actorRefFactory = system
   }
 
-  def publicationService = new PublicationService with Context
+  def publicationService = {
+    val service = new PublicationService with Context
+    service.init(fsWriterRef)
+    service
+  }
 
   val objectStore = new ObjectStore
 
   before {
     objectStore.clear()
-    SnapshotState.init()
   }
 
   def publishAndRetrieve(clientId: ClientId, promise: Promise[Unit]) = {
@@ -48,17 +55,18 @@ class PublicationServerStressTest extends PublicationServerBaseTest with Scalate
 
   test("should get correct result for one client request") {
     val futures = getPublishRetrieveFutures(1)
-
     futures.foreach(f => Await.ready(f, Duration.fromNanos(oneSecond * 1)))
   }
 
   test("should get correct results for 100 sequential client requests") {
-    val futures = getPublishRetrieveFutures(100)
-    futures.foreach(f => Await.ready(f, Duration.fromNanos(oneSecond * 10)))
+    val futures = getPublishRetrieveFutures(10)
+    futures.foreach(f => {
+      Await.ready(f, Duration.fromNanos(oneSecond * 10))
+    })
   }
 
   test("should get correct results for 100 parallel client requests") {
-    val futures = getPublishRetrieveFutures(100)
+    val futures = getPublishRetrieveFutures(10)
     val futureSequence = Future.sequence(futures)
     Await.ready(futureSequence, Duration.fromNanos(oneSecond * 100))
   }
@@ -82,7 +90,7 @@ class PublicationServerStressTest extends PublicationServerBaseTest with Scalate
        |   xmlns="http://www.hactrn.net/uris/rpki/publication-spec/">
        | <publish
        |     uri="$uri">
-                        |   $content
+       | $content
         | </publish>
         |</msg>
     """.stripMargin
@@ -94,7 +102,7 @@ class PublicationServerStressTest extends PublicationServerBaseTest with Scalate
        |       version="3"
        |       xmlns="http://www.hactrn.net/uris/rpki/publication-spec/">
        |   <list uri="$uri"
-                            |         hash="${hash.hash}"/>
-                                                          |</msg>
+       |         hash="${hash.hash}"/>
+       |</msg>
     """.stripMargin
 }

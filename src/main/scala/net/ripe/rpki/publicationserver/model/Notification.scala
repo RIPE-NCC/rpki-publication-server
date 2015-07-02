@@ -33,11 +33,11 @@ case class Notification(sessionId: UUID, serial: BigInt, snapshot: SnapshotLocat
     </notification>
 }
 
-object Notification extends Hashing with Urls {
+object Notification extends Hashing with Config {
 
   def create(snapshot: Snapshot, serverState: ServerState, deltas: Seq[Delta]): Notification = {
     val snapshotLocator = SnapshotLocator(snapshotUrl(serverState), snapshot.contentHash)
-    val deltaLocators = deltas.map { d =>
+    val deltaLocators = deltas.toSeq.sortBy(-_.serial).map { d =>
       DeltaLocator(d.serial, deltaUrl(d), d.contentHash)
     }
     val ServerState(sessionId, serial) = serverState

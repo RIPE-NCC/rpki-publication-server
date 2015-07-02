@@ -21,7 +21,11 @@ class ObjectStore extends Hashing {
     getSeq(objects.filter(_.clientId === cId))
   }
 
-  def listAll: Seq[RRDPObject] = getSeq(objects)
+  def listAll(serial: Long): Seq[RRDPObject] = {
+    getSeq(for {
+      (o, ss) <- objects.join(serverStates.filter(_.serialNumber === serial))
+    } yield o)
+  }
 
   def getAllAction = mapQ(objects)
 
@@ -62,4 +66,9 @@ class ObjectStore extends Hashing {
 
   private def getSeq(q: Query[RepoObject, (String, String, String, String), Seq]): Seq[RRDPObject] =
     Await.result(db.run(mapQ(q)), Duration.Inf)
+}
+
+object ObjectStore {
+  // it's stateless, so we can return new instance every time
+  def get = new ObjectStore
 }

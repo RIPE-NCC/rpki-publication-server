@@ -3,7 +3,7 @@ package net.ripe.rpki.publicationserver
 import java.io.ByteArrayInputStream
 import java.util.concurrent.Executors
 
-import akka.actor.Actor
+import akka.actor.{Props, ActorRef, ActorRefFactory, Actor}
 import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.parsing.PublicationMessageParser
@@ -18,7 +18,8 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.io.{BufferedSource, Source}
 import scala.util.{Failure, Success}
 
-class PublicationServiceActor extends Actor with PublicationService with RRDPService {
+class PublicationServiceActor(fsWriterFactory: ActorRefFactory => ActorRef)
+  extends Actor with PublicationService with RRDPService {
 
   def actorRefFactory = context
 
@@ -26,11 +27,17 @@ class PublicationServiceActor extends Actor with PublicationService with RRDPSer
 
   override def preStart() = {
     Migrations.migrate()
-    SnapshotState.init()
+    val fsWriter = fsWriterFactory(context)
+    SnapshotState.init(fsWriter)
   }
 }
 
-trait PublicationService extends HttpService with RepositoryPath {
+object PublicationServiceActor {
+  def props(actorRefFactory: ActorRefFactory => ActorRef) =
+    Props(new PublicationServiceActor(actorRefFactory))
+}
+
+trait PublicationService extends HttpService with RepositoryPath with SnapshotStateService {
 
   val MediaTypeString = "application/rpki-publication"
   val RpkiPublicationType = MediaType.custom(MediaTypeString)
@@ -41,8 +48,6 @@ trait PublicationService extends HttpService with RepositoryPath {
   val msgParser = wire[PublicationMessageParser]
 
   val healthChecks = wire[HealthChecks]
-
-  val conf = wire[ConfigWrapper]
 
   implicit val BufferedSourceUnmarshaller =
     Unmarshaller[BufferedSource](spray.http.ContentTypeRange.*) {
@@ -91,7 +96,7 @@ trait PublicationService extends HttpService with RepositoryPath {
 
     val response = msgParser.parse(xmlMessage) match {
       case Right(QueryMessage(pdus)) =>
-        val elements = SnapshotState.updateWith(clientId, pdus)
+        val elements = updateWith(clientId, pdus)
         elements.filter(_.isInstanceOf[ReportError]) match {
           case Seq() =>
             serviceLogger.info("Request handled successfully")
@@ -101,7 +106,7 @@ trait PublicationService extends HttpService with RepositoryPath {
         ReplyMsg(elements).serialize
 
       case Right(ListMessage()) =>
-        ReplyMsg(SnapshotState.list(clientId)).serialize
+        ReplyMsg(list(clientId)).serialize
 
       case Left(msgError) =>
         serviceLogger.warn("Error while handling request: {}", msgError)

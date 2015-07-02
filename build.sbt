@@ -17,7 +17,7 @@ resolvers += "Codehaus Maven2 Repository" at "http://repository.codehaus.org/"
 resolvers += "JCenter" at "http://jcenter.bintray.com/"
 
 libraryDependencies ++= {
-  val akkaV = "2.3.9"
+  val akkaV = "2.3.11"
   val sprayV = "1.3.3"
   Seq(
     "io.spray"                 %% "spray-can"         % sprayV,
