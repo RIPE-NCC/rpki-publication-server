@@ -36,7 +36,6 @@ class TestFSWriter extends FSWriterActor with Config {
   private val objectStore = theObjectStore
 
   lazy val rootDir = Files.createTempDirectory(Paths.get("/tmp"),"test")
-  println("rootDir = " + rootDir )
 
   override lazy val conf = new AppConfig {
     override lazy val snapshotRetainPeriod = Duration.Zero
