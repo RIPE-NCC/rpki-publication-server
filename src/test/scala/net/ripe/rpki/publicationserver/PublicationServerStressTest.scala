@@ -21,7 +21,7 @@ class PublicationServerStressTest extends PublicationServerBaseTest with Scalate
     def actorRefFactory = system
   }
 
-  def publicationService = {
+  lazy val publicationService = {
     val service = new PublicationService with Context
     service.init(fsWriterRef)
     service
@@ -29,12 +29,13 @@ class PublicationServerStressTest extends PublicationServerBaseTest with Scalate
 
   val objectStore = new ObjectStore
 
+  val listXml = getFile("/list.xml").mkString
+
   before {
     objectStore.clear()
   }
 
   def publishAndRetrieve(clientId: ClientId, promise: Promise[Unit]) = {
-    val listXml = getFile("/list.xml")
     val content = UUID.randomUUID.toString.replace("-", "0")
     val uri = "rsync://" + clientId.value
     val expectedListResponse = getListResponse(uri, hash(Base64(content)))
@@ -43,7 +44,7 @@ class PublicationServerStressTest extends PublicationServerBaseTest with Scalate
     POST(s"/?clientId=${clientId.value}", publishRequest) ~> publicationService.publicationRoutes ~> check {
       response.status.isSuccess should be(true)
 
-      POST(s"/?clientId=${clientId.value}", listXml.mkString) ~> publicationService.publicationRoutes ~> check {
+      POST(s"/?clientId=${clientId.value}", listXml) ~> publicationService.publicationRoutes ~> check {
         val response = responseAs[String]
         trim(response) should be(trim(expectedListResponse))
         promise.success(())
@@ -59,14 +60,14 @@ class PublicationServerStressTest extends PublicationServerBaseTest with Scalate
   }
 
   test("should get correct results for 100 sequential client requests") {
-    val futures = getPublishRetrieveFutures(10)
+    val futures = getPublishRetrieveFutures(100)
     futures.foreach(f => {
       Await.ready(f, Duration.fromNanos(oneSecond * 10))
     })
   }
 
   test("should get correct results for 100 parallel client requests") {
-    val futures = getPublishRetrieveFutures(10)
+    val futures = getPublishRetrieveFutures(100)
     val futureSequence = Future.sequence(futures)
     Await.ready(futureSequence, Duration.fromNanos(oneSecond * 100))
   }
