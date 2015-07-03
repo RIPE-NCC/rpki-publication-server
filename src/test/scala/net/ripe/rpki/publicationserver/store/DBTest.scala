@@ -39,10 +39,10 @@ class DBTest extends PublicationServerBaseTest {
       case e: Throwable => // that should happen
     }
 
-    objectStore.listAll(serverStateStore.get.serialNumber) should have size 0
+    objectStore.listAll(serverStateStore.get.serialNumber).get should have size 0
 
     Await.result(db.run(DBIO.seq(i).transactionally), Duration.Inf)
-    objectStore.listAll(serverStateStore.get.serialNumber) should have size 1
+    objectStore.listAll(serverStateStore.get.serialNumber).get should have size 1
   }
 
 }

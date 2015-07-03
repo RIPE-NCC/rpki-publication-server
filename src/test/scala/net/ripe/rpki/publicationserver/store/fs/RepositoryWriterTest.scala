@@ -21,7 +21,7 @@ class RepositoryWriterTest extends PublicationServerBaseTest {
     assume(toDelete.nonEmpty)
     assume(toKeep.nonEmpty)
 
-    subject.deleteSnapshotsOlderThan(rootDir.toString, FileTime.fromMillis(deleteTimestamp))
+    subject.deleteSnapshotsOlderThan(rootDir.toString, FileTime.fromMillis(deleteTimestamp), 0)
 
     toDelete.filter(Files.exists(_)) shouldBe empty
     toKeep.filter(Files.notExists(_)) shouldBe empty
