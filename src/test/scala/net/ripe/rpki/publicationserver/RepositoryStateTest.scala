@@ -1,42 +1,38 @@
 package net.ripe.rpki.publicationserver
 
-import java.net.URI
+import java.io.File
 import java.nio.file.{Files, Paths}
 import java.util.{Date, UUID}
 
 import akka.actor.ActorSystem
-import akka.testkit.{TestActorRef, TestProbe}
+import akka.testkit.TestActorRef
 import com.typesafe.config.ConfigFactory
-import net.ripe.rpki.publicationserver.Config
-import net.ripe.rpki.publicationserver.model._
 import net.ripe.rpki.publicationserver.store.fs._
 import net.ripe.rpki.publicationserver.store.{DeltaStore, Migrations, ObjectStore, ServerStateStore}
+import org.h2.store.fs.FileUtils
 import spray.testkit.ScalatestRouteTest
 
-import scala.concurrent.duration.Duration
-import scala.concurrent.duration._
-import scala.util.Try
+import scala.concurrent.duration.{Duration, _}
 
 object TestObjects {
   val theDeltaStore = new DeltaStore {
     // set deletion time in the past to see the immediate effect
-    override def afterRetainPeriod(period: Duration): Date = new Date(new Date().getTime - 1)
+    override def afterRetainPeriod(period: Duration): Date = new Date(new Date().getTime - 100000)
   }
 
   val theServerStateStore = new ServerStateStore
   val theObjectStore = new ObjectStore
 
+  lazy val rootDir = Files.createTempDirectory(Paths.get("/tmp"),"test_pub_server_")
+  rootDir.toFile.deleteOnExit()
 }
 
 class TestFSWriter extends FSWriterActor with Config {
 
   import TestObjects._
 
-  private val deltaStore = theDeltaStore
-  private val objectStore = theObjectStore
-
-  lazy val rootDir = Files.createTempDirectory(Paths.get("/tmp"),"test")
-  println("rootDir = " + rootDir )
+  override protected val deltaStore = theDeltaStore
+  override protected val objectStore = theObjectStore
 
   override lazy val conf = new AppConfig {
     override lazy val snapshotRetainPeriod = Duration.Zero
@@ -82,44 +78,132 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
     sessionId = theServerStateStore.get.sessionId
   }
 
+  after {
+    cleanDir(TestObjects.rootDir.toFile)
+  }
+
+  test("should create snapshots and deltas") {
+
+    val data = Base64("AAAAAA==")
+    val publishXml = pubMessage("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer", data)
+
+    val service = publicationService
+
+    // publish, withdraw and re-publish the same object to make
+    // delta size larger than snapshot size
+    POST("/?clientId=1234", publishXml.mkString) ~> service.publicationRoutes ~> check { responseAs[String] }
+
+    // wait until all the actor process their tasks
+    Thread.sleep(1000)
+
+    Files.exists(Paths.get(rootDir.toString, sessionId.toString)) should be(true)
+    Files.exists(Paths.get(rootDir.toString, sessionId.toString, "1")) should be(false)
+
+    Files.exists(Paths.get(rootDir.toString, sessionId.toString, "2")) should be(true)
+    Files.exists(Paths.get(rootDir.toString, sessionId.toString, "2", "snapshot.xml")) should be(true)
+    Files.exists(Paths.get(rootDir.toString, sessionId.toString, "2", "delta.xml")) should be(true)
+  }
+
+  test("should remove snapshot and delta for serial older than the latest") {
+
+    val data = Base64("AAAAAA==")
+    val uri = "rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"
+    val publishXml = pubMessage(uri, data)
+    val withdrawXml = withdrawMessage(uri, hash(data))
+
+    val service = publicationService
+
+    // publish, withdraw and re-publish the same object to make
+    // delta size larger than snapshot size
+    POST("/?clientId=1234", publishXml.mkString) ~> service.publicationRoutes ~> check { responseAs[String] }
+    POST("/?clientId=1234", withdrawXml.mkString) ~> service.publicationRoutes ~> check { responseAs[String] }
+
+    // wait until all the actor process their tasks
+    Thread.sleep(1000)
+
+    // it should remove deltas 2 and 3 because together with 4th they constitute
+    // more than the last snapshot
+    Files.exists(Paths.get(rootDir.toString, sessionId.toString)) should be(true)
+    Files.exists(Paths.get(rootDir.toString, sessionId.toString, "1")) should be(false)
+
+    Files.exists(Paths.get(rootDir.toString, sessionId.toString, "2")) should be(false)
+    Files.exists(Paths.get(rootDir.toString, sessionId.toString, "2", "snapshot.xml")) should be(false)
+    Files.exists(Paths.get(rootDir.toString, sessionId.toString, "2", "delta.xml")) should be(false)
+
+    Files.exists(Paths.get(rootDir.toString, sessionId.toString, "3")) should be(true)
+    Files.exists(Paths.get(rootDir.toString, sessionId.toString, "3", "snapshot.xml")) should be(true)
+    Files.exists(Paths.get(rootDir.toString, sessionId.toString, "3", "delta.xml")) should be(true)
+  }
+
+
   test("should schedule deltas for deletion in case their total size is bigger than the size of the request") {
 
     val data = Base64("AAAAAA==")
-    val dHash = hash(data)
+    val uri = "rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"
+    val publishXml = pubMessage(uri, data)
+    val withdrawXml = withdrawMessage(uri, hash(data))
 
-    val publishXml = s"""<msg
+    val service = publicationService
+
+    // publish, withdraw and re-publish the same object to make
+    // delta size larger than snapshot size
+    POST("/?clientId=1234", publishXml.mkString) ~> service.publicationRoutes ~> check { responseAs[String] }
+    POST("/?clientId=1234", withdrawXml.mkString) ~> service.publicationRoutes ~> check { responseAs[String] }
+    POST("/?clientId=1234", publishXml.mkString) ~> service.publicationRoutes ~> check { responseAs[String] }
+
+    // wait until all the actor process their tasks
+    Thread.sleep(1000)
+
+    // it should remove deltas 2 and 3 because together with 4th they constitute
+    // more than the last snapshot
+    Files.exists(Paths.get(rootDir.toString, sessionId.toString)) should be(true)
+    Files.exists(Paths.get(rootDir.toString, sessionId.toString, "1")) should be(false)
+
+    Files.exists(Paths.get(rootDir.toString, sessionId.toString, "2")) should be(false)
+    Files.exists(Paths.get(rootDir.toString, sessionId.toString, "2", "snapshot.xml")) should be(false)
+    Files.exists(Paths.get(rootDir.toString, sessionId.toString, "2", "delta.xml")) should be(false)
+
+    Files.exists(Paths.get(rootDir.toString, sessionId.toString, "3")) should be(false)
+    Files.exists(Paths.get(rootDir.toString, sessionId.toString, "3", "snapshot.xml")) should be(false)
+    Files.exists(Paths.get(rootDir.toString, sessionId.toString, "3", "delta.xml")) should be(false)
+
+    Files.exists(Paths.get(rootDir.toString, sessionId.toString, "4")) should be(true)
+    Files.exists(Paths.get(rootDir.toString, sessionId.toString, "4", "snapshot.xml")) should be(true)
+    Files.exists(Paths.get(rootDir.toString, sessionId.toString, "4", "delta.xml")) should be(true)
+  }
+
+
+  private def pubMessage(uri: String, base64: Base64, hash: Option[Hash] = None) = {
+    val hashAttr = hash.map(h => s""" hash="${h.hash}" """).getOrElse("")
+    s"""<msg
         type="query"
         version="3"
         xmlns="http://www.hactrn.net/uris/rpki/publication-spec/">
           <publish
-          uri="rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer">${data.value}</publish>
+          uri="$uri" $hashAttr>${base64.value}</publish>
+        </msg>"""
+  }
+
+  private def withdrawMessage(uri: String, hash: Hash) =
+    s"""<msg
+        type="query"
+        version="3"
+        xmlns="http://www.hactrn.net/uris/rpki/publication-spec/">
+          <withdraw
+          uri="$uri" hash="${hash.hash}"></withdraw>
         </msg>"""
 
-    val withdrawXml = s"""<msg
-                            type="query"
-                            version="3"
-                            xmlns="http://www.hactrn.net/uris/rpki/publication-spec/">
-                          <withdraw
-                              hash="${dHash.hash}"
-                              uri="rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"/>
-                        </msg>"""
+  private def cleanDir(dir: File) = {
+    def cleanDir_(file: File): Unit =
+      Option(file.listFiles).map(_.toList).getOrElse(Nil).foreach { f =>
+        if (f.isDirectory)
+          cleanDir_(f)
+        f.delete
+      }
 
-    // publish, withdraw and re-publish the same object to make
-    // delta size larger than snapshot size
-    POST("/?clientId=1234", publishXml.mkString) ~> publicationService.publicationRoutes ~> check { responseAs[String] }
-    POST("/?clientId=1234", withdrawXml.mkString) ~> publicationService.publicationRoutes ~> check { responseAs[String] }
-    POST("/?clientId=1234", publishXml.mkString) ~> publicationService.publicationRoutes ~> check { responseAs[String] }
-
-
+    if (dir.isDirectory)
+      cleanDir_(dir)
   }
 
-
-  def getRepositoryWriter = new MockRepositoryWriter()
-
-  class MockRepositoryWriter extends RepositoryWriter {
-    override def writeSnapshot(rootDir: String, serverState: ServerState, snapshot: Snapshot) = Paths.get("")
-    override def writeDelta(rootDir: String, delta: Delta) = Try(Paths.get(""))
-    override def writeNotification(rootDir: String, notification: Notification) = None
-  }
 
 }

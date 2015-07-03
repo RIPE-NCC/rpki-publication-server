@@ -62,8 +62,8 @@ class RepositoryWriter extends Logging {
     Files.deleteIfExists(Paths.get(rootDir, sessionId.toString, serial.toString, name))
   }
 
-  def deleteSnapshotsOlderThan(rootDir: String, timestamp: FileTime): Unit = {
-    Files.walkFileTree(Paths.get(rootDir), new RemovingFileVisitor(timestamp, Paths.get(snapshotFilename)))
+  def deleteSnapshotsOlderThan(rootDir: String, timestamp: FileTime, latestSerial: Long): Unit = {
+    Files.walkFileTree(Paths.get(rootDir), new RemovingFileVisitor(timestamp, Paths.get(snapshotFilename), latestSerial))
   }
 
   def deleteSnapshot(rootDir: String, serverState: ServerState) = deleteSessionFile(rootDir, serverState, snapshotFilename)

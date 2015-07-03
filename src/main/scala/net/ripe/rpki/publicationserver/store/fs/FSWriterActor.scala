@@ -12,69 +12,72 @@ import scala.util.{Failure, Success}
 
 
 case class WriteCommand(newServerState: ServerState)
-case class CleanSnapshotsCommand(timestamp: FileTime)
+case class CleanSnapshotsCommand(timestamp: FileTime, latestSerial: Long)
 
 class FSWriterActor extends Actor with Logging with Config {
   import context._
 
   val repositoryWriter = wire[RepositoryWriter]
 
-  private val deltaStore = DeltaStore.get
+  protected val deltaStore = DeltaStore.get
 
-  private val objectStore = ObjectStore.get
+  protected val objectStore = ObjectStore.get
 
   override def receive = {
-    case CleanSnapshotsCommand(timestamp) =>
-      cleanupSnapshots(timestamp)
+    case CleanSnapshotsCommand(timestamp, latestSerial) =>
+      cleanupSnapshots(timestamp, latestSerial)
     case WriteCommand(newServerState: ServerState) =>
 
-      deltaStore.getDelta(newServerState.serialNumber) match {
+      val latestSerial = newServerState.serialNumber
+
+      deltaStore.getDelta(latestSerial) match {
         case None =>
-          logger.error(s"Could not find delta ${newServerState.serialNumber}")
+          logger.error(s"Could not find delta $latestSerial")
         case Some(delta) =>
-          logger.info(s"Writing delta ${newServerState.serialNumber} to filesystem")
+          logger.info(s"Writing delta $latestSerial to filesystem")
           repositoryWriter.writeDelta(conf.locationRepositoryPath, delta).recover {
             case e: Exception =>
-              logger.error(s"Could not write delta ${newServerState.serialNumber}", e)
+              logger.error(s"Could not write delta $latestSerial", e)
           }
       }
 
       val now = System.currentTimeMillis
 
-      val objects = objectStore.listAll(newServerState.serialNumber)
-      if (objects.isEmpty) {
-        logger.info(s"Skipping snapshot ${newServerState.serialNumber}")
-      } else {
-        logger.info(s"Writing snapshot ${newServerState.serialNumber} to filesystem")
-        val snapshot = Snapshot(newServerState, objects)
+      objectStore.listAll(latestSerial) match {
+        case None =>
+          logger.info(s"Skipping snapshot $latestSerial")
 
-        val (deltas, accSize, thresholdSerial) = deltaStore.markOldestDeltasForDeletion(snapshot.binarySize, conf.snapshotRetainPeriod)
-        thresholdSerial.foreach { lastSerial =>
-          logger.info(s"Deltas older than $lastSerial will be scheduled for cleansing, the total size of newer deltas is $accSize")
-        }
-        lazy val deltasToPublish = deltas.filter(_.whenToDelete.isEmpty)
-        lazy val deltasToDelete = deltas.filter(_.whenToDelete.exists(_.getTime < now))
+        case Some(objects) =>
+          logger.info(s"Writing snapshot $latestSerial to filesystem")
+          val snapshot = Snapshot(newServerState, objects)
 
-        val newNotification = Notification.create(snapshot, newServerState, deltasToPublish)
-        repositoryWriter.writeNewState(conf.locationRepositoryPath, newServerState, newNotification, snapshot) match {
-          case Success(Some(timestamp)) =>
-            scheduleSnapshotCleanup(timestamp)
-            cleanupDeltas(deltasToDelete)
-          case Success(None) =>
-            logger.info("No previous snapshots to clean")
-          case Failure(e) =>
-            logger.error("Could not write XML files to filesystem: " + e.getMessage, e)
-        }
+          val (deltas, accSize, thresholdSerial) = deltaStore.markOldestDeltasForDeletion(snapshot.binarySize, conf.snapshotRetainPeriod)
+          thresholdSerial.foreach { lastSerial =>
+            logger.info(s"Deltas older than $lastSerial will be scheduled for cleansing, the total size of newer deltas is $accSize")
+          }
+          lazy val deltasToPublish = deltas.filter(_.whenToDelete.isEmpty)
+          lazy val deltasToDelete = deltas.filter(_.whenToDelete.exists(_.getTime < now))
+
+          val newNotification = Notification.create(snapshot, newServerState, deltasToPublish)
+          repositoryWriter.writeNewState(conf.locationRepositoryPath, newServerState, newNotification, snapshot) match {
+            case Success(Some(timestamp)) =>
+              scheduleSnapshotCleanup(timestamp, latestSerial)
+              cleanupDeltas(deltasToDelete)
+            case Success(None) =>
+              logger.info("No previous snapshots to clean")
+            case Failure(e) =>
+              logger.error("Could not write XML files to filesystem: " + e.getMessage, e)
+          }
       }
   }
 
-  def scheduleSnapshotCleanup(timestamp: FileTime): Unit = {
-    system.scheduler.scheduleOnce(conf.snapshotRetainPeriod, self, CleanSnapshotsCommand(timestamp))
+  def scheduleSnapshotCleanup(timestamp: FileTime, latestSerial: Long): Unit = {
+    system.scheduler.scheduleOnce(conf.snapshotRetainPeriod, self, CleanSnapshotsCommand(timestamp, latestSerial))
   }
 
-  def cleanupSnapshots(timestamp: FileTime): Unit = {
+  def cleanupSnapshots(timestamp: FileTime, latestSerial: Long): Unit = {
     logger.info(s"Removing snapshots older than $timestamp")
-    repositoryWriter.deleteSnapshotsOlderThan(conf.locationRepositoryPath, timestamp)
+    repositoryWriter.deleteSnapshotsOlderThan(conf.locationRepositoryPath, timestamp, latestSerial)
   }
   
   def cleanupDeltas(deltasToDelete: => Seq[Delta]): Unit = {

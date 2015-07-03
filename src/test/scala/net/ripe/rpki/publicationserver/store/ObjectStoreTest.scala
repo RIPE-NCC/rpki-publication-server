@@ -46,8 +46,8 @@ class ObjectStoreTest extends PublicationServerBaseTest {
     val clientId = ClientId("client1")
     val i = objectStore.insertAction(clientId, (Base64("AAAA=="), Hash("jfkfhjghj"), new URI("rsync://host.com/path")))
     Await.result(db.run(i), Duration.Inf)
-    objectStore.listAll(serverStateStore.get.serialNumber) should be(Vector((Base64("AAAA=="), Hash("jfkfhjghj"), new URI("rsync://host.com/path"))))
-    objectStore.listAll(serverStateStore.get.serialNumber + 1) should be(Vector())
+    objectStore.listAll(serverStateStore.get.serialNumber) should be(Some(Vector((Base64("AAAA=="), Hash("jfkfhjghj"), new URI("rsync://host.com/path")))))
+    objectStore.listAll(serverStateStore.get.serialNumber + 1) should be(None)
   }
 
 }
