@@ -28,7 +28,7 @@ class PublicationServiceActor(fsWriterFactory: ActorRefFactory => ActorRef)
   override def preStart() = {
     Migrations.migrate()
     val fsWriter = fsWriterFactory(context)
-    SnapshotState.init(fsWriter)
+    init(fsWriter)
   }
 }
 
