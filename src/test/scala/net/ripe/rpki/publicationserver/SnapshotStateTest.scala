@@ -2,7 +2,7 @@ package net.ripe.rpki.publicationserver
 
 import java.net.URI
 import java.nio.file.Paths
-import java.util.{Date, UUID}
+import java.util.UUID
 
 import akka.actor.ActorSystem
 import akka.testkit.{TestActorRef, TestProbe}
@@ -177,18 +177,9 @@ class SnapshotStateTest extends PublicationServerBaseTest with Config with Hashi
 
     snapshotState.updateWith(ClientId("bla"), Seq(PublishQ(uri = new URI("rsync://host/cert2.cer"), tag = None, hash = None, base64 = Base64("bbbb="))))
 
-    snapshotState.deltaStore.getDeltas should be(Seq(
-      Delta(
-        sessionId,
-        2L,
-        Seq(PublishQ(uri = new URI("rsync://host/cert1.cer"), tag = None, hash = None, base64 = Base64("cccc=")))
-      ),
-      Delta(
-        sessionId,
-        3L,
-        Seq(PublishQ(uri = new URI("rsync://host/cert2.cer"), tag = None, hash = None, base64 = Base64("bbbb=")))
-      )
-    ))
+    snapshotState.deltaStore.getDeltas.size should be(2)
+    snapshotState.deltaStore.getDeltas.head.pdus should be(Seq(PublishQ(uri = new URI("rsync://host/cert1.cer"), tag = None, hash = None, base64 = Base64("cccc="))))
+    snapshotState.deltaStore.getDeltas.tail.head.pdus should be(Seq(PublishQ(uri = new URI("rsync://host/cert2.cer"), tag = None, hash = None, base64 = Base64("bbbb="))))
   }
 
   test("should write the snapshot and the deltas to the filesystem when a message is successfully processed") {

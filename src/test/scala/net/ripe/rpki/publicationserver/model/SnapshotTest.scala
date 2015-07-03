@@ -14,7 +14,7 @@ class SnapshotTest extends PublicationServerBaseTest {
     val xml = state.serialize.mkString
 
     trim(xml) should be(trim(s"""<snapshot version="1" session_id="$sessionId" serial="123" xmlns="HTTP://www.ripe.net/rpki/rrdp">
-                                  <publish uri="rsync://bla" hash="123">321</publish>
+                                  <publish uri="rsync://bla">321</publish>
                                 </snapshot>"""))
   }
 }
