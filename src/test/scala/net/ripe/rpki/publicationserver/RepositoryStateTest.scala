@@ -94,7 +94,7 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
     POST("/?clientId=1234", publishXml.mkString) ~> service.publicationRoutes ~> check { responseAs[String] }
 
     // wait until all the actor process their tasks
-    Thread.sleep(1000)
+    waitForActors
 
     Files.exists(Paths.get(rootDir.toString, sessionId.toString)) should be(true)
     Files.exists(Paths.get(rootDir.toString, sessionId.toString, "1")) should be(false)
@@ -119,7 +119,7 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
     POST("/?clientId=1234", withdrawXml.mkString) ~> service.publicationRoutes ~> check { responseAs[String] }
 
     // wait until all the actor process their tasks
-    Thread.sleep(1000)
+    waitForActors
 
     // it should remove deltas 2 and 3 because together with 4th they constitute
     // more than the last snapshot
@@ -134,7 +134,6 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
     Files.exists(Paths.get(rootDir.toString, sessionId.toString, "3", "snapshot.xml")) should be(true)
     Files.exists(Paths.get(rootDir.toString, sessionId.toString, "3", "delta.xml")) should be(true)
   }
-
 
   test("should schedule deltas for deletion in case their total size is bigger than the size of the request") {
 
@@ -152,7 +151,7 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
     POST("/?clientId=1234", publishXml.mkString) ~> service.publicationRoutes ~> check { responseAs[String] }
 
     // wait until all the actor process their tasks
-    Thread.sleep(1000)
+    waitForActors
 
     // it should remove deltas 2 and 3 because together with 4th they constitute
     // more than the last snapshot
@@ -205,5 +204,6 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
       cleanDir_(dir)
   }
 
+  def waitForActors = Thread.sleep(3000)
 
 }
