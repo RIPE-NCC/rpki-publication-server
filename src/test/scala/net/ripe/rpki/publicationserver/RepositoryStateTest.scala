@@ -23,9 +23,9 @@ object TestObjects {
   val theServerStateStore = new ServerStateStore
   val theObjectStore = new ObjectStore
 
-  lazy val rootDir = Files.createTempDirectory(Paths.get("/tmp"),"test_pub_server_")
+  val rootDir = Files.createTempDirectory(Paths.get("/tmp"),"test_pub_server_")
   println("rootDir = " + rootDir)
-  rootDir.toFile.deleteOnExit()
+//  rootDir.toFile.deleteOnExit()
 }
 
 class TestFSWriter extends FSWriterActor with Config {
@@ -80,7 +80,7 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
   }
 
   after {
-    cleanDir(TestObjects.rootDir.toFile)
+//    cleanDir(TestObjects.rootDir.toFile)
   }
 
   test("should create snapshots and deltas") {
