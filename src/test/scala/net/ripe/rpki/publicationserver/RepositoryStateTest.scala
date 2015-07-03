@@ -24,6 +24,7 @@ object TestObjects {
   val theObjectStore = new ObjectStore
 
   lazy val rootDir = Files.createTempDirectory(Paths.get("/tmp"),"test_pub_server_")
+  println("rootDir = " + rootDir)
   rootDir.toFile.deleteOnExit()
 }
 
