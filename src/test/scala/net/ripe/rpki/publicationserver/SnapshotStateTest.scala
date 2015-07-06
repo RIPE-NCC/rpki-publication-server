@@ -198,7 +198,7 @@ class SnapshotStateTest extends PublicationServerBaseTest with Config with Hashi
     val fsWriterSpy = TestProbe()
     val deltaCleanSpy = TestProbe()
     snapshotState.init(fsWriterSpy.ref)
-    fsWriterSpy.expectMsgType[WriteCommand]
+    fsWriterSpy.expectMsgType[InitCommand]
 
     val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
 
@@ -212,7 +212,7 @@ class SnapshotStateTest extends PublicationServerBaseTest with Config with Hashi
     val fsWriterSpy = TestProbe()
     val deltaCleanSpy = TestProbe()
     snapshotState.init(fsWriterSpy.ref)
-    fsWriterSpy.expectMsgType[WriteCommand]
+    fsWriterSpy.expectMsgType[InitCommand]
 
     val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
 
@@ -227,7 +227,7 @@ class SnapshotStateTest extends PublicationServerBaseTest with Config with Hashi
     val fsWriterSpy = TestProbe()
     val deltaCleanSpy = TestProbe()
     snapshotState.init(fsWriterSpy.ref)
-    fsWriterSpy.expectMsgType[WriteCommand]
+    fsWriterSpy.expectMsgType[InitCommand]
 
     val withdraw = WithdrawQ(new URI("rsync://host/zzz.cer"), None, "BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7")
 
@@ -249,7 +249,7 @@ class SnapshotStateTest extends PublicationServerBaseTest with Config with Hashi
       override lazy val deltaStore = deltaStoreSpy
     }
     snapshotStateService.init(fsWriterSpy.ref)
-    fsWriterSpy.expectMsgType[WriteCommand]
+    fsWriterSpy.expectMsgType[InitCommand]
 
     val publish = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("aaaa="))
     val reply = snapshotStateService.updateWith(ClientId("client1"), Seq(publish))
@@ -257,31 +257,6 @@ class SnapshotStateTest extends PublicationServerBaseTest with Config with Hashi
     reply.head should equal(ReportError(BaseError.CouldNotPersist, Some("A problem occurred while persisting the changes: java.lang.IllegalArgumentException")))
     fsWriterSpy.expectNoMsg()
     deltaCleanSpy.expectNoMsg()
-  }
-
-  test("should delete older deltas when they are too big") {
-    val deltaStoreSpy = spy(new DeltaStore)
-    val fsWriterSpy = TestProbe()
-    val snapshotStateService = new SnapshotStateService {
-      override lazy val deltaStore = deltaStoreSpy
-      override def snapshotRetainPeriod = Duration.Zero
-    }
-    snapshotStateService.init(fsWriterSpy.ref)
-    snapshotStateService.objectStore.clear()
-    fsWriterSpy.expectMsg(WriteCommand(ServerState(sessionId, 1)))
-    fsWriterSpy.expectNoMsg()
-
-    val publish1 = PublishQ(new URI("rsync://host/xxx.cer"), None, None, Base64("aaaa="))
-    val withdraw1 = WithdrawQ(new URI("rsync://host/xxx.cer"), None, "BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7")
-
-    val publish2 = PublishQ(new URI("rsync://host/zzz.cer"), None, None, Base64("bbbbbb="))
-    val withdraw2 = WithdrawQ(new URI("rsync://host/zzz.cer"), None, stringify(hash(Base64("bbbbbb="))))
-
-    snapshotStateService.updateWith(ClientId("client1"), Seq(publish1))
-    snapshotStateService.updateWith(ClientId("client1"), Seq(withdraw1))
-    snapshotStateService.updateWith(ClientId("client2"), Seq(publish2))
-    snapshotStateService.updateWith(ClientId("client2"), Seq(withdraw2))
-
   }
 
 
