@@ -1,6 +1,5 @@
 package net.ripe.rpki.publicationserver.store.fs
 
-import java.nio.file.Path
 import java.nio.file.attribute.FileTime
 
 import akka.actor._
@@ -9,7 +8,7 @@ import net.ripe.rpki.publicationserver.model.{Delta, Notification, ServerState, 
 import net.ripe.rpki.publicationserver.store.{DeltaStore, ObjectStore}
 import net.ripe.rpki.publicationserver.{Config, Logging}
 
-import scala.util.{Try, Failure, Success}
+import scala.util.{Failure, Success}
 
 
 case class InitCommand(newServerState: ServerState)
