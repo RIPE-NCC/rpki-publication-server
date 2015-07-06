@@ -101,6 +101,33 @@ class SnapshotStateTest extends PublicationServerBaseTest with Config with Hashi
     ))
   }
 
+  test("should store an object with it's hash") {
+    val snapshotState = new SnapshotStateService { }
+    snapshotState.init(fsWriterRef)
+
+    snapshotState.updateWith(ClientId("bla"), Seq(PublishQ(
+      uri = new URI("rsync://host/zzz.cer"),
+      tag = None,
+      hash = None,
+      base64 = Base64("YWFhYQ=="))))
+
+    snapshotState.objectStore.find(new URI("rsync://host/zzz.cer")) should be(Some(
+      Base64("YWFhYQ=="),
+      Hash("61BE55A8E2F6B4E172338BDDF184D6DBEE29C98853E0A0485ECEE7F27B9AF0B4"),
+      URI.create("rsync://host/zzz.cer")))
+
+    snapshotState.updateWith(ClientId("bla"), Seq(PublishQ(
+      uri = new URI("rsync://host/zzz.cer"),
+      tag = None,
+      hash = Some("61BE55A8E2F6B4E172338BDDF184D6DBEE29C98853E0A0485ECEE7F27B9AF0B4"),
+      base64 = Base64("QUFBQQ=="))))
+
+    snapshotState.objectStore.find(new URI("rsync://host/zzz.cer")) should be(Some(
+      Base64("QUFBQQ=="),
+      Hash("63C1DD951FFEDF6F7FD968AD4EFA39B8ED584F162F46E715114EE184F8DE9201"),
+      URI.create("rsync://host/zzz.cer")))
+  }
+
   test("should fail to update an object which is not in the snapshot") {
     val snapshotState = new SnapshotStateService { }
     snapshotState.init(fsWriterRef)

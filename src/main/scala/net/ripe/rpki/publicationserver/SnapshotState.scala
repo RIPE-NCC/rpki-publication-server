@@ -107,7 +107,7 @@ trait SnapshotStateService extends Config with Logging with Hashing {
             val (_, h, _) = obj
             if (Hash(sHash) == h) {
               Right((PublishR(uri, tag),
-                objectStore.updateAction(clientId, (base64, h, uri)),
+                objectStore.updateAction(clientId, (base64, hash(base64), uri)),
                 pq))
             }
             else {
