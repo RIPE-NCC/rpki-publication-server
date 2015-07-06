@@ -33,6 +33,8 @@ class ObjectStore extends Hashing {
       None
   }
 
+  def listAll: Seq[RRDPObject] = getSeq(objects)
+
   def getAllAction = mapQ(objects)
 
   def insertAction(clientId: ClientId, obj: RRDPObject) = {

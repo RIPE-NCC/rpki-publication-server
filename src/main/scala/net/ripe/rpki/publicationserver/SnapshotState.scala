@@ -4,7 +4,7 @@ import java.util.UUID
 
 import akka.actor.ActorRef
 import net.ripe.rpki.publicationserver.model._
-import net.ripe.rpki.publicationserver.store.fs.WriteCommand
+import net.ripe.rpki.publicationserver.store.fs.{InitCommand, WriteCommand}
 import net.ripe.rpki.publicationserver.store.{DB, DeltaStore, ObjectStore, ServerStateStore}
 import slick.dbio.DBIO
 import slick.driver.H2Driver.api._
@@ -44,7 +44,7 @@ trait SnapshotStateService extends Config with Logging with Hashing {
     deltaStore.initCache(sessionId)
 
     val serverState = serverStateStore.get
-    fsWriter ! WriteCommand(serverState)
+    fsWriter ! InitCommand(serverState)
   }
 
   def list(clientId: ClientId) = semaphore.synchronized {
