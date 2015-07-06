@@ -9,7 +9,7 @@ import net.ripe.rpki.publicationserver.model.{ClientId, Delta}
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
-class DeltaStore extends Hashing {
+class DeltaStore extends Hashing with Logging{
 
   import DB._
   import slick.driver.H2Driver.api._
@@ -31,7 +31,10 @@ class DeltaStore extends Hashing {
       DBIO.successful(())
     } else {
       DBIO.seq(DBIO.seq(actions: _*), liftDB {
-        deltaMap = deltaMap + (delta.serial -> delta)
+        synchronized {
+          deltaMap = deltaMap + (delta.serial -> delta)
+          logger.debug(s"Added delta with serial ${delta.serial}")
+        }
       }).transactionally
     }
   }
