@@ -33,7 +33,7 @@ class FSWriterActor extends Actor with Logging with Config {
       cleanupSnapshots(timestamp, latestSerial)
 
     case WriteCommand(newServerState) =>
-      writeFSContent(newServerState)
+      updateFSContent(newServerState)
   }
 
   def initFSContent(newServerState: ServerState): Unit = {
@@ -64,7 +64,7 @@ class FSWriterActor extends Actor with Logging with Config {
 
   }
 
-  def writeFSContent(newServerState: ServerState): Unit = {
+  def updateFSContent(newServerState: ServerState): Unit = {
     val latestSerial = newServerState.serialNumber
 
     deltaStore.getDelta(latestSerial) match {
