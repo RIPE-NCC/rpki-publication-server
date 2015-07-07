@@ -64,32 +64,32 @@ class FSWriterActor extends Actor with Logging with Config {
   }
 
   def updateFSContent(newServerState: ServerState): Unit = {
-    val latestSerial = newServerState.serialNumber
+    val givenSerial = newServerState.serialNumber
 
-    deltaStore.getDelta(latestSerial) match {
+    deltaStore.getDelta(givenSerial) match {
       case None =>
-        logger.error(s"Could not find delta $latestSerial")
+        logger.error(s"Could not find delta $givenSerial")
       case Some(delta) =>
-        logger.info(s"Writing delta $latestSerial to filesystem")
+        logger.info(s"Writing delta $givenSerial to filesystem")
         repositoryWriter.writeDelta(conf.locationRepositoryPath, delta).recover {
           case e: Exception =>
-            logger.error(s"Could not write delta $latestSerial", e)
+            logger.error(s"Could not write delta $givenSerial", e)
         }
     }
 
     val now = System.currentTimeMillis
 
-    objectStore.listAll(latestSerial) match {
+    objectStore.listAll(givenSerial) match {
       case None =>
-        logger.info(s"Skipping snapshot $latestSerial")
+        logger.info(s"Skipping snapshot $givenSerial")
 
       case Some(objects) =>
-        logger.info(s"Writing snapshot $latestSerial to filesystem")
+        logger.info(s"Writing snapshot $givenSerial to filesystem")
         val snapshot = Snapshot(newServerState, objects)
 
         val (deltas, accSize, thresholdSerial) = deltaStore.markOldestDeltasForDeletion(snapshot.binarySize, conf.snapshotRetainPeriod)
         thresholdSerial.foreach { lastSerial =>
-          logger.info(s"Deltas older than $lastSerial will be scheduled for cleansing, the total size of newer deltas is $accSize")
+          logger.info(s"Deltas older than $lastSerial will be scheduled for removal, the total size of newer deltas is $accSize")
         }
         lazy val deltasToPublish = deltas.filter(_.whenToDelete.isEmpty)
         lazy val deltasToDelete = deltas.filter(_.whenToDelete.exists(_.getTime < now))
@@ -97,7 +97,7 @@ class FSWriterActor extends Actor with Logging with Config {
         val newNotification = Notification.create(snapshot, newServerState, deltasToPublish)
         repositoryWriter.writeNewState(conf.locationRepositoryPath, newServerState, newNotification, snapshot) match {
           case Success(Some(timestamp)) =>
-            scheduleSnapshotCleanup(timestamp, latestSerial)
+            scheduleSnapshotCleanup(timestamp, givenSerial)
             cleanupDeltas(deltasToDelete)
           case Success(None) =>
             logger.info("No previous snapshots to clean")
