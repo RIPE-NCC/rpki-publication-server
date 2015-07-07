@@ -9,7 +9,7 @@ import net.ripe.rpki.publicationserver.model.{ClientId, Delta}
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
-class DeltaStore extends Hashing with Logging{
+class DeltaStore extends Hashing with Logging {
 
   import DB._
   import slick.driver.H2Driver.api._
@@ -60,22 +60,22 @@ class DeltaStore extends Hashing with Logging{
   }
 
   def markOldestDeltasForDeletion(snapshotSize: Long, retainPeriod: Duration) = {
-    var accDeltaSize = 0L
-    var thresholdIndex : Option[Long] = None
-    val deltas = deltaMap.toSeq.sortBy(-_._1).zipWithIndex.map { p =>
-      val ((serial, delta), index) = p
-      accDeltaSize += delta.binarySize
-      if (accDeltaSize > snapshotSize && index > 0) {
-        if (thresholdIndex.isEmpty) {
-          thresholdIndex = Some(serial)
+    val deltasNewestFirst: Seq[Delta] = deltaMap.values.toSeq.sortBy(-_.serial)
+    var accDeltaSize = deltasNewestFirst.head.binarySize
+    deltasNewestFirst.tail.find { d =>
+      accDeltaSize += d.binarySize
+      accDeltaSize > snapshotSize
+    } foreach { firstDeltaToRemove =>
+        val timeToRemove = afterRetainPeriod(retainPeriod)
+        logger.info(s"Deltas older than ${firstDeltaToRemove.serial} will be scheduled for removal after $timeToRemove, the total size of remaining deltas is ${accDeltaSize - firstDeltaToRemove.binarySize}")
+        deltaMap.foreach { x =>
+          val(serial, delta) = x
+          if (serial <= firstDeltaToRemove.serial) {
+            deltaMap.replace(serial, delta.markForDeletion(timeToRemove))
+          }
         }
-        delta.markForDeletion(afterRetainPeriod(retainPeriod))
-      }
-      else delta
     }
-    deltaMap.clear()
-    deltaMap ++= deltas.map(d => (d.serial, d)).toMap
-    (deltas, accDeltaSize, thresholdIndex)
+    deltaMap.values
   }
 
   def afterRetainPeriod(period: Duration): Date = new Date(System.currentTimeMillis() + period.toMillis)
@@ -85,9 +85,9 @@ class DeltaStore extends Hashing with Logging{
     deltaMap.clear
   }
 
-  def delete(ds: Seq[Delta]) = {
+  def delete(ds: Iterable[Delta]) = {
     val q = DBIO.seq(
-      DBIO.seq(ds.map { d =>
+      DBIO.seq(ds.toSeq.map { d =>
         deltas.filter(_.serial === d.serial).delete
       }: _*),
       liftDB(deltaMap --= ds.map(_.serial))

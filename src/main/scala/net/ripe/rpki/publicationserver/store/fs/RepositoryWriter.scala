@@ -73,7 +73,7 @@ class RepositoryWriter extends Logging {
   def deleteNotification(rootDir: String) =
     Files.deleteIfExists(Paths.get(rootDir, "notification.xml"))
 
-  def deleteDeltas(rootDir: String, deltas: Seq[Delta]) =
+  def deleteDeltas(rootDir: String, deltas: Iterable[Delta]) =
     deltas.foreach { d =>
       deleteDelta(rootDir, ServerState(d.sessionId, d.serial))
     }

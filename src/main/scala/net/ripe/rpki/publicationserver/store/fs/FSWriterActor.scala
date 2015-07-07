@@ -77,7 +77,6 @@ class FSWriterActor extends Actor with Logging with Config {
         }
     }
 
-    val now = System.currentTimeMillis
 
     objectStore.listAll(givenSerial) match {
       case None =>
@@ -87,18 +86,16 @@ class FSWriterActor extends Actor with Logging with Config {
         logger.info(s"Writing snapshot $givenSerial to filesystem")
         val snapshot = Snapshot(newServerState, objects)
 
-        val (deltas, accSize, thresholdSerial) = deltaStore.markOldestDeltasForDeletion(snapshot.binarySize, conf.snapshotRetainPeriod)
-        thresholdSerial.foreach { lastSerial =>
-          logger.info(s"Deltas older than $lastSerial will be scheduled for removal, the total size of newer deltas is $accSize")
-        }
-        lazy val deltasToPublish = deltas.filter(_.whenToDelete.isEmpty)
-        lazy val deltasToDelete = deltas.filter(_.whenToDelete.exists(_.getTime < now))
+        val deltas = deltaStore.markOldestDeltasForDeletion(snapshot.binarySize, conf.snapshotRetainPeriod)
 
-        val newNotification = Notification.create(snapshot, newServerState, deltasToPublish)
+        lazy val (deltasToPublish, deltasToDelete) = deltas.partition(_.whenToDelete.isEmpty)
+
+        val newNotification = Notification.create(snapshot, newServerState, deltasToPublish.toSeq)
+        val now = System.currentTimeMillis
         repositoryWriter.writeNewState(conf.locationRepositoryPath, newServerState, newNotification, snapshot) match {
           case Success(Some(timestamp)) =>
             scheduleSnapshotCleanup(timestamp, givenSerial)
-            cleanupDeltas(deltasToDelete)
+            cleanupDeltas(deltasToDelete.filter(_.whenToDelete.exists(_.getTime < now)))
           case Success(None) =>
             logger.info("No previous snapshots to clean")
           case Failure(e) =>
@@ -116,7 +113,7 @@ class FSWriterActor extends Actor with Logging with Config {
     repositoryWriter.deleteSnapshotsOlderThan(conf.locationRepositoryPath, timestamp, latestSerial)
   }
   
-  def cleanupDeltas(deltasToDelete: => Seq[Delta]): Unit = {
+  def cleanupDeltas(deltasToDelete: Iterable[Delta]): Unit = {
     if (deltasToDelete.nonEmpty) {
       logger.info("Removing deltas: " + deltasToDelete.map(_.serial).mkString(","))
       repositoryWriter.deleteDeltas(conf.locationRepositoryPath, deltasToDelete)
