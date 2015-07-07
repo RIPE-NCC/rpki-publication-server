@@ -22,10 +22,7 @@ class SnapshotStateTest extends PublicationServerBaseTest with Config with Hashi
 
   private var sessionId: UUID = _
 
-  private val now = new Date()
-  private val testDeltaStore = new DeltaStore {
-    override def afterRetainPeriod(duration: Duration) = now
-  }
+  private val testDeltaStore = new DeltaStore
 
   private val serverStateStore = new ServerStateStore
 
