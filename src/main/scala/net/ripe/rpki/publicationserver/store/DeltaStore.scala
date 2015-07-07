@@ -34,8 +34,6 @@ class DeltaStore extends Hashing with Logging {
       DBIO.seq(DBIO.seq(actions: _*), liftDB {
         deltaMap += (delta.serial -> delta)
         logger.info(s"Added delta with serial ${delta.serial}")
-        logger.info("deltaMap = "+System.identityHashCode(deltaMap))
-        logger.info(deltaMap.toString())
       }).transactionally
     }
   }
