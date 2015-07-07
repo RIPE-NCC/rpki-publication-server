@@ -13,8 +13,9 @@ class DeltaStore extends Hashing with Logging{
 
   import DB._
   import slick.driver.H2Driver.api._
+  import scala.collection.JavaConversions._
 
-  private var deltaMap = Map[Long, Delta]()
+  private val deltaMap: scala.collection.concurrent.Map[Long, Delta] = new java.util.concurrent.ConcurrentHashMap[Long, Delta]()
 
   def addDeltaAction(clientId: ClientId, delta: Delta) = {
     val ClientId(cId) = clientId
@@ -31,10 +32,10 @@ class DeltaStore extends Hashing with Logging{
       DBIO.successful(())
     } else {
       DBIO.seq(DBIO.seq(actions: _*), liftDB {
-        synchronized {
-          deltaMap = deltaMap + (delta.serial -> delta)
-          logger.debug(s"Added delta with serial ${delta.serial}")
-        }
+        deltaMap += (delta.serial -> delta)
+        logger.info(s"Added delta with serial ${delta.serial}")
+        logger.info("deltaMap = "+System.identityHashCode(deltaMap))
+        logger.info(deltaMap.toString())
       }).transactionally
     }
   }
@@ -45,7 +46,8 @@ class DeltaStore extends Hashing with Logging{
 
   def initCache(sessionId: UUID) = {
     val changes = Await.result(db.run(deltas.result), Duration.Inf)
-    deltaMap = changes.groupBy(_._5).map { p =>
+    deltaMap.clear()
+    deltaMap ++= changes.groupBy(_._5).map { p =>
       val (serial, pws) = p
       val pdus = pws.map {
         case (uri, hash, Some(b64), _, _, 'P') =>
@@ -71,7 +73,8 @@ class DeltaStore extends Hashing with Logging{
       }
       else delta
     }
-    deltaMap = deltas.map(d => (d.serial, d)).toMap
+    deltaMap.clear()
+    deltaMap ++= deltas.map(d => (d.serial, d)).toMap
     (deltas, accDeltaSize, thresholdIndex)
   }
 
@@ -79,7 +82,7 @@ class DeltaStore extends Hashing with Logging{
 
   def clear() = {
     Await.result(db.run(deltas.delete), Duration.Inf)
-    deltaMap = Map.empty
+    deltaMap.clear
   }
 
   def delete(ds: Seq[Delta]) = {
@@ -87,7 +90,7 @@ class DeltaStore extends Hashing with Logging{
       DBIO.seq(ds.map { d =>
         deltas.filter(_.serial === d.serial).delete
       }: _*),
-      liftDB(deltaMap = deltaMap -- ds.map(_.serial))
+      liftDB(deltaMap --= ds.map(_.serial))
     ).transactionally
 
     Await.result(db.run(q), Duration.Inf)
