@@ -2,16 +2,19 @@ package net.ripe.rpki.publicationserver
 
 import java.io.File
 import java.nio.file.{Files, Path, Paths}
+import java.util.concurrent.TimeUnit
 import java.util.{Date, UUID}
 
 import akka.actor.ActorSystem
 import akka.testkit.TestActorRef
+import akka.testkit.TestKit._
 import com.typesafe.config.ConfigFactory
 import net.ripe.rpki.publicationserver.store.fs._
 import net.ripe.rpki.publicationserver.store.{DeltaStore, Migrations, ObjectStore, ServerStateStore}
 import spray.testkit.ScalatestRouteTest
 
-import scala.concurrent.duration.{Duration, _}
+import scala.concurrent.duration._
+import scala.language.postfixOps
 
 object TestObjects {
   val theDeltaStore = new DeltaStore {
@@ -54,6 +57,8 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
 
   private val fsWriterRef = TestActorRef[TestFSWriter]
 
+  val waitTime: FiniteDuration = Duration(30, TimeUnit.SECONDS)
+
   trait Context {
     def actorRefFactory = system
   }
@@ -92,12 +97,13 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
     // wait until all the actor process their tasks
     waitForActors
 
-    checkFileExists(Paths.get(rootDir.toString, sessionId.toString)) should be(true)
-    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "1")) should be(false)
+    checkFileExists(Paths.get(rootDir.toString, sessionId.toString))
 
-    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "2")) should be(true)
-    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "2", "snapshot.xml")) should be(true)
-    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "2", "delta.xml")) should be(true)
+    checkFileAbsent(Paths.get(rootDir.toString, sessionId.toString, "1"))
+
+    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "2"))
+    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "2", "snapshot.xml"))
+    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "2", "delta.xml"))
   }
 
   test("should remove snapshot and delta for serial older than the latest") {
@@ -119,16 +125,16 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
 
     // it should remove deltas 2 and 3 because together with 4th they constitute
     // more than the last snapshot
-    checkFileExists(Paths.get(rootDir.toString, sessionId.toString)) should be(true)
-    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "1")) should be(false)
+    checkFileExists(Paths.get(rootDir.toString, sessionId.toString))
+    checkFileAbsent(Paths.get(rootDir.toString, sessionId.toString, "1"))
 
-    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "2")) should be(false)
-    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "2", "snapshot.xml")) should be(false)
-    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "2", "delta.xml")) should be(false)
+    checkFileAbsent(Paths.get(rootDir.toString, sessionId.toString, "2"))
+    checkFileAbsent(Paths.get(rootDir.toString, sessionId.toString, "2", "snapshot.xml"))
+    checkFileAbsent(Paths.get(rootDir.toString, sessionId.toString, "2", "delta.xml"))
 
-    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "3")) should be(true)
-    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "3", "snapshot.xml")) should be(true)
-    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "3", "delta.xml")) should be(true)
+    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "3"))
+    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "3", "snapshot.xml"))
+    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "3", "delta.xml"))
   }
 
   test("should schedule deltas for deletion in case their total size is bigger than the size of the request") {
@@ -151,20 +157,20 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
 
     // it should remove deltas 2 and 3 because together with 4th they constitute
     // more than the last snapshot
-    checkFileExists(Paths.get(rootDir.toString, sessionId.toString)) should be(true)
-    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "1")) should be(false)
+    checkFileExists(Paths.get(rootDir.toString, sessionId.toString))
+    checkFileAbsent(Paths.get(rootDir.toString, sessionId.toString, "1"))
 
-    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "2")) should be(false)
-    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "2", "snapshot.xml")) should be(false)
-    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "2", "delta.xml")) should be(false)
+    checkFileAbsent(Paths.get(rootDir.toString, sessionId.toString, "2"))
+    checkFileAbsent(Paths.get(rootDir.toString, sessionId.toString, "2", "snapshot.xml"))
+    checkFileAbsent(Paths.get(rootDir.toString, sessionId.toString, "2", "delta.xml"))
 
-    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "3")) should be(false)
-    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "3", "snapshot.xml")) should be(false)
-    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "3", "delta.xml")) should be(false)
+    checkFileAbsent(Paths.get(rootDir.toString, sessionId.toString, "3"))
+    checkFileAbsent(Paths.get(rootDir.toString, sessionId.toString, "3", "snapshot.xml"))
+    checkFileAbsent(Paths.get(rootDir.toString, sessionId.toString, "3", "delta.xml"))
 
-    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "4")) should be(true)
-    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "4", "snapshot.xml")) should be(true)
-    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "4", "delta.xml")) should be(true)
+    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "4"))
+    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "4", "snapshot.xml"))
+    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "4", "delta.xml"))
   }
 
 
@@ -200,18 +206,13 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
       cleanDir_(dir)
   }
 
-  def waitForActors = Thread.sleep(3000)
+  def waitForActors = {}
 
-  def checkFileExists(path: Path): Boolean = {
-    def checkFile_(path: Path, attempt: Int): Boolean = {
-      val e = Files.exists(path)
-      if (!e && attempt < 5) {
-        Thread.sleep(100 * attempt)
-        checkFile_(path, attempt + 1)
-      } else
-        e
-    }
-    checkFile_(path, 1)
+  def checkFileExists(path: Path): Unit = {
+    awaitCond(Files.exists(path), max = waitTime)
   }
 
+  def checkFileAbsent(path: Path): Unit = {
+    awaitCond(Files.notExists(path), max = waitTime)
+  }
 }

@@ -80,7 +80,7 @@ class DeltaStore extends Hashing with Logging {
 
   def clear() = {
     Await.result(db.run(deltas.delete), Duration.Inf)
-    deltaMap.clear
+    deltaMap.clear()
   }
 
   def delete(ds: Iterable[Delta]) = {
