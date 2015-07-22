@@ -31,7 +31,7 @@ case class Delta(sessionId: UUID, serial: Long, pdus: Seq[QueryPdu], whenToDelet
   )
 
   private def deltaXml(sessionId: String, serial: BigInt, pdus: => Iterable[Node]): Elem =
-    <delta xmlns="HTTP://www.ripe.net/rpki/rrdp" version="1" session_id={sessionId} serial={serial.toString()}>
+    <delta xmlns="http://www.ripe.net/rpki/rrdp" version="1" session_id={sessionId} serial={serial.toString()}>
       {pdus}
     </delta>
 

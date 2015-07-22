@@ -30,7 +30,7 @@ case class Snapshot(serverState: ServerState, pdus: Seq[DB.RRDPObject]) extends 
   }
 
   private def snapshotXml(sessionId: String, serial: BigInt, pdus: => Iterable[Node]): Elem =
-    <snapshot xmlns="HTTP://www.ripe.net/rpki/rrdp" version="1" session_id={sessionId} serial={serial.toString()}>
+    <snapshot xmlns="http://www.ripe.net/rpki/rrdp" version="1" session_id={sessionId} serial={serial.toString()}>
       {pdus}
     </snapshot>
 
