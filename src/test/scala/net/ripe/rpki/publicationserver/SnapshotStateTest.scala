@@ -2,7 +2,7 @@ package net.ripe.rpki.publicationserver
 
 import java.net.URI
 import java.nio.file.Paths
-import java.util.{Date, UUID}
+import java.util.UUID
 
 import akka.actor.{ActorRef, ActorSystem}
 import akka.testkit.{TestActorRef, TestProbe}
@@ -13,7 +13,6 @@ import net.ripe.rpki.publicationserver.store.{DeltaStore, Migrations, ObjectStor
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 
-import scala.concurrent.duration.Duration
 import scala.util.Try
 
 class SnapshotStateTest extends PublicationServerBaseTest with Config with Hashing {

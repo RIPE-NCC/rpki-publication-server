@@ -1,7 +1,7 @@
 package net.ripe.rpki.publicationserver
 
 import java.io.File
-import java.nio.file.{LinkOption, Path, Files, Paths}
+import java.nio.file.{Files, Path, Paths}
 import java.util.{Date, UUID}
 
 import akka.actor.ActorSystem
@@ -9,7 +9,6 @@ import akka.testkit.TestActorRef
 import com.typesafe.config.ConfigFactory
 import net.ripe.rpki.publicationserver.store.fs._
 import net.ripe.rpki.publicationserver.store.{DeltaStore, Migrations, ObjectStore, ServerStateStore}
-import org.h2.store.fs.FileUtils
 import spray.testkit.ScalatestRouteTest
 
 import scala.concurrent.duration.{Duration, _}
@@ -17,7 +16,7 @@ import scala.concurrent.duration.{Duration, _}
 object TestObjects {
   val theDeltaStore = new DeltaStore {
     // set deletion time in the past to see the immediate effect
-    override def afterRetainPeriod(period: Duration): Date = new Date(new Date().getTime - 100000)
+    override def afterRetainPeriod(period: Duration): Date = new Date(0)
   }
 
   val theServerStateStore = new ServerStateStore
@@ -30,7 +29,7 @@ object TestObjects {
 class TestFSWriter extends FSWriterActor with Config {
 
   import TestObjects._
-  
+
   override protected val deltaStore = theDeltaStore
   override protected val objectStore = theObjectStore
 

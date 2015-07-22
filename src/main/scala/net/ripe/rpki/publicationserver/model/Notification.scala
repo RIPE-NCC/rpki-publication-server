@@ -2,10 +2,9 @@ package net.ripe.rpki.publicationserver.model
 
 import java.util.UUID
 
-import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver._
 
-import scala.xml.{Node, Elem}
+import scala.xml.{Elem, Node}
 
 case class SnapshotLocator(uri: String, hash: Hash)
 
