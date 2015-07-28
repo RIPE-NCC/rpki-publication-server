@@ -68,7 +68,7 @@ class DeltaStore extends Hashing with Logging {
         logger.info(s"Deltas older than ${firstDeltaToRemove.serial} will be scheduled for removal after $timeToRemove, the total size of remaining deltas is ${accDeltaSize - firstDeltaToRemove.binarySize}")
         deltaMap.foreach { x =>
           val(serial, delta) = x
-          if (serial <= firstDeltaToRemove.serial) {
+          if (serial <= firstDeltaToRemove.serial && delta.whenToDelete.isEmpty) {
             deltaMap.replace(serial, delta.markForDeletion(timeToRemove))
           }
         }
