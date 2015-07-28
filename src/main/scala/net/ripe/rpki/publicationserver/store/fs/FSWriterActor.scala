@@ -88,7 +88,7 @@ class FSWriterActor extends Actor with Logging with Config {
 
         val deltas = deltaStore.markOldestDeltasForDeletion(snapshot.binarySize, conf.snapshotRetainPeriod)
 
-        lazy val (deltasToPublish, deltasToDelete) = deltas.partition(_.whenToDelete.isEmpty)
+        val (deltasToPublish, deltasToDelete) = deltas.partition(_.whenToDelete.isEmpty)
 
         val newNotification = Notification.create(snapshot, newServerState, deltasToPublish.toSeq)
         val now = System.currentTimeMillis
