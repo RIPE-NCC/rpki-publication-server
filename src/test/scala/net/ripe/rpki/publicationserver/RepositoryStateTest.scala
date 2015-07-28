@@ -11,15 +11,17 @@ import akka.testkit.TestKit._
 import com.typesafe.config.ConfigFactory
 import net.ripe.rpki.publicationserver.store.fs._
 import net.ripe.rpki.publicationserver.store.{DeltaStore, Migrations, ObjectStore, ServerStateStore}
+import org.scalatest.BeforeAndAfterAll
 import spray.testkit.ScalatestRouteTest
 
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
 object TestObjects {
+  val retainPeriodOverride: Int = 100
   val theDeltaStore = new DeltaStore {
-    // set deletion time in the past to see the immediate effect
-    override def afterRetainPeriod(period: Duration): Date = new Date(0)
+    // override interval so it does not take that long
+    override def afterRetainPeriod(period: Duration): Date = new Date(System.currentTimeMillis() + retainPeriodOverride)
   }
 
   val theServerStateStore = new ServerStateStore
@@ -42,7 +44,7 @@ class TestFSWriter extends FSWriterActor with Config {
   }
 }
 
-class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteTest with Hashing {
+class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteTest with Hashing with BeforeAndAfterAll {
 
   import TestObjects._
 
@@ -83,6 +85,11 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
     sessionId = theServerStateStore.get.sessionId
   }
 
+  override def afterAll() = {
+    cleanDir(rootDir.toFile)
+    Files.deleteIfExists(rootDir)
+  }
+
   test("should create snapshots and deltas") {
 
     val data = Base64("AAAAAA==")
@@ -94,9 +101,6 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
     // delta size larger than snapshot size
     POST("/?clientId=1234", publishXml.mkString) ~> service.publicationRoutes ~> check { responseAs[String] }
 
-    // wait until all the actor process their tasks
-    waitForActors
-
     checkFileExists(Paths.get(rootDir.toString, sessionId.toString))
 
     checkFileAbsent(Paths.get(rootDir.toString, sessionId.toString, "1"))
@@ -106,7 +110,7 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
     checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "2", "delta.xml"))
   }
 
-  test("should remove snapshot and delta for serial older than the latest") {
+  test("should remove snapshot for serial older than the latest") {
 
     val data = Base64("AAAAAA==")
     val uri = "rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"
@@ -115,29 +119,20 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
 
     val service = publicationService
 
-    // publish, withdraw and re-publish the same object to make
-    // delta size larger than snapshot size
+    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "1", "snapshot.xml"))
+
     POST("/?clientId=1234", publishXml.mkString) ~> service.publicationRoutes ~> check { responseAs[String] }
+
+    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "2", "snapshot.xml"))
+    checkFileAbsent(Paths.get(rootDir.toString, sessionId.toString, "1", "snapshot.xml"))
+
     POST("/?clientId=1234", withdrawXml.mkString) ~> service.publicationRoutes ~> check { responseAs[String] }
 
-    // wait until all the actor process their tasks
-    waitForActors
-
-    // it should remove deltas 2 and 3 because together with 4th they constitute
-    // more than the last snapshot
-    checkFileExists(Paths.get(rootDir.toString, sessionId.toString))
-    checkFileAbsent(Paths.get(rootDir.toString, sessionId.toString, "1"))
-
-    checkFileAbsent(Paths.get(rootDir.toString, sessionId.toString, "2"))
-    checkFileAbsent(Paths.get(rootDir.toString, sessionId.toString, "2", "snapshot.xml"))
-    checkFileAbsent(Paths.get(rootDir.toString, sessionId.toString, "2", "delta.xml"))
-
-    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "3"))
     checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "3", "snapshot.xml"))
-    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "3", "delta.xml"))
+    checkFileAbsent(Paths.get(rootDir.toString, sessionId.toString, "2", "snapshot.xml"))
   }
 
-  test("should schedule deltas for deletion in case their total size is bigger than the size of the request") {
+  test("should delete deltas in case their total size is bigger than the size of the request") {
 
     val data = Base64("AAAAAA==")
     val uri = "rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"
@@ -146,31 +141,33 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
 
     val service = publicationService
 
+    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "1", "snapshot.xml"))
+
     // publish, withdraw and re-publish the same object to make
     // delta size larger than snapshot size
-    POST("/?clientId=1234", publishXml.mkString) ~> service.publicationRoutes ~> check { responseAs[String] }
-    POST("/?clientId=1234", withdrawXml.mkString) ~> service.publicationRoutes ~> check { responseAs[String] }
+
     POST("/?clientId=1234", publishXml.mkString) ~> service.publicationRoutes ~> check { responseAs[String] }
 
-    // wait until all the actor process their tasks
-    waitForActors
+    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "2", "delta.xml"))
+
+    POST("/?clientId=1234", withdrawXml.mkString) ~> service.publicationRoutes ~> check { responseAs[String] }
+
+    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "3", "delta.xml"))
+
+    POST("/?clientId=1234", publishXml.mkString) ~> service.publicationRoutes ~> check { responseAs[String] }
+
+    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "4", "delta.xml"))
+
+    Thread.sleep(retainPeriodOverride); // wait until delta deletion time comes
+
+    POST("/?clientId=1234", withdrawXml.mkString) ~> service.publicationRoutes ~> check { responseAs[String] }
+
+    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "5", "delta.xml"))
 
     // it should remove deltas 2 and 3 because together with 4th they constitute
     // more than the last snapshot
-    checkFileExists(Paths.get(rootDir.toString, sessionId.toString))
-    checkFileAbsent(Paths.get(rootDir.toString, sessionId.toString, "1"))
-
-    checkFileAbsent(Paths.get(rootDir.toString, sessionId.toString, "2"))
-    checkFileAbsent(Paths.get(rootDir.toString, sessionId.toString, "2", "snapshot.xml"))
     checkFileAbsent(Paths.get(rootDir.toString, sessionId.toString, "2", "delta.xml"))
-
-    checkFileAbsent(Paths.get(rootDir.toString, sessionId.toString, "3"))
-    checkFileAbsent(Paths.get(rootDir.toString, sessionId.toString, "3", "snapshot.xml"))
     checkFileAbsent(Paths.get(rootDir.toString, sessionId.toString, "3", "delta.xml"))
-
-    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "4"))
-    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "4", "snapshot.xml"))
-    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "4", "delta.xml"))
   }
 
 
@@ -205,8 +202,6 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
     if (dir.isDirectory)
       cleanDir_(dir)
   }
-
-  def waitForActors = {}
 
   def checkFileExists(path: Path): Unit = {
     awaitCond(Files.exists(path), max = waitTime)
