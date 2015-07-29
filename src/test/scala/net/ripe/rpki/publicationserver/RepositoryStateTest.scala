@@ -96,18 +96,18 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
     val publishXml = pubMessage("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer", data)
 
     val service = publicationService
+    checkFileExists(Paths.get(rootDir.toString, sessionId.toString))
+    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "1", "snapshot.xml"))
 
     // publish, withdraw and re-publish the same object to make
     // delta size larger than snapshot size
     POST("/?clientId=1234", publishXml.mkString) ~> service.publicationRoutes ~> check { responseAs[String] }
 
-    checkFileExists(Paths.get(rootDir.toString, sessionId.toString))
-
-    checkFileAbsent(Paths.get(rootDir.toString, sessionId.toString, "1"))
-
     checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "2"))
     checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "2", "snapshot.xml"))
     checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "2", "delta.xml"))
+
+    checkFileAbsent(Paths.get(rootDir.toString, sessionId.toString, "1", "snapshot.xml"))
   }
 
   test("should remove snapshot for serial older than the latest") {
