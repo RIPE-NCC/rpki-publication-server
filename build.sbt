@@ -10,6 +10,10 @@ scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8")
 
 parallelExecution in Test := false
 
+fork in run := true
+
+javaOptions in run ++= Seq("-Xmx2G", "-XX:+UseConcMarkSweepGC")
+
 enablePlugins(JavaServerAppPackaging)
 
 resolvers += "Codehaus Maven2 Repository" at "http://repository.codehaus.org/"
