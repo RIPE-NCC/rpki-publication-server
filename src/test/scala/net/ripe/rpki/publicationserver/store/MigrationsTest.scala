@@ -1,5 +1,7 @@
 package net.ripe.rpki.publicationserver.store
 
+import java.util.concurrent.TimeUnit
+
 import net.ripe.rpki.publicationserver.PublicationServerBaseTest
 import net.ripe.rpki.publicationserver.model.ServerState
 
@@ -17,7 +19,7 @@ class MigrationsTest extends PublicationServerBaseTest {
     serverStatesStore.clear()
 
     Migrations.initServerState()
-    val states = Await.result(db.run(serverStates.result), Duration.Inf)
+    val states = Await.result(db.run(serverStates.result), Duration(1, TimeUnit.MINUTES))
 
     states.size should be(1)
     states.head.serialNumber should be(1L)
@@ -26,7 +28,7 @@ class MigrationsTest extends PublicationServerBaseTest {
   test("should not add a second initial row") {
     Migrations.initServerState()
 
-    val states: Seq[ServerState] = Await.result(db.run(serverStates.result), Duration.Inf)
+    val states: Seq[ServerState] = Await.result(db.run(serverStates.result), Duration(1, TimeUnit.MINUTES))
 
     states.size should be(1)
     states.head.serialNumber should be(1L)

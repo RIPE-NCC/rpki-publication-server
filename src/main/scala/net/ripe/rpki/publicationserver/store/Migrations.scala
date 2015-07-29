@@ -2,6 +2,8 @@ package net.ripe.rpki.publicationserver.store
 
 import java.util.UUID
 
+import com.softwaremill.macwire.MacwireMacros._
+import net.ripe.rpki.publicationserver.AppConfig
 import net.ripe.rpki.publicationserver.model.ServerState
 import slick.dbio.DBIO
 import slick.driver.H2Driver.api._
@@ -16,6 +18,8 @@ object Migrations {
   import DB._
 
   val db = DB.db
+
+  lazy val conf = wire[AppConfig]
 
   // Migrations are to be added here together
   // with their indexes
@@ -41,7 +45,7 @@ object Migrations {
           migrationsTable += (i, action.toString)
         ).transactionally
       }
-      Await.result(applyMigration, Duration.Inf)
+      Await.result(applyMigration, conf.defaultTimeout)
     }
 
     initServerState()
@@ -75,6 +79,6 @@ object Migrations {
     } yield ()
 
     val f = db.run(insertIfEmtpy.transactionally)
-    Await.result(f, Duration.Inf)
+    Await.result(f, conf.defaultTimeout)
   }
 }

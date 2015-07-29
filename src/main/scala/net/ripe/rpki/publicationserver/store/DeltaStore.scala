@@ -3,6 +3,7 @@ package net.ripe.rpki.publicationserver.store
 import java.net.URI
 import java.util.{Date, UUID}
 
+import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.model.{ClientId, Delta}
 
@@ -14,6 +15,8 @@ class DeltaStore extends Hashing with Logging {
   import DB._
   import slick.driver.H2Driver.api._
   import scala.collection.JavaConversions._
+
+  lazy val conf = wire[AppConfig]
 
   private val deltaMap: scala.collection.concurrent.Map[Long, Delta] = new java.util.concurrent.ConcurrentHashMap[Long, Delta]()
 
@@ -43,7 +46,7 @@ class DeltaStore extends Hashing with Logging {
   def getDelta(serial: Long) = deltaMap.get(serial)
 
   def initCache(sessionId: UUID) = {
-    val changes = Await.result(db.run(deltas.result), Duration.Inf)
+    val changes = Await.result(db.run(deltas.result), conf.defaultTimeout)
     deltaMap.clear()
     deltaMap ++= changes.groupBy(_._5).map { p =>
       val (serial, pws) = p
@@ -79,7 +82,7 @@ class DeltaStore extends Hashing with Logging {
   def afterRetainPeriod(period: Duration): Date = new Date(System.currentTimeMillis() + period.toMillis)
 
   def clear() = {
-    Await.result(db.run(deltas.delete), Duration.Inf)
+    Await.result(db.run(deltas.delete), conf.defaultTimeout)
     deltaMap.clear()
   }
 
@@ -91,7 +94,7 @@ class DeltaStore extends Hashing with Logging {
       liftDB(deltaMap --= ds.map(_.serial))
     ).transactionally
 
-    Await.result(db.run(q), Duration.Inf)
+    Await.result(db.run(q), conf.defaultTimeout)
   }
 }
 

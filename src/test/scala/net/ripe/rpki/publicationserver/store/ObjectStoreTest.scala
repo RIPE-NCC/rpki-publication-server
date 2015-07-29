@@ -1,6 +1,7 @@
 package net.ripe.rpki.publicationserver.store
 
 import java.net.URI
+import java.util.concurrent.TimeUnit
 
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.{Base64, Hash, PublicationServerBaseTest}
@@ -24,7 +25,7 @@ class ObjectStoreTest extends PublicationServerBaseTest {
   test("should store an object and extract it") {
     val clientId = ClientId("client1")
     val i = objectStore.insertAction(clientId, (Base64("AAAA=="), Hash("jfkfhjghj"), new URI("rsync://host.com/path")))
-    Await.result(db.run(i), Duration.Inf)
+    Await.result(db.run(i), Duration(1, TimeUnit.MINUTES))
     objectStore.list(clientId) should be(Vector((Base64("AAAA=="), Hash("jfkfhjghj"), new URI("rsync://host.com/path"))))
   }
 
@@ -32,12 +33,12 @@ class ObjectStoreTest extends PublicationServerBaseTest {
     val clientId = ClientId("client1")
     val hash = Hash("98623986923")
     val i = objectStore.insertAction(clientId, (Base64("AAAA=="), hash, new URI("rsync://host.com/another_path")))
-    Await.result(db.run(i), Duration.Inf)
+    Await.result(db.run(i), Duration(1, TimeUnit.MINUTES))
 
     objectStore.list(clientId) should be(Vector((Base64("AAAA=="), hash, new URI("rsync://host.com/another_path"))))
 
     val d = objectStore.deleteAction(clientId, hash)
-    Await.result(db.run(d), Duration.Inf)
+    Await.result(db.run(d), Duration(1, TimeUnit.MINUTES))
 
     objectStore.list(clientId) should be(Vector())
   }
@@ -45,7 +46,7 @@ class ObjectStoreTest extends PublicationServerBaseTest {
   test("should list object only in case of correct serail number") {
     val clientId = ClientId("client1")
     val i = objectStore.insertAction(clientId, (Base64("AAAA=="), Hash("jfkfhjghj"), new URI("rsync://host.com/path")))
-    Await.result(db.run(i), Duration.Inf)
+    Await.result(db.run(i), Duration(1, TimeUnit.MINUTES))
     objectStore.listAll(serverStateStore.get.serialNumber) should be(Some(Vector((Base64("AAAA=="), Hash("jfkfhjghj"), new URI("rsync://host.com/path")))))
     objectStore.listAll(serverStateStore.get.serialNumber + 1) should be(None)
   }

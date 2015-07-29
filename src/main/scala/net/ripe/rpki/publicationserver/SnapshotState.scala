@@ -73,7 +73,7 @@ trait SnapshotStateService extends Config with Logging with Hashing {
         val deltaAction = deltaStore.addDeltaAction(clientId, Delta(sessionId, newServerState.serialNumber, validPdus))
         val serverStateAction = serverStateStore.updateAction(newServerState)
         val allActions = DBIO.seq(publishActions, deltaAction, serverStateAction).transactionally
-        Await.result(db.run(allActions), Duration.Inf)
+        Await.result(db.run(allActions), conf.defaultTimeout)
 
         fsWriter ! WriteCommand(newServerState)
         replies

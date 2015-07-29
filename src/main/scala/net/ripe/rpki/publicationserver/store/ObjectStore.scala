@@ -2,6 +2,7 @@ package net.ripe.rpki.publicationserver.store
 
 import java.net.URI
 
+import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.model.ClientId
 import slick.driver.H2Driver.api._
@@ -11,6 +12,8 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 
 class ObjectStore extends Hashing {
+
+  lazy val conf = wire[AppConfig]
 
   import DB._
 
@@ -26,7 +29,7 @@ class ObjectStore extends Hashing {
   def listAll(serial: Long): Option[Seq[RRDPObject]] = {
 
     // TODO Implement it as one transactional action
-    val correctSerial = Await.result(db.run(serverStates.filter(_.serialNumber === serial).exists.result), Duration.Inf)
+    val correctSerial = Await.result(db.run(serverStates.filter(_.serialNumber === serial).exists.result), conf.defaultTimeout)
     if (correctSerial)
       Some(getSeq(objects))
     else
@@ -61,9 +64,9 @@ class ObjectStore extends Hashing {
         _ <- DBIO.seq(actions: _*)
         t <- liftDB(f)
       } yield t).transactionally
-    }, Duration.Inf)
+    }, conf.defaultTimeout)
 
-  def clear() = Await.result(db.run(objects.delete), Duration.Inf)
+  def clear() = Await.result(db.run(objects.delete), conf.defaultTimeout)
 
   private def mapQ(q: Query[RepoObject, StoredTuple, Seq]) = q.result.map {
     _.map { o =>
@@ -73,7 +76,7 @@ class ObjectStore extends Hashing {
   }
 
   private def getSeq(q: Query[RepoObject, StoredTuple, Seq]): Seq[RRDPObject] =
-    Await.result(db.run(mapQ(q)), Duration.Inf)
+    Await.result(db.run(mapQ(q)), conf.defaultTimeout)
 }
 
 object ObjectStore {

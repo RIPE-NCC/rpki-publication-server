@@ -25,6 +25,7 @@ class AppConfig extends ConfigWrapper {
   lazy val locationRepositoryUri  = getConfig.getString("locations.repository.uri")
   lazy val locationLogfile = getConfig.getString("locations.logfile")
   lazy val snapshotRetainPeriod = Duration(getConfig.getDuration("snapshot.retainPeriod", TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS)
+  lazy val defaultTimeout = Duration(getConfig.getDuration("default.timeout", TimeUnit.MINUTES), TimeUnit.MINUTES)
 }
 
 object AppConfig {
