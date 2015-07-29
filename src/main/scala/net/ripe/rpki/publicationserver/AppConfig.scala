@@ -11,7 +11,7 @@ trait ConfigWrapper {
   def locationRepositoryPath : String
   def locationRepositoryUri : String
   def locationLogfile : String
-  def snapshotRetainPeriod : Duration
+  def unpublishedFileRetainPeriod : Duration
 }
 
 /**
@@ -24,7 +24,7 @@ class AppConfig extends ConfigWrapper {
   lazy val locationRepositoryPath = getConfig.getString("locations.repository.path")
   lazy val locationRepositoryUri  = getConfig.getString("locations.repository.uri")
   lazy val locationLogfile = getConfig.getString("locations.logfile")
-  lazy val snapshotRetainPeriod = Duration(getConfig.getDuration("snapshot.retainPeriod", TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS)
+  lazy val unpublishedFileRetainPeriod = Duration(getConfig.getDuration("unpublished-file-retain-period", TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS)
   lazy val defaultTimeout = Duration(getConfig.getDuration("default.timeout", TimeUnit.MINUTES), TimeUnit.MINUTES)
 }
 

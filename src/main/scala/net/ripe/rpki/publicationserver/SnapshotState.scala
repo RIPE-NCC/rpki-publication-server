@@ -85,7 +85,7 @@ trait SnapshotStateService extends Config with Logging with Hashing {
     }
   }
 
-  def snapshotRetainPeriod = conf.snapshotRetainPeriod
+  def snapshotRetainPeriod = conf.unpublishedFileRetainPeriod
 
   /*
    * TODO Check if the client doesn't try to modify objects that belong to other client

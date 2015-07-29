@@ -40,7 +40,7 @@ class TestFSWriter extends FSWriterActor with Config {
   override protected val objectStore = theObjectStore
 
   override lazy val conf = new AppConfig {
-    override lazy val snapshotRetainPeriod = Duration.Zero
+    override lazy val unpublishedFileRetainPeriod = Duration.Zero
     override lazy val locationRepositoryPath = rootDirName
   }
 }

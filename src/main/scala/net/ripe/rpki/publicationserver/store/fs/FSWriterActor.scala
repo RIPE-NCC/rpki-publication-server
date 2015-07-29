@@ -86,7 +86,7 @@ class FSWriterActor extends Actor with Logging with Config {
         logger.info(s"Writing snapshot $givenSerial to filesystem")
         val snapshot = Snapshot(newServerState, objects)
 
-        val deltas = deltaStore.markOldestDeltasForDeletion(snapshot.binarySize, conf.snapshotRetainPeriod)
+        val deltas = deltaStore.markOldestDeltasForDeletion(snapshot.binarySize, conf.unpublishedFileRetainPeriod)
 
         val (deltasToPublish, deltasToDelete) = deltas.partition(_.whenToDelete.isEmpty)
 
@@ -105,7 +105,7 @@ class FSWriterActor extends Actor with Logging with Config {
   }
 
   def scheduleSnapshotCleanup(timestamp: FileTime, latestSerial: Long): Unit = {
-    system.scheduler.scheduleOnce(conf.snapshotRetainPeriod, self, CleanSnapshotsCommand(timestamp, latestSerial))
+    system.scheduler.scheduleOnce(conf.unpublishedFileRetainPeriod, self, CleanSnapshotsCommand(timestamp, latestSerial))
   }
 
   def cleanupSnapshots(timestamp: FileTime, latestSerial: Long): Unit = {
