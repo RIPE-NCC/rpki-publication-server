@@ -170,6 +170,49 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
     checkFileAbsent(Paths.get(rootDir.toString, sessionId.toString, "3", "delta.xml"))
   }
 
+  test("should create snapshots after removing deltas") {
+
+    val data = Base64("AAAAAA==")
+    val uri = "rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"
+    val publishXml = pubMessage(uri, data)
+    val withdrawXml = withdrawMessage(uri, hash(data))
+
+    val service = publicationService
+
+    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "1", "snapshot.xml"))
+
+    // publish, withdraw and re-publish the same object to make
+    // delta size larger than snapshot size
+
+    POST("/?clientId=1234", publishXml.mkString) ~> service.publicationRoutes ~> check { responseAs[String] }
+
+    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "2", "delta.xml"))
+
+    POST("/?clientId=1234", withdrawXml.mkString) ~> service.publicationRoutes ~> check { responseAs[String] }
+
+    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "3", "delta.xml"))
+
+    POST("/?clientId=1234", publishXml.mkString) ~> service.publicationRoutes ~> check { responseAs[String] }
+
+    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "4", "delta.xml"))
+
+    Thread.sleep(retainPeriodOverride); // wait until delta deletion time comes
+
+    POST("/?clientId=1234", withdrawXml.mkString) ~> service.publicationRoutes ~> check { responseAs[String] }
+
+    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "5", "delta.xml"))
+
+    // it should remove deltas 2 and 3 because together with 4th they constitute
+    // more than the last snapshot
+    checkFileAbsent(Paths.get(rootDir.toString, sessionId.toString, "2", "delta.xml"))
+    checkFileAbsent(Paths.get(rootDir.toString, sessionId.toString, "3", "delta.xml"))
+
+    POST("/?clientId=1234", publishXml.mkString) ~> service.publicationRoutes ~> check { responseAs[String] }
+
+    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "6", "snapshot.xml"))
+    checkFileExists(Paths.get(rootDir.toString, sessionId.toString, "6", "delta.xml"))
+  }
+
 
   private def pubMessage(uri: String, base64: Base64, hash: Option[Hash] = None) = {
     val hashAttr = hash.map(h => s""" hash="${h.hash}" """).getOrElse("")
