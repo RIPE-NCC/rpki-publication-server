@@ -7,7 +7,10 @@ import net.ripe.rpki.publicationserver.model.ServerState
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
+import scala.concurrent.ExecutionContext.Implicits.global
+
 import slick.driver.H2Driver.api._
+
 
 class MigrationsTest extends PublicationServerBaseTest {
 

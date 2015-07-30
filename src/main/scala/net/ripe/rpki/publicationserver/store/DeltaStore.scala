@@ -9,6 +9,7 @@ import net.ripe.rpki.publicationserver.model.{ClientId, Delta}
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
+import scala.concurrent.ExecutionContext.Implicits.global
 
 class DeltaStore extends Hashing with Logging {
 

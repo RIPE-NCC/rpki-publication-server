@@ -9,6 +9,7 @@ import slick.jdbc.meta.MTable
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
+import scala.concurrent.ExecutionContext.Implicits.global
 
 object DBConfig {
   var useMemoryDatabase = false
@@ -22,7 +23,7 @@ object DB {
 
   type DBType = Database
 
-  def db = if (DBConfig.useMemoryDatabase) Database.forConfig("h2mem") else Database.forConfig("h2fs")
+  lazy val db = if (DBConfig.useMemoryDatabase) Database.forConfig("h2mem") else Database.forConfig("h2fs")
 
   class RepoObject(tag: Tag) extends Table[(String, String, String, String)](tag, "REPO_OBJECTS") {
     def uri = column[String]("URI", O.PrimaryKey)
