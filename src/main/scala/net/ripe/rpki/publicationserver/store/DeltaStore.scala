@@ -68,14 +68,14 @@ class DeltaStore extends Hashing with Logging {
       accDeltaSize += d.binarySize
       accDeltaSize > snapshotSize
     } foreach { firstDeltaToRemove =>
-        val timeToRemove = afterRetainPeriod(retainPeriod)
-        logger.info(s"Deltas older than ${firstDeltaToRemove.serial} will be scheduled for removal after $timeToRemove, the total size of remaining deltas is ${accDeltaSize - firstDeltaToRemove.binarySize}")
-        deltaMap.foreach { x =>
-          val(serial, delta) = x
-          if (serial <= firstDeltaToRemove.serial && delta.whenToDelete.isEmpty) {
-            deltaMap.replace(serial, delta.markForDeletion(timeToRemove))
-          }
+      val timeToRemove = afterRetainPeriod(retainPeriod)
+      logger.info(s"Deltas older than ${firstDeltaToRemove.serial} will be removed after $timeToRemove, the total size of remaining deltas is ${accDeltaSize - firstDeltaToRemove.binarySize}")
+      deltaMap.foreach { x =>
+        val (serial, delta) = x
+        if (serial <= firstDeltaToRemove.serial && delta.whenToDelete.isEmpty) {
+          deltaMap.replace(serial, delta.markForDeletion(timeToRemove))
         }
+      }
     }
     deltaMap.values
   }
@@ -87,15 +87,11 @@ class DeltaStore extends Hashing with Logging {
     deltaMap.clear()
   }
 
-  def delete(ds: Iterable[Delta]) = {
-    val q = DBIO.seq(
-      DBIO.seq(ds.toSeq.map { d =>
-        deltas.filter(_.serial === d.serial).delete
-      }: _*),
-      liftDB(deltaMap --= ds.map(_.serial))
-    ).transactionally
-
-    Await.result(db.run(q), conf.defaultTimeout)
+  def delete(toDelete: Iterable[Delta]) = {
+    val action = deltas.filter(d => d.serial inSet toDelete.map(_.serial)).delete.transactionally
+    Await.result(db.run(action), conf.defaultTimeout)
+    deltaMap --= toDelete.map(_.serial)
+    logger.info(s"Deleted ${toDelete.size} deltas from store and memory")
   }
 }
 
