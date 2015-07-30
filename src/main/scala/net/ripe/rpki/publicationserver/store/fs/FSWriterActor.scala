@@ -26,13 +26,22 @@ class FSWriterActor extends Actor with Logging with Config {
 
   override def receive = {
     case InitCommand(newServerState) =>
-      initFSContent(newServerState)
+      catchExceptions(initFSContent(newServerState))
 
     case CleanSnapshotsCommand(timestamp, latestSerial) =>
-      cleanupSnapshots(timestamp, latestSerial)
+      catchExceptions(cleanupSnapshots(timestamp, latestSerial))
 
     case WriteCommand(newServerState) =>
-      updateFSContent(newServerState)
+      catchExceptions(updateFSContent(newServerState))
+  }
+
+  def catchExceptions(f: => Unit) = {
+    try { f }
+    catch {
+      case e: Exception =>
+        logger.error("Error processing command", e)
+        throw e
+    }
   }
 
   def initFSContent(newServerState: ServerState): Unit = {
@@ -125,4 +134,3 @@ class FSWriterActor extends Actor with Logging with Config {
 object FSWriterActor {
   def props = Props(new FSWriterActor())
 }
-
