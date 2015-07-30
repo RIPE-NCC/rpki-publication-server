@@ -70,5 +70,5 @@ crossPaths := false
 // Package the initd script. Note: the Universal plugin will make anything in a bin/ directory executable.
 mappings in Universal += file("src/main/scripts/rpki-publication-server.sh") -> "bin/rpki-publication-server.sh"
 
-mappings in Universal += file("src/main/resources/application.conf") -> "conf/rpki-publication-server.default.conf"
+mappings in Universal += file("src/main/resources/reference.conf") -> "conf/rpki-publication-server.default.conf"
 
