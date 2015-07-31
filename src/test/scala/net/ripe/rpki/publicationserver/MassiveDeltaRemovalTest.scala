@@ -17,7 +17,7 @@ import org.scalatest.BeforeAndAfterAll
 import scala.concurrent.duration._
 
 
-object DeltaRemovalTest {
+object MassiveDeltaRemovalTest {
   import scala.language.postfixOps
 
   val timeToRunTheTest: FiniteDuration = 30 seconds
@@ -48,8 +48,8 @@ object DeltaRemovalTest {
 }
 
 
-class DeltaRemovalTest extends PublicationServerBaseTest with Hashing with BeforeAndAfterAll with Logging {
-  import DeltaRemovalTest._
+class MassiveDeltaRemovalTest extends PublicationServerBaseTest with Hashing with BeforeAndAfterAll with Logging {
+  import MassiveDeltaRemovalTest._
 
   private var sessionDir: String = _
 
