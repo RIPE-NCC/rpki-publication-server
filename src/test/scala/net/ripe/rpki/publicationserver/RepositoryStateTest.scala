@@ -17,8 +17,12 @@ import spray.testkit.ScalatestRouteTest
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-object TestObjects {
-  val retainPeriodOverride: Int = 100
+object RepositoryStateTest {
+  val rootDir = Files.createTempDirectory(Paths.get("/tmp"),"test_pub_server_")
+  rootDir.toFile.deleteOnExit()
+  val rootDirName = rootDir.toString
+
+  var retainPeriodOverride: Int = 100
   val theDeltaStore = new DeltaStore {
     // override interval so it does not take that long
     override def afterRetainPeriod(period: Duration): Date = new Date(System.currentTimeMillis() + retainPeriodOverride)
@@ -27,27 +31,20 @@ object TestObjects {
   val theServerStateStore = new ServerStateStore
   val theObjectStore = new ObjectStore
 
-  val rootDir = Files.createTempDirectory(Paths.get("/tmp"),"test_pub_server_")
-  rootDir.toFile.deleteOnExit()
-  val rootDirName = rootDir.toString
-}
+  class TestFSWriter extends FSWriterActor with Config {
 
-class TestFSWriter extends FSWriterActor with Config {
+    override protected val deltaStore = theDeltaStore
+    override protected val objectStore = theObjectStore
 
-  import TestObjects._
-
-  override protected val deltaStore = theDeltaStore
-  override protected val objectStore = theObjectStore
-
-  override lazy val conf = new AppConfig {
-    override lazy val unpublishedFileRetainPeriod = Duration.Zero
-    override lazy val locationRepositoryPath = rootDirName
+    override lazy val conf = new AppConfig {
+      override lazy val unpublishedFileRetainPeriod = Duration.Zero
+      override lazy val locationRepositoryPath = rootDirName
+    }
   }
 }
 
 class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteTest with Hashing with BeforeAndAfterAll {
-
-  import TestObjects._
+  import RepositoryStateTest._
 
   private var serial: Long = _
 
@@ -58,7 +55,7 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
 
   override implicit val system = ActorSystem("MyActorSystem", ConfigFactory.load())
 
-  private val fsWriterRef = TestActorRef[TestFSWriter]
+  private val fsWriterRef = TestActorRef[RepositoryStateTest.TestFSWriter]
 
   val waitTime: FiniteDuration = Duration(30, TimeUnit.SECONDS)
 
@@ -77,7 +74,7 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
   }
 
   before {
-    cleanDir(TestObjects.rootDir.toFile)
+    cleanDir(rootDir.toFile)
     serial = 1L
     theObjectStore.clear()
     theDeltaStore.clear()
@@ -170,50 +167,6 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
     checkFileAbsent(Paths.get(sessionDir, "2", "delta.xml"))
     checkFileAbsent(Paths.get(sessionDir, "3", "delta.xml"))
   }
-
-  test("should create snapshots after removing deltas") {
-
-    val data = Base64("AAAAAA==")
-    val uri = "rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"
-    val publishXml = pubMessage(uri, data)
-    val withdrawXml = withdrawMessage(uri, hash(data))
-
-    val service = publicationService
-
-    checkFileExists(Paths.get(sessionDir, "1", "snapshot.xml"))
-
-    // publish, withdraw and re-publish the same object to make
-    // delta size larger than snapshot size
-
-    POST("/?clientId=1234", publishXml.mkString) ~> service.publicationRoutes ~> check { responseAs[String] }
-
-    checkFileExists(Paths.get(sessionDir, "2", "delta.xml"))
-
-    POST("/?clientId=1234", withdrawXml.mkString) ~> service.publicationRoutes ~> check { responseAs[String] }
-
-    checkFileExists(Paths.get(sessionDir, "3", "delta.xml"))
-
-    POST("/?clientId=1234", publishXml.mkString) ~> service.publicationRoutes ~> check { responseAs[String] }
-
-    checkFileExists(Paths.get(sessionDir, "4", "delta.xml"))
-
-    Thread.sleep(retainPeriodOverride); // wait until delta deletion time comes
-
-    POST("/?clientId=1234", withdrawXml.mkString) ~> service.publicationRoutes ~> check { responseAs[String] }
-
-    checkFileExists(Paths.get(sessionDir, "5", "delta.xml"))
-
-    // it should remove deltas 2 and 3 because together with 4th they constitute
-    // more than the last snapshot
-    checkFileAbsent(Paths.get(sessionDir, "2", "delta.xml"))
-    checkFileAbsent(Paths.get(sessionDir, "3", "delta.xml"))
-
-    POST("/?clientId=1234", publishXml.mkString) ~> service.publicationRoutes ~> check { responseAs[String] }
-
-    checkFileExists(Paths.get(sessionDir, "6", "snapshot.xml"))
-    checkFileExists(Paths.get(sessionDir, "6", "delta.xml"))
-  }
-
 
   private def pubMessage(uri: String, base64: Base64, hash: Option[Hash] = None) = {
     val hashAttr = hash.map(h => s""" hash="${h.hash}" """).getOrElse("")
