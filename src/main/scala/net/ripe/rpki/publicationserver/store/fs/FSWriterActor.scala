@@ -46,20 +46,25 @@ class FSWriterActor extends Actor with Logging with Config {
 
   def initFSContent(newServerState: ServerState): Unit = {
     val objects = objectStore.listAll
-    val deltas = deltaStore.getDeltas
     val snapshot = Snapshot(newServerState, objects)
-    val newNotification = Notification.create(snapshot, newServerState, deltas)
 
-    val failures = deltas.par.map { d =>
+    val deltas = deltaStore.markOldestDeltasForDeletion(snapshot.binarySize, conf.unpublishedFileRetainPeriod)
+    val (deltasToPublish, deltasToDelete) = deltas.partition(_.whenToDelete.isEmpty)
+    val newNotification = Notification.create(snapshot, newServerState, deltasToPublish.toSeq)
+
+    val failures = deltasToPublish.par.map { d =>
       (d, repositoryWriter.writeDelta(conf.locationRepositoryPath, d))
     }.collect {
       case (d, Failure(f)) => (d, f)
     }.seq
 
     if (failures.isEmpty) {
+      val now = System.currentTimeMillis
       repositoryWriter.writeNewState(conf.locationRepositoryPath, newServerState, newNotification, snapshot) match {
-        case Success(_) =>
+        case Success(timestampOption) =>
           logger.info(s"Written snapshot ${newServerState.serialNumber}")
+          if (timestampOption.isDefined) scheduleSnapshotCleanup(timestampOption.get, newServerState.serialNumber)
+          cleanupDeltas(deltasToDelete.filter(_.whenToDelete.exists(_.getTime < now)))
         case Failure(e) =>
           logger.error("Could not write XML files to filesystem: " + e.getMessage, e)
       }
@@ -86,7 +91,6 @@ class FSWriterActor extends Actor with Logging with Config {
         }
     }
 
-
     objectStore.listAll(givenSerial) match {
       case None =>
         logger.info(s"Skipping snapshot $givenSerial")
@@ -102,11 +106,9 @@ class FSWriterActor extends Actor with Logging with Config {
         val newNotification = Notification.create(snapshot, newServerState, deltasToPublish.toSeq)
         val now = System.currentTimeMillis
         repositoryWriter.writeNewState(conf.locationRepositoryPath, newServerState, newNotification, snapshot) match {
-          case Success(Some(timestamp)) =>
-            scheduleSnapshotCleanup(timestamp, givenSerial)
+          case Success(timestampOption) =>
+            if (timestampOption.isDefined) scheduleSnapshotCleanup(timestampOption.get, givenSerial)
             cleanupDeltas(deltasToDelete.filter(_.whenToDelete.exists(_.getTime < now)))
-          case Success(None) =>
-            logger.info("No previous snapshots to clean")
           case Failure(e) =>
             logger.error("Could not write XML files to filesystem: " + e.getMessage, e)
         }
