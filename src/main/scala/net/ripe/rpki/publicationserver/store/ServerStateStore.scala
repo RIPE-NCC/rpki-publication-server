@@ -6,7 +6,6 @@ import net.ripe.rpki.publicationserver.model.ServerState
 import slick.driver.H2Driver.api._
 
 import scala.concurrent.Await
-import scala.concurrent.ExecutionContext.Implicits.global
 
 class ServerStateStore {
 

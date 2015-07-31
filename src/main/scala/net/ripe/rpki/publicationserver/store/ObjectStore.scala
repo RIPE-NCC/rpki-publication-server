@@ -8,7 +8,6 @@ import net.ripe.rpki.publicationserver.model.ClientId
 import slick.driver.H2Driver.api._
 
 import scala.concurrent.Await
-import scala.concurrent.ExecutionContext.Implicits.global
 
 class ObjectStore extends Hashing {
 

@@ -10,7 +10,6 @@ import slick.driver.H2Driver.api._
 import slick.jdbc.meta.MTable
 
 import scala.concurrent.{Future, Await}
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 
 object Migrations {

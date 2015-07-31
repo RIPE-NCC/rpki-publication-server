@@ -9,7 +9,6 @@ import net.ripe.rpki.publicationserver.{Base64, Hash, PublicationServerBaseTest}
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
-import scala.concurrent.ExecutionContext.Implicits.global
 
 
 class DBTest extends PublicationServerBaseTest {

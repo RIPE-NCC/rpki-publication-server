@@ -2,14 +2,14 @@ package net.ripe.rpki.publicationserver.store
 
 import java.net.URI
 import java.util.UUID
+import java.util.concurrent.Executors
 
 import net.ripe.rpki.publicationserver.model.ServerState
 import net.ripe.rpki.publicationserver.{Base64, Hash}
 import slick.jdbc.meta.MTable
 
-import scala.concurrent.Await
 import scala.concurrent.duration._
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.{Await, ExecutionContext}
 
 object DBConfig {
   var useMemoryDatabase = false
@@ -18,6 +18,10 @@ object DBConfig {
 object DB {
 
   import slick.driver.H2Driver.api._
+
+  // define dedicated unbounded EC for slick,
+  // to prevent it being stuck when the default EC is exhausted
+  implicit val ec: ExecutionContext = ExecutionContext.fromExecutor(Executors.newCachedThreadPool())
 
   type RRDPObject = (Base64, Hash, URI)
 

@@ -9,12 +9,12 @@ import net.ripe.rpki.publicationserver.model.{ClientId, Delta}
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
-import scala.concurrent.ExecutionContext.Implicits.global
 
 class DeltaStore extends Hashing with Logging {
 
   import DB._
   import slick.driver.H2Driver.api._
+
   import scala.collection.JavaConversions._
 
   lazy val conf = wire[AppConfig]
