@@ -56,7 +56,9 @@ trait PublicationService extends HttpService with RepositoryPath with SnapshotSt
       case HttpEntity.Empty => Source.fromInputStream(new ByteArrayInputStream(Array[Byte]()))
     }
 
-  implicit val singleThreadEC = ExecutionContext.fromExecutorService(Executors.newSingleThreadExecutor())
+  // we need to process all queries sequentially
+  // so make this SingleThread EC for all Futures that handle queries
+  implicit private val singleThreadEC = ExecutionContext.fromExecutorService(Executors.newSingleThreadExecutor())
 
   val publicationRoutes =
     path("") {
