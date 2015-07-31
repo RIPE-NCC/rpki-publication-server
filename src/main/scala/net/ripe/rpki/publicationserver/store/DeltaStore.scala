@@ -62,22 +62,26 @@ class DeltaStore extends Hashing with Logging {
   }
 
   def markOldestDeltasForDeletion(snapshotSize: Long, retainPeriod: Duration) = {
-    val deltasNewestFirst: Seq[Delta] = deltaMap.values.toSeq.sortBy(-_.serial)
-    var accDeltaSize = deltasNewestFirst.head.binarySize
-    deltasNewestFirst.tail.find { d =>
-      accDeltaSize += d.binarySize
-      accDeltaSize > snapshotSize
-    } foreach { firstDeltaToRemove =>
-      val timeToRemove = afterRetainPeriod(retainPeriod)
-      logger.info(s"Deltas older than ${firstDeltaToRemove.serial} will be removed after $timeToRemove, the total size of remaining deltas is ${accDeltaSize - firstDeltaToRemove.binarySize}")
-      deltaMap.foreach { x =>
-        val (serial, delta) = x
-        if (serial <= firstDeltaToRemove.serial && delta.whenToDelete.isEmpty) {
-          deltaMap.replace(serial, delta.markForDeletion(timeToRemove))
+    if (deltaMap.isEmpty) {
+      Iterable()
+    } else {
+      val deltasNewestFirst: Seq[Delta] = deltaMap.values.toSeq.sortBy(-_.serial)
+      var accDeltaSize = deltasNewestFirst.head.binarySize
+      deltasNewestFirst.tail.find { d =>
+        accDeltaSize += d.binarySize
+        accDeltaSize > snapshotSize
+      } foreach { firstDeltaToRemove =>
+        val timeToRemove = afterRetainPeriod(retainPeriod)
+        logger.info(s"Deltas older than ${firstDeltaToRemove.serial} will be removed after $timeToRemove, the total size of remaining deltas is ${accDeltaSize - firstDeltaToRemove.binarySize}")
+        deltaMap.foreach { x =>
+          val (serial, delta) = x
+          if (serial <= firstDeltaToRemove.serial && delta.whenToDelete.isEmpty) {
+            deltaMap.replace(serial, delta.markForDeletion(timeToRemove))
+          }
         }
       }
+      deltaMap.values
     }
-    deltaMap.values
   }
 
   def afterRetainPeriod(period: Duration): Date = new Date(System.currentTimeMillis() + period.toMillis)
