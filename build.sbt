@@ -4,6 +4,8 @@ name := "rpki-publication-server"
 
 version := "1.1-SNAPSHOT"
 
+val buildNumber = sys.props.getOrElse("build.number", "DEV")
+
 scalaVersion := "2.11.6"
 
 scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8")
@@ -56,7 +58,7 @@ sourceGenerators in Compile += Def.task {
   val rev = "git rev-parse HEAD".!!.trim()
   val code = s"""package net.ripe.rpki.publicationserver
                 object GeneratedBuildInformation {
-                val version = "${sys.props.getOrElse("build.number", "DEV")}"
+                val version = "$buildNumber"
                 val buildDate = "$now"
                 val revision = "$rev"
             }""".stripMargin
@@ -68,11 +70,13 @@ Revolver.settings: Seq[sbt.Setting[_]]
 
 publishTo := Some(Resolver.file("",  new File(Path.userHome.absolutePath+"/.m2/repository")))
 
-// disable using the Scala version in output paths and artifacts
+// Disable the use of the Scala version in output paths and artifacts
 crossPaths := false
 
 // Package the initd script. Note: the Universal plugin will make anything in a bin/ directory executable.
 mappings in Universal += file("src/main/scripts/rpki-publication-server.sh") -> "bin/rpki-publication-server.sh"
 
 mappings in Universal += file("src/main/resources/reference.conf") -> "conf/rpki-publication-server.default.conf"
+
+version in Universal := buildNumber
 
