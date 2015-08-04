@@ -1,10 +1,12 @@
+val buildNumber = sys.props.getOrElse("build.number", "DEV")
+val nexusUser = sys.props.get("nexus.user")
+val nexusPassword = sys.props.get("nexus.password")
+
 organization := "net.ripe"
 
 name := "rpki-publication-server"
 
 version := "1.1-SNAPSHOT"
-
-val buildNumber = sys.props.getOrElse("build.number", "DEV")
 
 scalaVersion := "2.11.6"
 
@@ -67,6 +69,11 @@ sourceGenerators in Compile += Def.task {
 }.taskValue
 
 Revolver.settings: Seq[sbt.Setting[_]]
+
+credentials += Credentials("Sonatype Nexus Repository Manager",
+  "nexus.ripe.net",
+  s"$nexusUser",
+  s"$nexusPassword")
 
 publishTo := {
   if (buildNumber == "DEV")
