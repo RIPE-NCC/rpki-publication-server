@@ -68,7 +68,12 @@ sourceGenerators in Compile += Def.task {
 
 Revolver.settings: Seq[sbt.Setting[_]]
 
-publishTo := Some(Resolver.file("",  new File(Path.userHome.absolutePath+"/.m2/repository")))
+publishTo := {
+  if (buildNumber == "DEV")
+    Some(Resolver.file("",  new File(Path.userHome.absolutePath+"/.m2/repository")))
+  else
+    Some("ripe-snapshots" at "http://nexus.ripe.net/nexus/content/repositories/snapshots")
+}
 
 // Disable the use of the Scala version in output paths and artifacts
 crossPaths := false
