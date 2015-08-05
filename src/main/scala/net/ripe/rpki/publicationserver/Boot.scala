@@ -1,11 +1,15 @@
 package net.ripe.rpki.publicationserver
 
+import java.io.PrintStream
+
 import akka.actor.{ActorRefFactory, ActorSystem}
 import akka.io.IO
 import akka.pattern.ask
 import akka.util.Timeout
 import com.softwaremill.macwire.MacwireMacros._
+import net.ripe.logging.LoggingOutputStream
 import net.ripe.rpki.publicationserver.store.fs.FSWriterActor
+import org.apache.log4j.{Logger, Level}
 import org.slf4j.LoggerFactory
 import spray.can.Http
 
@@ -29,6 +33,7 @@ object Boot extends App {
 
   def setupLogging() = {
     System.setProperty("LOG_FILE", conf.locationLogfile)
+    System.setErr(new PrintStream( new LoggingOutputStream(Logger.getRootLogger, Level.ERROR), true))
     LoggerFactory.getLogger(this.getClass).info("Starting up the publication server ...")
   }
 }
