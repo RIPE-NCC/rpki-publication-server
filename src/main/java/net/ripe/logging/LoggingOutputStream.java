@@ -23,8 +23,7 @@ public class LoggingOutputStream extends OutputStream {
 
     protected Priority priority;
 
-    public LoggingOutputStream(Category cat, Priority priority)
-        throws IllegalArgumentException {
+    public LoggingOutputStream(Category cat, Priority priority) {
         if (cat == null) {
             throw new IllegalArgumentException("cat == null");
         }
