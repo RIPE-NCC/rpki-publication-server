@@ -1,6 +1,6 @@
 val buildNumber = sys.props.getOrElse("build.number", "DEV")
-val nexusUser = sys.props.get("nexus.user")
-val nexusPassword = sys.props.get("nexus.password")
+val nexusUser = sys.props.getOrElse("nexus.user", "?")
+val nexusPassword = sys.props.getOrElse("nexus.password", "?")
 
 organization := "net.ripe"
 
