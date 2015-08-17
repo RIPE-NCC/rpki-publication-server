@@ -6,8 +6,7 @@ import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver.AppConfig
 import net.ripe.rpki.publicationserver.model.ServerState
 import slick.dbio.DBIO
-import slick.driver.H2Driver.api._
-import slick.jdbc.meta.MTable
+import slick.driver.DerbyDriver.api._
 
 import scala.concurrent.{Future, Await}
 import scala.concurrent.duration._
@@ -50,14 +49,13 @@ object Migrations {
     initServerState()
   }
 
-  private def createTableIfNotExists(table: TableQuery[_ <: Table[_]]) =
-    db.run(MTable.getTables(table.baseTableRow.tableName)).flatMap { result =>
-      if (result.isEmpty)
-        db.run(table.schema.create)
-      else
-        Future.successful(())
-    }
-
+  private def createTableIfNotExists(table: TableQuery[_ <: Table[_]]): Future[Unit] = {
+     for {
+       // Just querying MTable does not seem to work with Derby + Slick
+       tableName <- db.run(sql"select TABLENAME from SYS.SYSTABLES where TABLENAME=${table.baseTableRow.tableName}".as[String])
+       future <- if (tableName.isEmpty) db.run(table.schema.create) else Future.successful(())
+     } yield future
+  }
 
   private class Migration(tag: Tag) extends Table[(Int, String)](tag, "migrations") {
     def number = column[Int]("MIGRATION_NUMBER", O.PrimaryKey)

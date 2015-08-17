@@ -17,7 +17,7 @@ object DBConfig {
 
 object DB {
 
-  import slick.driver.H2Driver.api._
+  import slick.driver.DerbyDriver.api._
 
   // define dedicated unbounded EC for slick,
   // to prevent it being stuck when the default EC is exhausted
@@ -27,12 +27,12 @@ object DB {
 
   type DBType = Database
 
-  lazy val db = if (DBConfig.useMemoryDatabase) Database.forConfig("h2mem") else Database.forConfig("h2fs")
+  lazy val db = if (DBConfig.useMemoryDatabase) Database.forConfig("derbymem") else Database.forConfig("derbyfs")
 
   class RepoObject(tag: Tag) extends Table[(String, String, String, String)](tag, "REPO_OBJECTS") {
     def uri = column[String]("URI", O.PrimaryKey)
     def hash = column[String]("HASH")
-    def base64 = column[String]("BASE64")
+    def base64 = column[String]("BASE64", O.Length(4096))
     def clientId = column[String]("CLIENT_ID")
 
     def * = (base64, hash, uri, clientId)
@@ -53,7 +53,7 @@ object DB {
   class DeltaPdu(tag: Tag) extends Table[(String, Option[String], Option[String], String, Long, Char)](tag, "DELTAS") {
     def uri = column[String]("URI")
     def hash = column[Option[String]]("HASH")
-    def base64 = column[Option[String]]("BASE64")
+    def base64 = column[Option[String]]("BASE64", O.Length(4096))
     def clientId = column[String]("CLIENT_ID")
     def serial = column[Long]("SERIAL")
     def changeType = column[Char]("CHANGE_TYPE")

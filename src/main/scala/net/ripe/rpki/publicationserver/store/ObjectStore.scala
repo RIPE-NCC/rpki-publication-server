@@ -5,7 +5,7 @@ import java.net.URI
 import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.model.ClientId
-import slick.driver.H2Driver.api._
+import slick.driver.DerbyDriver.api._
 
 import scala.concurrent.Await
 

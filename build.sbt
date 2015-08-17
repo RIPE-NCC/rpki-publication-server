@@ -42,11 +42,11 @@ libraryDependencies ++= {
     "org.slf4j"                 % "slf4j-log4j12"     % "1.7.12",
     "com.softwaremill.macwire" %% "macros"            % "1.0.1",
     "com.softwaremill.macwire" %% "runtime"           % "1.0.1",
-    "io.spray"                 %% "spray-json"        % "1.3.2",
+    "io.spray"                 %% "spray-json"        % "1.3.2", // TODO why not sprayV?
     "com.google.guava"         %  "guava"             % "18.0",
     "com.google.code.findbugs" %  "jsr305"            % "1.3.9",
-    "com.h2database"           %  "h2"                % "1.4.185",
-    "com.typesafe.slick"       %% "slick"             % "3.0.0"
+    "com.typesafe.slick"       %% "slick"             % "3.0.0",
+    "org.apache.derby"          % "derby"             % "10.11.1.1"
   )
 }
 

@@ -13,7 +13,7 @@ import scala.concurrent.duration.Duration
 
 class DBTest extends PublicationServerBaseTest {
 
-  import slick.driver.H2Driver.api._
+  import slick.driver.DerbyDriver.api._
 
   val db = DB.db
   val objectStore = new ObjectStore

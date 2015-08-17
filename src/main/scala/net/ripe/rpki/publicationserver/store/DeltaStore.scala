@@ -13,7 +13,7 @@ import scala.concurrent.duration.Duration
 class DeltaStore extends Hashing with Logging {
 
   import DB._
-  import slick.driver.H2Driver.api._
+  import slick.driver.DerbyDriver.api._
 
   import scala.collection.JavaConversions._
 

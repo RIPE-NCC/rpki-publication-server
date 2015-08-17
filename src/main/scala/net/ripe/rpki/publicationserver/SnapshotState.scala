@@ -7,7 +7,7 @@ import net.ripe.rpki.publicationserver.model._
 import net.ripe.rpki.publicationserver.store.fs.{InitCommand, WriteCommand}
 import net.ripe.rpki.publicationserver.store.{DB, DeltaStore, ObjectStore, ServerStateStore}
 import slick.dbio.DBIO
-import slick.driver.H2Driver.api._
+import slick.driver.DerbyDriver.api._
 
 import scala.concurrent.Await
 
