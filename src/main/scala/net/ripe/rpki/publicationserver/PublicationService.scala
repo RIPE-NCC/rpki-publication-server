@@ -1,6 +1,7 @@
 package net.ripe.rpki.publicationserver
 
 import java.io.ByteArrayInputStream
+import java.sql.DriverManager
 import java.util.concurrent.Executors
 
 import akka.actor.{Props, ActorRef, ActorRefFactory, Actor}
@@ -29,6 +30,10 @@ class PublicationServiceActor(fsWriterFactory: ActorRefFactory => ActorRef)
     Migrations.migrate()
     val fsWriter = fsWriterFactory(context)
     init(fsWriter)
+  }
+
+  override def postStop() = {
+    DriverManager.getConnection("jdbc:derby:;shutdown=true")
   }
 }
 
