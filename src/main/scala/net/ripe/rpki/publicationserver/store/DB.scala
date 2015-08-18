@@ -32,7 +32,7 @@ object DB {
   class RepoObject(tag: Tag) extends Table[(String, String, String, String)](tag, "REPO_OBJECTS") {
     def uri = column[String]("URI", O.PrimaryKey)
     def hash = column[String]("HASH")
-    def base64 = column[String]("BASE64", O.Length(4096))
+    def base64 = column[String]("BASE64", O.SqlType("CLOB"))
     def clientId = column[String]("CLIENT_ID")
 
     def * = (base64, hash, uri, clientId)
@@ -53,7 +53,7 @@ object DB {
   class DeltaPdu(tag: Tag) extends Table[(String, Option[String], Option[String], String, Long, Char)](tag, "DELTAS") {
     def uri = column[String]("URI")
     def hash = column[Option[String]]("HASH")
-    def base64 = column[Option[String]]("BASE64", O.Length(4096))
+    def base64 = column[Option[String]]("BASE64", O.SqlType("CLOB"))
     def clientId = column[String]("CLIENT_ID")
     def serial = column[Long]("SERIAL")
     def changeType = column[Char]("CHANGE_TYPE")
