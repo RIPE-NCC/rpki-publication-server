@@ -137,9 +137,10 @@ case ${FIRST_ARG} in
         # in the beginning of the script we do "cd <path>/bin",
         # so "lib" will always be next to it
         CLASSPATH=:"../lib/*"
-        MEM_OPTIONS="-Xms$JVM_XMS -Xmx$JVM_XMX"
+        MEM_OPTIONS="-Xms$JVM_XMS -Xmx$JVM_XMX -XX:+HeapDumpOnOutOfMemoryError"
+        GC_LOG_OPTIONS="-XX:+PrintGCDetails -XX:+PrintGCDateStamps -verbose:gc -Xloggc:../../log/gc.log -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=2"
 
-        CMDLINE="${JAVA_CMD} ${MEM_OPTIONS} \
+        CMDLINE="${JAVA_CMD} ${MEM_OPTIONS} ${GC_LOG_OPTIONS} \
                  -Dapp.name=${APP_NAME} -Dconfig.file=${CONFIG_FILE} \
                  -classpath ${CLASSPATH} net.ripe.rpki.publicationserver.Boot"
 
