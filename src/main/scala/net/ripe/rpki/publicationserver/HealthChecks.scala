@@ -43,7 +43,7 @@ class HealthChecks extends Config {
 
   def checkDatabaseStatus: String = {
     val result = Try(serverStateStore.get)
-    if (result.isFailure) result.failed.get.getMessage else "OK"        // TODO throw error or so
+    if (result.isFailure) throw result.failed.get else "OK"
   }
 
   def mb(b: Long) = (b/(1024*1024)) + "mb"

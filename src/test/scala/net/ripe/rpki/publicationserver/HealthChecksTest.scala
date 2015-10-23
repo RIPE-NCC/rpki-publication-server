@@ -20,11 +20,13 @@ class HealthChecksTest extends PublicationServerBaseTest {
     buildInfo.fields.get("databaseConnectivity").get should equal(JsString("OK"))
   }
 
-  test("should show error message for database connectivity") {
+  test("should throw exception with error message for database connectivity") {
     when(serverStateDb.get).thenThrow(new RuntimeException("Cannot connect!"))
 
-    val buildInfo = healthChecks.healthString.parseJson.asJsObject
+    val thrown = intercept[RuntimeException] {
+      healthChecks.healthString
+    }
 
-    buildInfo.fields.get("databaseConnectivity").get should equal(JsString("Cannot connect!"))
+    thrown.getMessage should equal("Cannot connect!")
   }
 }
