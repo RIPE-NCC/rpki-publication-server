@@ -28,9 +28,7 @@ dockerCommands := Seq(
   Cmd("FROM", "java:latest"),
   Cmd("WORKDIR",s"/opt/docker"),
   Cmd("ADD","opt /opt"),
-  ExecCmd("RUN", "chown", "-R", "app-admin:app-admin", "."),
   Cmd("EXPOSE", "7788"),
-  Cmd("USER","app-admin"),
   ExecCmd("ENTRYPOINT","bin/rpki-publication-server.sh", "run", "-c", "../conf/rpki-publication-server.default.conf")
        )
 
