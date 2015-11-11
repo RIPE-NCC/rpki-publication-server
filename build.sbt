@@ -1,3 +1,5 @@
+import com.typesafe.sbt.packager.docker.{Cmd, ExecCmd}
+
 val buildNumber = sys.props.getOrElse("build.number", "DEV")
 val nexusUser = sys.props.getOrElse("nexus.user", "?")
 val nexusPassword = sys.props.getOrElse("nexus.password", "?")
@@ -19,6 +21,18 @@ fork in run := true
 javaOptions in run ++= Seq("-Xmx2G", "-XX:+UseConcMarkSweepGC")
 
 enablePlugins(JavaServerAppPackaging)
+enablePlugins(DockerPlugin)
+
+
+dockerCommands := Seq(
+  Cmd("FROM", "java:latest"),
+  Cmd("WORKDIR",s"/opt/docker"),
+  Cmd("ADD","opt /opt"),
+  ExecCmd("RUN", "chown", "-R", "app-admin:app-admin", "."),
+  Cmd("EXPOSE", "7788"),
+  Cmd("USER","app-admin"),
+  ExecCmd("ENTRYPOINT","bin/rpki-publication-server.sh", "run", "-c", "../conf/rpki-publication-server.default.conf")
+       )
 
 resolvers += "Codehaus Maven2 Repository" at "http://repository.codehaus.org/"
 
