@@ -26,11 +26,15 @@ enablePlugins(DockerPlugin)
 
 dockerCommands := Seq(
   Cmd("FROM", "java:latest"),
+  Cmd("MAINTAINER", "SWE Green <swe-green@ripe.net>"),
   Cmd("WORKDIR",s"/opt/docker"),
   Cmd("ADD","opt /opt"),
-  Cmd("EXPOSE", "7788"),
-  ExecCmd("ENTRYPOINT","bin/rpki-publication-server.sh", "run", "-c", "../conf/rpki-publication-server.default.conf")
+  Cmd("EXPOSE", "7788:7788"),
+  ExecCmd("ENTRYPOINT","bin/rpki-publication-server.sh", "run"),
+  ExecCmd("CMD", "-c", "../conf/rpki-publication-server.default.conf")
        )
+
+dockerTarget in Docker := "rpki-publication-server"
 
 resolvers += "Codehaus Maven2 Repository" at "http://repository.codehaus.org/"
 
