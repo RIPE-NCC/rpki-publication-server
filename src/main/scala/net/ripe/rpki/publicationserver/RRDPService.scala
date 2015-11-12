@@ -1,7 +1,9 @@
 package net.ripe.rpki.publicationserver
 
-import spray.http.CacheDirectives
-import spray.http.HttpHeaders.`Cache-Control`
+import java.nio.file.{Files, Paths}
+
+import spray.http.HttpHeaders.{`Cache-Control`, `Content-Type`}
+import spray.http._
 import spray.http.MediaTypes._
 import spray.routing.HttpService
 
@@ -11,7 +13,16 @@ trait RRDPService extends HttpService with RepositoryPath {
   val rrdpRoutes =
     path("notification.xml") {
       respondWithHeader(`Cache-Control`(CacheDirectives.`no-cache`)) {
-        serve(s"$repositoryPath/notification.xml")
+        respondWithMediaType(`application/xhtml+xml`) {
+          complete {
+            try {
+              HttpResponse(200, Files.readAllBytes(Paths.get(s"$repositoryPath/notification.xml")))
+            } catch {
+              case e: Throwable =>
+                HttpResponse(404, e.getMessage)
+            }
+          }
+        }
       }
     } ~
       path(JavaUUID / IntNumber / "snapshot.xml") { (sessionId, serial) =>
