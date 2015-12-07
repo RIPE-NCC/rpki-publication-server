@@ -247,9 +247,9 @@ class SnapshotStateTest extends PublicationServerBaseTest with Config with Hashi
     fsWriterSpy.expectNoMsg()
   }
 
-  def getRepositoryWriter: RepositoryWriter = new MockRepositoryWriter()
+  def getRepositoryWriter: RrdpRepositoryWriter = new MockRrdpRepositoryWriter()
 
-  class MockRepositoryWriter extends RepositoryWriter {
+  class MockRrdpRepositoryWriter extends RrdpRepositoryWriter {
     override def writeSnapshot(rootDir: String, serverState: ServerState, snapshot: Snapshot) = Paths.get("")
     override def writeDelta(rootDir: String, delta: Delta) = Try(Paths.get(""))
     override def writeNotification(rootDir: String, notification: Notification) = None

@@ -21,8 +21,8 @@ class AppConfig extends ConfigWrapper {
   def getConfig = AppConfig.config
 
   lazy val port = getConfig.getInt("port")
-  lazy val locationRepositoryPath = getConfig.getString("locations.repository.path")
-  lazy val locationRepositoryUri  = getConfig.getString("locations.repository.uri")
+  lazy val locationRepositoryPath = getConfig.getString("locations.rrdp.repository.path")
+  lazy val locationRepositoryUri  = getConfig.getString("locations.rrdp.repository.uri")
   lazy val locationLogfile = getConfig.getString("locations.logfile")
   lazy val unpublishedFileRetainPeriod = Duration(getConfig.getDuration("unpublished-file-retain-period", TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS)
   lazy val defaultTimeout = Duration(getConfig.getDuration("default.timeout", TimeUnit.MINUTES), TimeUnit.MINUTES)
