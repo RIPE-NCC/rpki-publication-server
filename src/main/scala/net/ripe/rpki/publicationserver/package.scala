@@ -7,6 +7,6 @@ package object publicationserver {
   case class Base64(value: String)
 
   trait RepositoryPath {
-    val repositoryPath = wire[AppConfig].locationRepositoryPath
+    val repositoryPath = wire[AppConfig].rrdpRepositoryPath
   }
 }

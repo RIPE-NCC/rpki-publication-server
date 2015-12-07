@@ -6,7 +6,7 @@ import net.ripe.rpki.publicationserver.model.{Delta, ServerState}
 trait Config {
   lazy val conf = wire[AppConfig]
 
-  lazy val repositoryUri = conf.locationRepositoryUri
+  lazy val repositoryUri = conf.rrdpRepositoryUri
 
   def snapshotUrl(serverState: ServerState) = {
     val ServerState(sessionId, serial) = serverState

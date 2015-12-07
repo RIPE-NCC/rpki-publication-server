@@ -38,7 +38,7 @@ object RepositoryStateTest {
 
     override lazy val conf = new AppConfig {
       override lazy val unpublishedFileRetainPeriod = Duration.Zero
-      override lazy val locationRepositoryPath = rootDirName
+      override lazy val rrdpRepositoryPath = rootDirName
     }
   }
 }
