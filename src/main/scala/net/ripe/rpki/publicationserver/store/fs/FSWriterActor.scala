@@ -8,7 +8,6 @@ import net.ripe.rpki.publicationserver.model.{Delta, Notification, ServerState, 
 import net.ripe.rpki.publicationserver.store.{DeltaStore, ObjectStore}
 import net.ripe.rpki.publicationserver.{Config, Logging}
 
-import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
 

@@ -39,6 +39,10 @@ class AppConfig extends ConfigWrapper {
       path = Paths.get(entry.getValue.unwrapped().toString)
     } yield (uri, path)).toMap
   }
+  lazy val rsyncRepositoryStagingDirName = getConfig.getString("locations.rsync.staging-dir-name")
+  lazy val rsyncRepositoryOnlineDirName = getConfig.getString("locations.rsync.online-dir-name")
+  lazy val rsyncDirectoryPermissions = getConfig.getString("locations.rsync.directory-permissions")
+  lazy val rsyncFilePermissions = getConfig.getString("locations.rsync.file-permissions")
 }
 
 object AppConfig {
