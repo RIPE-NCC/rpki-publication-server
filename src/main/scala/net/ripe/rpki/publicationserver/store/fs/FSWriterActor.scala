@@ -8,6 +8,7 @@ import net.ripe.rpki.publicationserver.model.{Delta, Notification, ServerState, 
 import net.ripe.rpki.publicationserver.store.{DeltaStore, ObjectStore}
 import net.ripe.rpki.publicationserver.{Config, Logging}
 
+import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
 
@@ -48,6 +49,10 @@ class FSWriterActor extends Actor with Logging with Config {
   def initFSContent(newServerState: ServerState): Unit = {
     val objects = objectStore.listAll
     val snapshot = Snapshot(newServerState, objects)
+
+    // TODO this could be done concurrently with the rest of the init
+    // TODO However, if it fails, it should prevent server from starting
+    rsyncWriter.writeSnapshot(snapshot)
 
     val deltas = deltaStore.markOldestDeltasForDeletion(snapshot.binarySize, conf.unpublishedFileRetainPeriod)
     val (deltasToPublish, deltasToDelete) = deltas.partition(_.whenToDelete.isEmpty)
