@@ -10,18 +10,10 @@ import com.typesafe.config.{ConfigFactory, ConfigObject, ConfigValue}
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
 
-trait ConfigWrapper {
-  def port : Int
-  def rrdpRepositoryPath : String
-  def rrdpRepositoryUri : String
-  def locationLogfile : String
-  def unpublishedFileRetainPeriod : Duration
-}
-
 /**
  * Helper class which can be wired into clients while making sure that the config file is loaded only once.
  */
-class AppConfig extends ConfigWrapper {
+class AppConfig {
   def getConfig = AppConfig.config
 
   lazy val port = getConfig.getInt("port")
