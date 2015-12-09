@@ -34,7 +34,7 @@ class RsyncRepositoryWriter extends Logging {
     }
   }
 
-  def writeDelta(rootDir: String, delta: Delta) = Try {
+  def writeDelta(delta: Delta) = Try {
     delta.pdus.foreach {
       case PublishQ(uri, tag, hash, base64) =>
         writeFile(uri, base64)
