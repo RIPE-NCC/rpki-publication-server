@@ -19,7 +19,7 @@ class FSWriterActor extends Actor with Logging with Config {
   import context._
 
   val rrdpWriter = wire[RrdpRepositoryWriter]
-  val rsyncWriter = wire[RsyncRepositoryWriter]
+  lazy val rsyncWriter = wire[RsyncRepositoryWriter]
 
   protected val deltaStore = DeltaStore.get
 

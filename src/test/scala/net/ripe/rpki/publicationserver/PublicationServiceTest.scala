@@ -2,18 +2,28 @@ package net.ripe.rpki.publicationserver
 
 import java.net.URI
 
+import akka.actor.Props
 import akka.testkit.TestActorRef
-import net.ripe.rpki.publicationserver.model.ClientId
+import net.ripe.rpki.publicationserver.model.{Delta, ClientId}
 import net.ripe.rpki.publicationserver.store.ObjectStore
-import net.ripe.rpki.publicationserver.store.fs.FSWriterActor
+import net.ripe.rpki.publicationserver.store.fs.{RsyncRepositoryWriter, FSWriterActor}
+import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.slf4j.Logger
 import spray.http._
 import spray.testkit.ScalatestRouteTest
 
+import scala.util.Try
+
 class PublicationServiceTest extends PublicationServerBaseTest with ScalatestRouteTest {
 
-  val fsWriterRef = TestActorRef[FSWriterActor]
+  val theRsyncWriter = mock[RsyncRepositoryWriter]
+
+  class TestFSWriter extends FSWriterActor {
+    override lazy val rsyncWriter = theRsyncWriter
+  }
+
+  private val fsWriterRef = TestActorRef(Props(new TestFSWriter))
 
   def actorRefFactory = system
 
@@ -31,6 +41,7 @@ class PublicationServiceTest extends PublicationServerBaseTest with ScalatestRou
 
   before {
     objectStore.clear()
+    when(theRsyncWriter.writeDelta(any[Delta])).thenReturn(Try {})
   }
 
   test("should return a response with content-type application/rpki-publication") {

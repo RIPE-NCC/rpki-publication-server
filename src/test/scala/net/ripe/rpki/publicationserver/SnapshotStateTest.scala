@@ -4,7 +4,7 @@ import java.net.URI
 import java.nio.file.Paths
 import java.util.UUID
 
-import akka.actor.{ActorRef, ActorSystem}
+import akka.actor.{Props, ActorRef, ActorSystem}
 import akka.testkit.{TestActorRef, TestProbe}
 import com.typesafe.config.ConfigFactory
 import net.ripe.rpki.publicationserver.model._
@@ -28,8 +28,14 @@ class SnapshotStateTest extends PublicationServerBaseTest with Config with Hashi
   private val testObjectStore = new ObjectStore
 
   implicit private val system = ActorSystem("MyActorSystem", ConfigFactory.load())
-  
-  private val fsWriterRef = TestActorRef[FSWriterActor]
+
+  val theRsyncWriter = mock[RsyncRepositoryWriter]
+
+  class TestFSWriter extends FSWriterActor {
+    override lazy val rsyncWriter = theRsyncWriter
+  }
+
+  private val fsWriterRef = TestActorRef(Props(new TestFSWriter))
 
   def makeSnapshotState(os: ObjectStore = testObjectStore, ds: DeltaStore = testDeltaStore, fsWriter: ActorRef = fsWriterRef) = {
     val snapshotState = new SnapshotStateService {
@@ -47,6 +53,7 @@ class SnapshotStateTest extends PublicationServerBaseTest with Config with Hashi
     serverStateStore.clear()
     Migrations.initServerState()
     sessionId = serverStateStore.get.sessionId
+    when(theRsyncWriter.writeDelta(any[Delta])).thenReturn(Try {})
   }
 
   test("should write the snapshot and delta's from the db to the filesystem on init") {

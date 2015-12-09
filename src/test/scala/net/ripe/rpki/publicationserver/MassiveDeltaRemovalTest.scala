@@ -9,12 +9,16 @@ import akka.actor.ActorSystem
 import akka.testkit.TestActorRef
 import akka.testkit.TestKit._
 import com.typesafe.config.ConfigFactory
-import net.ripe.rpki.publicationserver.model.ClientId
+import net.ripe.rpki.publicationserver.model.{Delta, ClientId}
 import net.ripe.rpki.publicationserver.store.fs._
 import net.ripe.rpki.publicationserver.store.{DeltaStore, Migrations, ObjectStore, ServerStateStore}
+import org.mockito.Matchers._
+import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
+import org.scalatest.mock.MockitoSugar
 
 import scala.concurrent.duration._
+import scala.util.Try
 
 
 object MassiveDeltaRemovalTest {
@@ -35,10 +39,12 @@ object MassiveDeltaRemovalTest {
   val rootDir = Files.createTempDirectory(Paths.get("/tmp"),"test_pub_server_")
   rootDir.toFile.deleteOnExit()
   val rootDirName = rootDir.toString
+  val theRsyncWriter = MockitoSugar.mock[RsyncRepositoryWriter]
 
-  class TestFSWriter extends FSWriterActor with Config {
+  class TestFSWriter extends FSWriterActor with Config with MockitoSugar {
     override protected val deltaStore = theDeltaStore
     override protected val objectStore = theObjectStore
+    override lazy val rsyncWriter = theRsyncWriter
 
     override lazy val conf = new AppConfig {
       override lazy val unpublishedFileRetainPeriod = Duration.Zero
@@ -78,6 +84,7 @@ class MassiveDeltaRemovalTest extends PublicationServerBaseTest with Hashing wit
     theServerStateStore.clear()
     Migrations.initServerState()
     sessionDir = rootDir.resolve(theServerStateStore.get.sessionId.toString).toString
+    when(MassiveDeltaRemovalTest.theRsyncWriter.writeDelta(any[Delta])).thenReturn(Try {})
   }
 
   override def afterAll() = {
