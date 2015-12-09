@@ -9,6 +9,7 @@ import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver
 import net.ripe.rpki.publicationserver.model.{Delta, Snapshot}
 import net.ripe.rpki.publicationserver.{AppConfig, Base64, Logging, PublishQ, WithdrawQ}
+import org.apache.commons.io.FileUtils
 
 import scala.util.Try
 
@@ -59,7 +60,8 @@ class RsyncRepositoryWriter extends Logging {
 
   private def promoteStagingToOnline(tempRepoDir: Path): Unit = {
     val target: Path = tempRepoDir.getParent.resolveSibling(conf.rsyncRepositoryOnlineDirName)
-    Files.move(tempRepoDir, target, StandardCopyOption.REPLACE_EXISTING)
+    FileUtils.deleteDirectory(target.toFile)
+    Files.move(tempRepoDir, target, StandardCopyOption.ATOMIC_MOVE)
     logger.info(s"Created new repo layout at $target")
   }
 
