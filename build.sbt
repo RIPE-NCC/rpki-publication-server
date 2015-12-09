@@ -62,7 +62,8 @@ libraryDependencies ++= {
     "com.google.guava"         %  "guava"             % "18.0",
     "com.google.code.findbugs" %  "jsr305"            % "1.3.9",
     "com.typesafe.slick"       %% "slick"             % "3.0.0",
-    "org.apache.derby"          % "derby"             % "10.11.1.1"
+    "org.apache.derby"          % "derby"             % "10.11.1.1",
+    "org.apache.commons"        % "commons-io"        % "1.3.2"
   )
 }
 

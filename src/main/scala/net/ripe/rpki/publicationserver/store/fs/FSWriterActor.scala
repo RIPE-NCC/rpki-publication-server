@@ -8,7 +8,6 @@ import net.ripe.rpki.publicationserver.model.{Delta, Notification, ServerState, 
 import net.ripe.rpki.publicationserver.store.{DeltaStore, ObjectStore}
 import net.ripe.rpki.publicationserver.{Config, Logging}
 
-import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
 
@@ -28,16 +27,16 @@ class FSWriterActor extends Actor with Logging with Config {
 
   override def receive = {
     case InitCommand(newServerState) =>
-      catchExceptions(initFSContent(newServerState))
+      logExceptions(initFSContent(newServerState))
 
     case CleanSnapshotsCommand(timestamp, latestSerial) =>
-      catchExceptions(cleanupSnapshots(timestamp, latestSerial))
+      logExceptions(cleanupSnapshots(timestamp, latestSerial))
 
     case WriteCommand(newServerState) =>
-      catchExceptions(updateFSContent(newServerState))
+      logExceptions(updateFSContent(newServerState))
   }
 
-  def catchExceptions(f: => Unit) = {
+  def logExceptions(f: => Unit) = {
     try { f }
     catch {
       case e: Exception =>
@@ -52,7 +51,9 @@ class FSWriterActor extends Actor with Logging with Config {
 
     // TODO this could be done concurrently with the rest of the init
     // TODO However, if it fails, it should prevent server from starting
-    rsyncWriter.writeSnapshot(snapshot)
+    logExceptions {
+      rsyncWriter.writeSnapshot(snapshot)
+    }
 
     val deltas = deltaStore.markOldestDeltasForDeletion(snapshot.binarySize, conf.unpublishedFileRetainPeriod)
     val (deltasToPublish, deltasToDelete) = deltas.partition(_.whenToDelete.isEmpty)
@@ -93,9 +94,12 @@ class FSWriterActor extends Actor with Logging with Config {
         logger.info(s"Writing delta $givenSerial to filesystem")
         rrdpWriter.writeDelta(conf.rrdpRepositoryPath, delta).recover {
           case e: Exception =>
-            logger.error(s"Could not write delta $givenSerial", e)
+            logger.error(s"Could not write delta $givenSerial to RRDP repo: ", e)
         }
-        rsyncWriter.writeDelta(conf.rrdpRepositoryPath, delta)
+        rsyncWriter.writeDelta(delta).recover {
+          case e: Exception =>
+            logger.error(s"Could not write delta $givenSerial to rsync repo: ", e)
+        }
     }
 
     objectStore.listAll(givenSerial) match {
