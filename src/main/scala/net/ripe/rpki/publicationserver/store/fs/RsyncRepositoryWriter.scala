@@ -20,6 +20,8 @@ class RsyncRepositoryWriter extends Logging {
   val directoryPermissions = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString(conf.rsyncDirectoryPermissions))
   val filePermissions = PosixFilePermissions.fromString(conf.rsyncFilePermissions)
 
+  logger.info(s"Using following URL mapping:\n${conf.rsyncRepositoryMapping}")
+
   def writeSnapshot(snapshot: Snapshot) = {
     val objectsPerBaseDir = groupByBaseDir(snapshot)
     for (baseDir <- objectsPerBaseDir.keys) {
@@ -58,12 +60,13 @@ class RsyncRepositoryWriter extends Logging {
   private def promoteStagingToOnline(tempRepoDir: Path): Unit = {
     val target: Path = tempRepoDir.getParent.resolveSibling(conf.rsyncRepositoryOnlineDirName)
     Files.move(tempRepoDir, target, StandardCopyOption.REPLACE_EXISTING)
+    logger.info(s"Created new repo layout at $target")
   }
 
   private def resolvePath(uri: URI): RsyncFsLocation = {
     conf.rsyncRepositoryMapping.collectFirst {
       case (rootUri, baseDir) if !rootUri.relativize(uri).isAbsolute =>
-        RsyncFsLocation(baseDir, Paths.get(rootUri.relativize(uri)))
+        RsyncFsLocation(baseDir, Paths.get(rootUri.relativize(uri).toString))
     } match {
     case Some(rsyncFsLocation) => rsyncFsLocation
     case None => throw new IllegalArgumentException(s"Unable to map URI to filesystem location: $uri")
@@ -81,10 +84,14 @@ class RsyncRepositoryWriter extends Logging {
     val targetFile: Path = onlineFileFor(fsLocation)
     createParentDirectories(targetFile)
     Files.move(tempFile, targetFile, StandardCopyOption.ATOMIC_MOVE)
+    logger.info(s"Written $targetFile")
   }
 
   private def removeFile(uri: URI): Unit = {
-    Files.deleteIfExists(onlineFileFor(resolvePath(uri)))
+    val target: Path = onlineFileFor(resolvePath(uri))
+    val deleted: Boolean = Files.deleteIfExists(target)
+    if (deleted) logger.info(s"Deleted $target")
+    else logger.warn(s"File to delete (${target}) does not exist")
   }
 
   private def decodedStreamFor(base64: Base64): InputStream = {
@@ -105,7 +112,9 @@ class RsyncRepositoryWriter extends Logging {
   }
 
   private def createTempRepoDir(baseDir: Path): Path = {
-    Files.createTempDirectory(stagingDirFor(baseDir), "temp-")
+    val parentDir: Path = stagingDirFor(baseDir)
+    Files.createDirectories(parentDir)
+    Files.createTempDirectory(parentDir, "temp-")
   }
 
   private def stagingDirFor(base: Path): Path = base.resolve(conf.rsyncRepositoryStagingDirName)
