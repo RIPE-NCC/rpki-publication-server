@@ -51,9 +51,7 @@ class FSWriterActor extends Actor with Logging with Config {
 
     // TODO this could be done concurrently with the rest of the init
     // TODO However, if it fails, it should prevent server from starting
-    logExceptions {
-      rsyncWriter.writeSnapshot(snapshot)
-    }
+    rsyncWriter.writeSnapshot(snapshot)
 
     val deltas = deltaStore.markOldestDeltasForDeletion(snapshot.binarySize, conf.unpublishedFileRetainPeriod)
     val (deltasToPublish, deltasToDelete) = deltas.partition(_.whenToDelete.isEmpty)
