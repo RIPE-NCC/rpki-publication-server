@@ -1,10 +1,12 @@
 package net.ripe.rpki.publicationserver
 
+import java.io.File
 import java.util.UUID
 
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store.ObjectStore
 import net.ripe.rpki.publicationserver.store.fs.FSWriterActor
+import org.apache.commons.io.FileUtils
 import spray.testkit.ScalatestRouteTest
 
 import scala.concurrent.duration.Duration
@@ -33,11 +35,15 @@ class PublicationServerStressTest extends PublicationServerBaseTest with Scalate
 
   before {
     objectStore.clear()
+    val tmpDir = new File("tmp/b")  // The rsync basedir where the uri rsync://localcert.ripe.net/ is mapped to in reference.conf
+    if (tmpDir.exists()) {
+      FileUtils.deleteDirectory(tmpDir)
+    }
   }
 
   def publishAndRetrieve(clientId: ClientId, promise: Promise[Unit]) = {
     val content = UUID.randomUUID.toString.replace("-", "0")
-    val uri = "rsync://" + clientId.value
+    val uri = "rsync://localcert.ripe.net/" + clientId.value
     val expectedListResponse = getListResponse(uri, hash(Base64(content)))
     val publishRequest = getPublishRequest(uri, content)
 
