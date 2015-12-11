@@ -8,7 +8,7 @@ import net.ripe.rpki.publicationserver.model.{Delta, Notification, ServerState, 
 
 import scala.util.{Failure, Try}
 
-class RepositoryWriter extends Logging {
+class RrdpRepositoryWriter extends Logging {
 
   def writeNewState(rootDir: String, serverState: ServerState, newNotification: Notification, snapshot: Snapshot): Try[Option[FileTime]] =
     Try {

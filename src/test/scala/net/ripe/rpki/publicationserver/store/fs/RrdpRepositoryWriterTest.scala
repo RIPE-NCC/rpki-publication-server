@@ -7,9 +7,9 @@ import net.ripe.rpki.publicationserver.PublicationServerBaseTest
 
 import scala.util.Random
 
-class RepositoryWriterTest extends PublicationServerBaseTest {
+class RrdpRepositoryWriterTest extends PublicationServerBaseTest {
 
-  val subject = new RepositoryWriter
+  val subject = new RrdpRepositoryWriter
 
   val rootDir = Files.createTempDirectory(Paths.get("/tmp"),"test")
 

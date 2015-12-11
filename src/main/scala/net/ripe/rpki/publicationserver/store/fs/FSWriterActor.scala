@@ -18,7 +18,8 @@ case class CleanSnapshotsCommand(timestamp: FileTime, latestSerial: Long)
 class FSWriterActor extends Actor with Logging with Config {
   import context._
 
-  val repositoryWriter = wire[RepositoryWriter]
+  val rrdpWriter = wire[RrdpRepositoryWriter]
+  lazy val rsyncWriter = wire[RsyncRepositoryWriter]
 
   protected val deltaStore = DeltaStore.get
 
@@ -26,16 +27,16 @@ class FSWriterActor extends Actor with Logging with Config {
 
   override def receive = {
     case InitCommand(newServerState) =>
-      catchExceptions(initFSContent(newServerState))
+      logExceptions(initFSContent(newServerState))
 
     case CleanSnapshotsCommand(timestamp, latestSerial) =>
-      catchExceptions(cleanupSnapshots(timestamp, latestSerial))
+      logExceptions(cleanupSnapshots(timestamp, latestSerial))
 
     case WriteCommand(newServerState) =>
-      catchExceptions(updateFSContent(newServerState))
+      logExceptions(updateFSContent(newServerState))
   }
 
-  def catchExceptions(f: => Unit) = {
+  def logExceptions(f: => Unit) = {
     try { f }
     catch {
       case e: Exception =>
@@ -48,19 +49,23 @@ class FSWriterActor extends Actor with Logging with Config {
     val objects = objectStore.listAll
     val snapshot = Snapshot(newServerState, objects)
 
+    // TODO this could be done concurrently with the rest of the init
+    // TODO However, if it fails, it should prevent server from starting
+    rsyncWriter.writeSnapshot(snapshot)
+
     val deltas = deltaStore.markOldestDeltasForDeletion(snapshot.binarySize, conf.unpublishedFileRetainPeriod)
     val (deltasToPublish, deltasToDelete) = deltas.partition(_.whenToDelete.isEmpty)
     val newNotification = Notification.create(snapshot, newServerState, deltasToPublish.toSeq)
 
     val failures = deltasToPublish.par.map { d =>
-      (d, repositoryWriter.writeDelta(conf.locationRepositoryPath, d))
+      (d, rrdpWriter.writeDelta(conf.rrdpRepositoryPath, d))
     }.collect {
       case (d, Failure(f)) => (d, f)
     }.seq
 
     if (failures.isEmpty) {
       val now = System.currentTimeMillis
-      repositoryWriter.writeNewState(conf.locationRepositoryPath, newServerState, newNotification, snapshot) match {
+      rrdpWriter.writeNewState(conf.rrdpRepositoryPath, newServerState, newNotification, snapshot) match {
         case Success(timestampOption) =>
           logger.info(s"Written snapshot ${newServerState.serialNumber}")
           if (timestampOption.isDefined) scheduleSnapshotCleanup(timestampOption.get, newServerState.serialNumber)
@@ -85,9 +90,13 @@ class FSWriterActor extends Actor with Logging with Config {
         logger.error(s"Could not find delta $givenSerial")
       case Some(delta) =>
         logger.info(s"Writing delta $givenSerial to filesystem")
-        repositoryWriter.writeDelta(conf.locationRepositoryPath, delta).recover {
+        rrdpWriter.writeDelta(conf.rrdpRepositoryPath, delta).recover {
           case e: Exception =>
-            logger.error(s"Could not write delta $givenSerial", e)
+            logger.error(s"Could not write delta $givenSerial to RRDP repo: ", e)
+        }
+        rsyncWriter.writeDelta(delta).recover {
+          case e: Exception =>
+            logger.error(s"Could not write delta $givenSerial to rsync repo: ", e)
         }
     }
 
@@ -105,7 +114,7 @@ class FSWriterActor extends Actor with Logging with Config {
 
         val newNotification = Notification.create(snapshot, newServerState, deltasToPublish.toSeq)
         val now = System.currentTimeMillis
-        repositoryWriter.writeNewState(conf.locationRepositoryPath, newServerState, newNotification, snapshot) match {
+        rrdpWriter.writeNewState(conf.rrdpRepositoryPath, newServerState, newNotification, snapshot) match {
           case Success(timestampOption) =>
             if (timestampOption.isDefined) scheduleSnapshotCleanup(timestampOption.get, givenSerial)
             cleanupDeltas(deltasToDelete.filter(_.whenToDelete.exists(_.getTime < now)))
@@ -121,13 +130,13 @@ class FSWriterActor extends Actor with Logging with Config {
 
   def cleanupSnapshots(timestamp: FileTime, latestSerial: Long): Unit = {
     logger.info(s"Removing snapshots older than $timestamp")
-    repositoryWriter.deleteSnapshotsOlderThan(conf.locationRepositoryPath, timestamp, latestSerial)
+    rrdpWriter.deleteSnapshotsOlderThan(conf.rrdpRepositoryPath, timestamp, latestSerial)
   }
-  
+
   def cleanupDeltas(deltasToDelete: Iterable[Delta]): Unit = {
     if (deltasToDelete.nonEmpty) {
       logger.info("Removing deltas: " + deltasToDelete.map(_.serial).mkString(","))
-      repositoryWriter.deleteDeltas(conf.locationRepositoryPath, deltasToDelete)
+      rrdpWriter.deleteDeltas(conf.rrdpRepositoryPath, deltasToDelete)
       deltaStore.delete(deltasToDelete)
     }
   }

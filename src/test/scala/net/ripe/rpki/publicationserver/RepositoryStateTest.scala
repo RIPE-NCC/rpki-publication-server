@@ -9,13 +9,19 @@ import akka.actor.ActorSystem
 import akka.testkit.TestActorRef
 import akka.testkit.TestKit._
 import com.typesafe.config.ConfigFactory
+import net.ripe.rpki.publicationserver.model.Delta
 import net.ripe.rpki.publicationserver.store.fs._
 import net.ripe.rpki.publicationserver.store.{DeltaStore, Migrations, ObjectStore, ServerStateStore}
 import org.scalatest.BeforeAndAfterAll
+import org.scalatest.mock.MockitoSugar
 import spray.testkit.ScalatestRouteTest
 
 import scala.concurrent.duration._
 import scala.language.postfixOps
+import org.mockito.Mockito._
+import org.mockito.Matchers._
+
+import scala.util.Try
 
 object RepositoryStateTest {
   val rootDir = Files.createTempDirectory(Paths.get("/tmp"),"test_pub_server_")
@@ -30,15 +36,17 @@ object RepositoryStateTest {
 
   val theServerStateStore = new ServerStateStore
   val theObjectStore = new ObjectStore
+  val theRsyncWriter = MockitoSugar.mock[RsyncRepositoryWriter]
 
-  class TestFSWriter extends FSWriterActor with Config {
+  class TestFSWriter extends FSWriterActor with Config with MockitoSugar {
 
     override protected val deltaStore = theDeltaStore
     override protected val objectStore = theObjectStore
+    override lazy val rsyncWriter = theRsyncWriter
 
     override lazy val conf = new AppConfig {
       override lazy val unpublishedFileRetainPeriod = Duration.Zero
-      override lazy val locationRepositoryPath = rootDirName
+      override lazy val rrdpRepositoryPath = rootDirName
     }
   }
 }
@@ -81,6 +89,7 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
     theServerStateStore.clear()
     Migrations.initServerState()
     sessionDir = rootDir.resolve(theServerStateStore.get.sessionId.toString).toString
+    when(RepositoryStateTest.theRsyncWriter.writeDelta(any[Delta])).thenReturn(Try {})
   }
 
   override def afterAll() = {
