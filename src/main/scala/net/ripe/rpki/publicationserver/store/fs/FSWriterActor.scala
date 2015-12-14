@@ -5,12 +5,12 @@ import java.nio.file.attribute.FileTime
 import akka.actor._
 import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver.model.{Delta, Notification, ServerState, Snapshot}
-import net.ripe.rpki.publicationserver.store.{ServerStateStore, DeltaStore, ObjectStore}
-import net.ripe.rpki.publicationserver.{PublicationServiceActor, Config, Logging}
+import net.ripe.rpki.publicationserver.store.{DeltaStore, ObjectStore, ServerStateStore}
+import net.ripe.rpki.publicationserver.{Config, Logging}
 
-import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
-import scala.util.{Try, Failure, Success}
+import scala.concurrent.{Await, Future}
+import scala.util.{Failure, Success, Try}
 
 
 case class InitCommand(newServerState: ServerState)
@@ -19,27 +19,6 @@ case class CleanSnapshotsCommand(timestamp: FileTime, latestSerial: Long)
 
 case class UpdateSnapsot()
 case class SetTarget(actor: ActorRef)
-
-class Throttler extends Actor with Logging with Config {
-
-  import context._
-
-  var target: ActorRef = _
-
-  var scheduled = false
-
-  override def receive = {
-    case SetTarget(t) =>
-      target = t
-      scheduled = false
-
-    case UpdateSnapsot =>
-      if (!scheduled) {
-        system.scheduler.scheduleOnce(10.seconds, target, UpdateSnapsot())
-        scheduled = true
-      }
-  }
-}
 
 
 class FSWriterActor extends Actor with Logging with Config {
@@ -54,12 +33,7 @@ class FSWriterActor extends Actor with Logging with Config {
 
   protected val serverStateStore = ServerStateStore.get
 
-  private var throttler: ActorRef = _
-
-  override def preStart() = {
-    throttler = system.actorOf(Props(new Throttler), "snapshot-writing-throttler")
-    throttler ! SetTarget(self)
-  }
+  var scheduled = false
 
   override def receive = {
     case InitCommand(newServerState) =>
@@ -73,7 +47,7 @@ class FSWriterActor extends Actor with Logging with Config {
     case WriteCommand(newServerState) =>
       tryProcess(updateFSContent(newServerState))
 
-    case UpdateSnapsot =>
+    case UpdateSnapsot() =>
       tryProcess(updateFSSnapshot())
   }
 
@@ -129,7 +103,11 @@ class FSWriterActor extends Actor with Logging with Config {
 
     updateFSDelta(givenSerial)
 
-    throttler ! UpdateSnapsot()
+    if (!scheduled) {
+      system.scheduler.scheduleOnce(10.seconds, sendMessage(self))
+      logger.info(s" scheduling snapshot for $newServerState")
+      scheduled = true
+    }
   }
 
   def updateFSDelta(givenSerial: Long): Unit = {
@@ -187,6 +165,16 @@ class FSWriterActor extends Actor with Logging with Config {
       logger.info("Removing deltas: " + deltasToDelete.map(_.serial).mkString(","))
       rrdpWriter.deleteDeltas(conf.rrdpRepositoryPath, deltasToDelete)
       deltaStore.delete(deltasToDelete)
+    }
+  }
+
+  def sendMessage(actor: ActorRef) = {
+    new Runnable {
+      override def run(): Unit = {
+        actor ! UpdateSnapsot()
+        logger.info("UpdateSnapshot sent")
+        scheduled = false
+      }
     }
   }
 }
