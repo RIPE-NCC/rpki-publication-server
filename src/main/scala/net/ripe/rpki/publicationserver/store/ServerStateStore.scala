@@ -31,3 +31,7 @@ class ServerStateStore {
 
   def clear() = Await.result(db.run(serverStates.delete), conf.defaultTimeout)
 }
+
+object ServerStateStore {
+  def get = new ServerStateStore
+}
