@@ -27,11 +27,15 @@ class RsyncRepositoryWriter extends Logging {
     val objectsPerBaseDir = groupByBaseDir(snapshot)
     for (baseDir <- objectsPerBaseDir.keys) {
       val tempRepoDir = createTempRepoDir(baseDir)
-      for (obj <- objectsPerBaseDir(baseDir)) {
-        val (base64, rsyncFsLocation) = obj
-        writeObjectUnderDir(base64, tempRepoDir, rsyncFsLocation.relative)
-      }
-      promoteStagingToOnline(tempRepoDir)
+      Try {
+        for (obj <- objectsPerBaseDir(baseDir)) {
+          val (base64, rsyncFsLocation) = obj
+          writeObjectUnderDir(base64, tempRepoDir, rsyncFsLocation.relative)
+        }
+        promoteStagingToOnline(tempRepoDir)
+      }.recover { case e =>
+        FileUtils.deleteDirectory(tempRepoDir.toFile)
+      }.get
     }
   }
 

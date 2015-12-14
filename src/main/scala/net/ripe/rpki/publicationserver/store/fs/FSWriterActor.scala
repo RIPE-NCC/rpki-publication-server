@@ -8,7 +8,9 @@ import net.ripe.rpki.publicationserver.model.{Delta, Notification, ServerState, 
 import net.ripe.rpki.publicationserver.store.{DeltaStore, ObjectStore}
 import net.ripe.rpki.publicationserver.{Config, Logging}
 
-import scala.util.{Failure, Success}
+import scala.concurrent.{Await, Future}
+import scala.concurrent.duration._
+import scala.util.{Try, Failure, Success}
 
 
 case class InitCommand(newServerState: ServerState)
@@ -27,59 +29,62 @@ class FSWriterActor extends Actor with Logging with Config {
 
   override def receive = {
     case InitCommand(newServerState) =>
-      logExceptions(initFSContent(newServerState))
+      Try(initFSContent(newServerState)).recover { case e =>
+        logger.error("Error processing command", e)
+      }.get
 
     case CleanSnapshotsCommand(timestamp, latestSerial) =>
-      logExceptions(cleanupSnapshots(timestamp, latestSerial))
+      Try(cleanupSnapshots(timestamp, latestSerial)).failed.foreach {
+        logger.error("Error processing command", _)
+      }
 
     case WriteCommand(newServerState) =>
-      logExceptions(updateFSContent(newServerState))
-  }
-
-  def logExceptions(f: => Unit) = {
-    try { f }
-    catch {
-      case e: Exception =>
-        logger.error("Error processing command", e)
-        throw e
-    }
+      Try(updateFSContent(newServerState)).failed.foreach {
+        logger.error("Error processing command", _)
+      }
   }
 
   def initFSContent(newServerState: ServerState): Unit = {
     val objects = objectStore.listAll
     val snapshot = Snapshot(newServerState, objects)
 
-    // TODO this could be done concurrently with the rest of the init
-    // TODO However, if it fails, it should prevent server from starting
-    rsyncWriter.writeSnapshot(snapshot)
-
-    val deltas = deltaStore.markOldestDeltasForDeletion(snapshot.binarySize, conf.unpublishedFileRetainPeriod)
-    val (deltasToPublish, deltasToDelete) = deltas.partition(_.whenToDelete.isEmpty)
-    val newNotification = Notification.create(snapshot, newServerState, deltasToPublish.toSeq)
-
-    val failures = deltasToPublish.par.map { d =>
-      (d, rrdpWriter.writeDelta(conf.rrdpRepositoryPath, d))
-    }.collect {
-      case (d, Failure(f)) => (d, f)
-    }.seq
-
-    if (failures.isEmpty) {
-      val now = System.currentTimeMillis
-      rrdpWriter.writeNewState(conf.rrdpRepositoryPath, newServerState, newNotification, snapshot) match {
-        case Success(timestampOption) =>
-          logger.info(s"Written snapshot ${newServerState.serialNumber}")
-          if (timestampOption.isDefined) scheduleSnapshotCleanup(timestampOption.get, newServerState.serialNumber)
-          cleanupDeltas(deltasToDelete.filter(_.whenToDelete.exists(_.getTime < now)))
-        case Failure(e) =>
-          logger.error("Could not write XML files to filesystem: " + e.getMessage, e)
-      }
-    } else {
-      failures.foreach { x =>
-        val (d, f) = x
-        logger.info(s"Error occurred while writing a delta ${d.serial}: $f")
+    val rsync = Future {
+      try rsyncWriter.writeSnapshot(snapshot) catch {
+        case e: Throwable =>
+          logger.error(s"Error occurred while synching rsync repository", e)
       }
     }
 
+    try {
+      val deltas = deltaStore.markOldestDeltasForDeletion(snapshot.binarySize, conf.unpublishedFileRetainPeriod)
+      val (deltasToPublish, deltasToDelete) = deltas.partition(_.whenToDelete.isEmpty)
+      val newNotification = Notification.create(snapshot, newServerState, deltasToPublish.toSeq)
+
+      val failures = deltasToPublish.par.map { d =>
+        (d, rrdpWriter.writeDelta(conf.rrdpRepositoryPath, d))
+      }.collect {
+        case (d, Failure(f)) => (d, f)
+      }.seq
+
+      if (failures.isEmpty) {
+        val now = System.currentTimeMillis
+        rrdpWriter.writeNewState(conf.rrdpRepositoryPath, newServerState, newNotification, snapshot) match {
+          case Success(timestampOption) =>
+            logger.info(s"Written snapshot ${newServerState.serialNumber}")
+            if (timestampOption.isDefined) scheduleSnapshotCleanup(timestampOption.get, newServerState.serialNumber)
+            cleanupDeltas(deltasToDelete.filter(_.whenToDelete.exists(_.getTime < now)))
+          case Failure(e) =>
+            logger.error("Could not write XML files to filesystem: " + e.getMessage, e)
+        }
+      } else {
+        failures.foreach { x =>
+          val (d, f) = x
+          logger.info(s"Error occurred while writing a delta ${d.serial}: $f")
+        }
+      }
+    } finally {
+      Await.result(rsync, 10.minutes)
+    }
   }
 
   def updateFSContent(newServerState: ServerState): Unit = {
