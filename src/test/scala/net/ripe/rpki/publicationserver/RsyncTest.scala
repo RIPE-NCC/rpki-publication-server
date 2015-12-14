@@ -42,7 +42,8 @@ class RsyncTest extends PublicationServerBaseTest with ScalatestRouteTest {
       response.status.isSuccess should be(true)
 
       // The publish.xml request contains a certificate with uri rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer
-      // The reference.conf file in test/resources contains a mapping from the prefix rsync://wombat.example to the filesystem location /tmp/a
+      // The application.conf file in test/resources contains a mapping from the prefix rsync://wombat.example to the
+      // filesystem location /tmp/a
       // So the filesystem location where the rsyncRepositoryWriter should publish the file is /tmp/a + /online + /Alice/blCrcCp9ltyPDNzYKPfxc.cer
 
       Files.exists(FileSystems.getDefault.getPath(s"$rsyncDir/online/Alice/blCrcCp9ltyPDNzYKPfxc.cer")) should be(true)
