@@ -6,6 +6,7 @@ import java.util.UUID
 
 import akka.testkit.TestActorRef
 import net.ripe.rpki.publicationserver.model.ServerState
+import net.ripe.rpki.publicationserver.store.ObjectStore
 import net.ripe.rpki.publicationserver.store.fs.FSWriterActor
 import org.apache.commons.io.FileUtils
 import spray.testkit.ScalatestRouteTest
@@ -59,5 +60,21 @@ class RsyncTest extends PublicationServerBaseTest with ScalatestRouteTest {
     // So initFSContent should find the object in the database and write it to rsync
 
     Files.exists(FileSystems.getDefault.getPath(s"$rsyncDir/online/Alice/blCrcCp9ltyPDNzYKPfxc.cer")) should be(true)
+  }
+
+  test("should fail writing rsync and clean up for itself on init") {
+    ObjectStore.get.clear()
+    POST("/?clientId=1234", getFile("/publish_nonexistent_uri.xml").mkString) ~> publicationService.publicationRoutes ~> check {
+      response.status.isSuccess should be(true)
+
+      // The publish_nonexistent_uri.xml request contains a certificate with uri
+      // rsync://nonexistent.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer
+      // The application.conf file in test/resources contains a mapping from the
+      // prefix rsync://nonexistent.example to the non-existing filesystem location /nonexistent
+      // So the object writing should fail
+
+      !Files.exists(FileSystems.getDefault.getPath(s"$rsyncDir/online/Alice/blCrcCp9ltyPDNzYKPfxc.cer")) should be(true)
+      !Files.exists(FileSystems.getDefault.getPath(s"/nonexistent/online/Alice/blCrcCp9ltyPDNzYKPfxc.cer")) should be(true)
+    }
   }
 }
