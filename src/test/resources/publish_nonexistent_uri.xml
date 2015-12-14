@@ -3,7 +3,7 @@
     version="3"
     xmlns="http://www.hactrn.net/uris/rpki/publication-spec/">
   <publish
-      uri="rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer">
+      uri="rsync://nonexistent.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer">
     MIIE+jCCA+KgAwIBAgIBDTANBgkqhkiG9w0BAQsFADAzMTEwLwYDVQQDEyhE
     RjRBODAxN0U2NkE5RTkxNzJFNDYxMkQ4Q0Y0QzgzRjIzOERFMkEzMB4XDTA4
     MDUyMjE4MDUxMloXDTA4MDUyNDE3NTQ1M1owMzExMC8GA1UEAxMoOEZCODIx
