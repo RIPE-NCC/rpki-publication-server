@@ -20,7 +20,7 @@ fork in run := true
 
 javaOptions in run ++= Seq("-Xmx2G", "-XX:+UseConcMarkSweepGC")
 
-enablePlugins(JavaServerAppPackaging)
+enablePlugins(JavaServerAppPackaging, UniversalDeployPlugin)
 enablePlugins(DockerPlugin)
 
 
