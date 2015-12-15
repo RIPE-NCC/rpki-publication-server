@@ -21,6 +21,7 @@ class AppConfig {
   lazy val rrdpRepositoryUri  = getConfig.getString("locations.rrdp.repository.uri")
   lazy val locationLogfile = getConfig.getString("locations.logfile")
   lazy val unpublishedFileRetainPeriod = Duration(getConfig.getDuration("unpublished-file-retain-period", TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS)
+  lazy val snapshotSyncDelay = Duration(getConfig.getDuration("snapshot-sync-delay", TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS)
   lazy val defaultTimeout = Duration(getConfig.getDuration("default.timeout", TimeUnit.MINUTES), TimeUnit.MINUTES)
   lazy val rsyncRepositoryMapping : Map[URI, Path] = {
     val list : Iterable[ConfigObject] = getConfig.getObjectList("locations.rsync.repository-mapping").asScala
