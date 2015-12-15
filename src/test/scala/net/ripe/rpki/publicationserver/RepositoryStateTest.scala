@@ -28,7 +28,7 @@ object RepositoryStateTest {
   rootDir.toFile.deleteOnExit()
   val rootDirName = rootDir.toString
 
-  var retainPeriodOverride: Int = 100
+  var retainPeriodOverride: Int = 1
   val theDeltaStore = new DeltaStore {
     // override interval so it does not take that long
     override def afterRetainPeriod(period: Duration): Date = new Date(System.currentTimeMillis() + retainPeriodOverride)

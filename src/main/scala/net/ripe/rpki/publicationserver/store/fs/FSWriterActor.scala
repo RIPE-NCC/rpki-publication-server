@@ -106,7 +106,7 @@ class FSWriterActor extends Actor with Logging with Config {
     scheduleFSSnapshotUpdate(newServerState)
   }
 
-  def updateFSDelta(givenSerial: Long): Unit = {
+  def updateFSDelta(givenSerial: Long) = {
     deltaStore.getDelta(givenSerial) match {
       case None =>
         logger.error(s"Could not find delta $givenSerial")
@@ -135,13 +135,12 @@ class FSWriterActor extends Actor with Logging with Config {
     val deltas = deltaStore.markOldestDeltasForDeletion(snapshot.binarySize, conf.unpublishedFileRetainPeriod)
 
     val (deltasToPublish, deltasToDelete) = deltas.partition(_.whenToDelete.isEmpty)
-
     val newNotification = Notification.create(snapshot, serverState, deltasToPublish.toSeq)
-    val now = System.currentTimeMillis
     rrdpWriter.writeNewState(conf.rrdpRepositoryPath, serverState, newNotification, snapshot) match {
       case Success(timestampOption) =>
         if (timestampOption.isDefined)
           scheduleSnapshotCleanup(timestampOption.get)
+        val now = System.currentTimeMillis
         cleanupDeltas(deltasToDelete.filter(_.whenToDelete.exists(_.getTime < now)))
       case Failure(e) =>
         logger.error("Could not write XML files to filesystem: " + e.getMessage, e)
@@ -152,14 +151,21 @@ class FSWriterActor extends Actor with Logging with Config {
 
   def scheduleSnapshotCleanup(timestamp: FileTime): Unit = {
     if (!snapshotFSCleanupScheduled) {
-      system.scheduler.scheduleOnce(conf.unpublishedFileRetainPeriod / 10, new Runnable() {
+      system.scheduler.scheduleOnce(snapshotCleanInterval, new Runnable() {
         override def run() = {
-          self ! CleanSnapshotsCommand(timestamp)
-          logger.info("CleanSnapshotsCommand sent")
+          val command = CleanSnapshotsCommand(timestamp)
+          self ! command
+          logger.debug(s"$command has been sent")
           snapshotFSCleanupScheduled = false
         }
       })
+      snapshotFSCleanupScheduled = true
     }
+  }
+
+  def snapshotCleanInterval: FiniteDuration = {
+    val i = conf.unpublishedFileRetainPeriod / 10
+    if (i < 1.second) 1.second else i
   }
 
   var snapshotFSSyncScheduled = false
@@ -167,7 +173,7 @@ class FSWriterActor extends Actor with Logging with Config {
   def scheduleFSSnapshotUpdate(newServerState: ServerState): Unit = {
     if (!snapshotFSSyncScheduled) {
       logger.info(s"Scheduling snapshot sync for $newServerState")
-      system.scheduler.scheduleOnce(10.seconds, new Runnable {
+      system.scheduler.scheduleOnce(conf.snapshotSyncDelay, new Runnable {
         override def run() = {
           self ! UpdateSnapsot()
           logger.info("UpdateSnapshot sent")
