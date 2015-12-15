@@ -15,7 +15,7 @@ import scala.util.{Failure, Success, Try}
 
 case class InitCommand(newServerState: ServerState)
 case class WriteCommand(newServerState: ServerState)
-case class CleanSnapshotsCommand(timestamp: FileTime, latestSerial: Long)
+case class CleanSnapshotsCommand(timestamp: FileTime)
 
 case class UpdateSnapsot()
 case class SetTarget(actor: ActorRef)
@@ -33,22 +33,20 @@ class FSWriterActor extends Actor with Logging with Config {
 
   protected val serverStateStore = ServerStateStore.get
 
-  var scheduled = false
-
   override def receive = {
     case InitCommand(newServerState) =>
       Try(initFSContent(newServerState)).recover { case e =>
         logger.error("Error processing command", e)
       }.get
 
-    case CleanSnapshotsCommand(timestamp, latestSerial) =>
-      tryProcess(cleanupSnapshots(timestamp, latestSerial))
-
     case WriteCommand(newServerState) =>
       tryProcess(updateFSContent(newServerState))
 
     case UpdateSnapsot() =>
       tryProcess(updateFSSnapshot())
+
+    case CleanSnapshotsCommand(timestamp) =>
+      tryProcess(cleanupSnapshots(timestamp))
   }
 
   def tryProcess[T](f : => T) = Try(f).failed.foreach {
@@ -82,7 +80,8 @@ class FSWriterActor extends Actor with Logging with Config {
         rrdpWriter.writeNewState(conf.rrdpRepositoryPath, newServerState, newNotification, snapshot) match {
           case Success(timestampOption) =>
             logger.info(s"Written snapshot ${newServerState.serialNumber}")
-            if (timestampOption.isDefined) scheduleSnapshotCleanup(timestampOption.get, newServerState.serialNumber)
+            if (timestampOption.isDefined)
+              scheduleSnapshotCleanup(timestampOption.get)
             cleanupDeltas(deltasToDelete.filter(_.whenToDelete.exists(_.getTime < now)))
           case Failure(e) =>
             logger.error("Could not write XML files to filesystem: " + e.getMessage, e)
@@ -102,12 +101,7 @@ class FSWriterActor extends Actor with Logging with Config {
     val givenSerial = newServerState.serialNumber
 
     updateFSDelta(givenSerial)
-
-    if (!scheduled) {
-      system.scheduler.scheduleOnce(10.seconds, sendMessage(self))
-      logger.info(s" scheduling snapshot for $newServerState")
-      scheduled = true
-    }
+    scheduleFSSnapshotUpdate(newServerState)
   }
 
   def updateFSDelta(givenSerial: Long): Unit = {
@@ -144,20 +138,49 @@ class FSWriterActor extends Actor with Logging with Config {
     val now = System.currentTimeMillis
     rrdpWriter.writeNewState(conf.rrdpRepositoryPath, serverState, newNotification, snapshot) match {
       case Success(timestampOption) =>
-        if (timestampOption.isDefined) scheduleSnapshotCleanup(timestampOption.get, serverState.serialNumber)
+        if (timestampOption.isDefined)
+          scheduleSnapshotCleanup(timestampOption.get)
         cleanupDeltas(deltasToDelete.filter(_.whenToDelete.exists(_.getTime < now)))
       case Failure(e) =>
         logger.error("Could not write XML files to filesystem: " + e.getMessage, e)
     }
   }
 
-  def scheduleSnapshotCleanup(timestamp: FileTime, latestSerial: Long): Unit = {
-    system.scheduler.scheduleOnce(conf.unpublishedFileRetainPeriod, self, CleanSnapshotsCommand(timestamp, latestSerial))
+  var snapshotFSCleanupScheduled = false
+
+  def scheduleSnapshotCleanup(timestamp: FileTime): Unit = {
+    if (!snapshotFSCleanupScheduled) {
+      system.scheduler.scheduleOnce(conf.unpublishedFileRetainPeriod / 10, new Runnable() {
+        override def run() = {
+          self ! CleanSnapshotsCommand(timestamp)
+          logger.info("CleanSnapshotsCommand sent")
+          snapshotFSCleanupScheduled = false
+        }
+      })
+    }
   }
 
-  def cleanupSnapshots(timestamp: FileTime, latestSerial: Long): Unit = {
+  var snapshotFSSyncScheduled = false
+
+  def scheduleFSSnapshotUpdate(newServerState: ServerState): Unit = {
+    if (!snapshotFSSyncScheduled) {
+      logger.info(s"Scheduling snapshot sync for $newServerState")
+      system.scheduler.scheduleOnce(10.seconds, new Runnable {
+        override def run() = {
+          self ! UpdateSnapsot()
+          logger.info("UpdateSnapshot sent")
+          snapshotFSSyncScheduled = false
+        }
+      })
+      snapshotFSSyncScheduled = true
+    }
+  }
+
+
+  def cleanupSnapshots(timestamp: FileTime): Unit = {
     logger.info(s"Removing snapshots older than $timestamp")
-    rrdpWriter.deleteSnapshotsOlderThan(conf.rrdpRepositoryPath, timestamp, latestSerial)
+    val serverState = serverStateStore.get
+    rrdpWriter.deleteSnapshotsOlderThan(conf.rrdpRepositoryPath, timestamp, serverState.serialNumber)
   }
 
   def cleanupDeltas(deltasToDelete: Iterable[Delta]): Unit = {
@@ -168,15 +191,6 @@ class FSWriterActor extends Actor with Logging with Config {
     }
   }
 
-  def sendMessage(actor: ActorRef) = {
-    new Runnable {
-      override def run(): Unit = {
-        actor ! UpdateSnapsot()
-        logger.info("UpdateSnapshot sent")
-        scheduled = false
-      }
-    }
-  }
 }
 
 object FSWriterActor {
