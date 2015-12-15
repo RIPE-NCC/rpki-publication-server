@@ -4,7 +4,8 @@ import java.io.ByteArrayInputStream
 import java.sql.DriverManager
 import java.util.concurrent.Executors
 
-import akka.actor.{Props, ActorRef, ActorRefFactory, Actor}
+import akka.actor.SupervisorStrategy.{Escalate, Stop}
+import akka.actor.{Actor, ActorInitializationException, ActorRef, ActorRefFactory, OneForOneStrategy, Props}
 import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.parsing.PublicationMessageParser
@@ -15,6 +16,7 @@ import spray.http._
 import spray.httpx.unmarshalling._
 import spray.routing._
 
+import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.io.{BufferedSource, Source}
 import scala.util.{Failure, Success}
@@ -25,6 +27,14 @@ class PublicationServiceActor(fsWriterFactory: ActorRefFactory => ActorRef)
   def actorRefFactory = context
 
   def receive = runRoute(publicationRoutes ~ rrdpRoutes)
+
+  override val supervisorStrategy =
+    OneForOneStrategy(maxNrOfRetries = 10, withinTimeRange = 1.minute) {
+      //      case _: ArithmeticException      => Resume
+      //      case _: NullPointerException     => Restart
+      case _: ActorInitializationException => Stop
+      case _: Exception                => Escalate
+    }
 
   override def preStart() = {
     Migrations.migrate()

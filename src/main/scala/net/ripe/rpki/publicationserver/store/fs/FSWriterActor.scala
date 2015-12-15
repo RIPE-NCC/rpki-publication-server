@@ -36,7 +36,7 @@ class FSWriterActor extends Actor with Logging with Config {
   override def receive = {
     case InitCommand(newServerState) =>
       Try(initFSContent(newServerState)).recover { case e =>
-        logger.error("Error processing command", e)
+        logger.error("Error in repository init", e)
       }.get
 
     case WriteCommand(newServerState) =>
@@ -49,9 +49,11 @@ class FSWriterActor extends Actor with Logging with Config {
       tryProcess(cleanupSnapshots(timestamp))
   }
 
-  def tryProcess[T](f : => T) = Try(f).failed.foreach {
-    logger.error("Error processing command", _)
-  }
+  def tryProcess[T](f : => T) =
+    Try(f)
+    .failed.foreach {
+      logger.error("Error processing command", _)
+    }
 
   def initFSContent(newServerState: ServerState): Unit = {
     val objects = objectStore.listAll
