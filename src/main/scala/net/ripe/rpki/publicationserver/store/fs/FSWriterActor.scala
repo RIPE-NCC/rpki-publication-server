@@ -24,7 +24,7 @@ case class SetTarget(actor: ActorRef)
 class FSWriterActor extends Actor with Logging with Config {
   import context._
 
-  val rrdpWriter = wire[RrdpRepositoryWriter]
+  lazy val rrdpWriter = wire[RrdpRepositoryWriter]
   lazy val rsyncWriter = wire[RsyncRepositoryWriter]
 
   protected val deltaStore = DeltaStore.get
@@ -36,8 +36,9 @@ class FSWriterActor extends Actor with Logging with Config {
   override def receive = {
     case InitCommand(newServerState) =>
       Try(initFSContent(newServerState)).recover { case e =>
-        logger.error("Error in repository init", e)
-      }.get
+        logger.error("Error in repository init, bailing out", e)
+        context.system.shutdown()
+      }
 
     case WriteCommand(newServerState) =>
       tryProcess(updateFSContent(newServerState))

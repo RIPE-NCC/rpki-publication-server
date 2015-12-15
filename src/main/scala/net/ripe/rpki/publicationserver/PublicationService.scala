@@ -19,7 +19,7 @@ import spray.routing._
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.io.{BufferedSource, Source}
-import scala.util.{Failure, Success}
+import scala.util.{Try, Failure, Success}
 
 class PublicationServiceActor(fsWriterFactory: ActorRefFactory => ActorRef)
   extends Actor with PublicationService with RRDPService {
@@ -28,22 +28,20 @@ class PublicationServiceActor(fsWriterFactory: ActorRefFactory => ActorRef)
 
   def receive = runRoute(publicationRoutes ~ rrdpRoutes)
 
-  override val supervisorStrategy =
-    OneForOneStrategy(maxNrOfRetries = 10, withinTimeRange = 1.minute) {
-      //      case _: ArithmeticException      => Resume
-      //      case _: NullPointerException     => Restart
-      case _: ActorInitializationException => Stop
-      case _: Exception                => Escalate
-    }
-
   override def preStart() = {
-    Migrations.migrate()
-    val fsWriter = fsWriterFactory(context)
-    init(fsWriter)
+    try {
+      Migrations.migrate()
+      val fsWriter = fsWriterFactory(context)
+      init(fsWriter)
+    } catch {
+      case e: Exception =>
+        logger.error("Failure while initializing", e)
+        context.system.shutdown()
+    }
   }
 
   override def postStop() = {
-    DriverManager.getConnection("jdbc:derby:;shutdown=true")
+    Try(DriverManager.getConnection("jdbc:derby:;shutdown=true"))
   }
 }
 
