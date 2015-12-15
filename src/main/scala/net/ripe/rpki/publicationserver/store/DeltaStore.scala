@@ -67,7 +67,6 @@ class DeltaStore extends Hashing with Logging {
     } else {
       val deltasNewestFirst: Seq[Delta] = deltaMap.values.toSeq.sortBy(-_.serial)
       var accDeltaSize = deltasNewestFirst.head.binarySize
-      val t = System.currentTimeMillis()
       val timeToRemove = afterRetainPeriod(retainPeriod)
       deltasNewestFirst.tail.find { d =>
         accDeltaSize += d.binarySize
