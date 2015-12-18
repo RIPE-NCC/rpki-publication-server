@@ -96,6 +96,10 @@ trait PublicationService extends HttpService with RepositoryPath with SnapshotSt
           }
         }
       }
+    } ~ path("monitoring" / "healthcheck") {
+      get {
+        complete(healthChecks.healthString)
+      }
     }
 
   private def processRequest(clientId: ClientId) (xmlMessage: BufferedSource) = {
