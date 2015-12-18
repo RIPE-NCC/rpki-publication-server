@@ -75,31 +75,28 @@ trait PublicationService extends HttpService with RepositoryPath with SnapshotSt
 
   val publicationRoutes =
     path("") {
-      post { parameter ("clientId") { clientId =>
-        optionalHeaderValue(checkContentType) { ct =>
-          serviceLogger.info("Post request received")
-          if (ct.isEmpty) {
-            serviceLogger.warn("Request does not specify content-type")
-          }
-          respondWithMediaType(RpkiPublicationType) {
-            entity(as[BufferedSource]){ e =>
-              onComplete(Future(processRequest(ClientId(clientId))(e))(executor = singleThreadEC)) {
-                case Success(result) =>
-                  complete(result)
-                case Failure(error) =>
-                  serviceLogger.error("Error processing request: ", error)
-                  complete(500, error.getMessage)
+      post {
+        parameter("clientId") { clientId =>
+          optionalHeaderValue(checkContentType) { ct =>
+            serviceLogger.debug("Post request received")
+            if (ct.isEmpty) {
+              serviceLogger.warn("Request does not specify content-type")
+            }
+            respondWithMediaType(RpkiPublicationType) {
+              entity(as[BufferedSource]) { e =>
+                onComplete(Future(processRequest(ClientId(clientId))(e))(executor = singleThreadEC)) {
+                  case Success(result) =>
+                    complete(result)
+                  case Failure(error) =>
+                    serviceLogger.error(s"Error processing POST request with clientId=$clientId", error)
+                    complete(500, error.getMessage)
+                }
               }
             }
           }
         }
       }
-    } } ~
-      path("monitoring" / "healthcheck") {
-        get {
-          complete(healthChecks.healthString)
-        }
-      }
+    }
 
   private def processRequest(clientId: ClientId) (xmlMessage: BufferedSource) = {
     def logErrors(errors: Seq[ReplyPdu]): Unit = {
