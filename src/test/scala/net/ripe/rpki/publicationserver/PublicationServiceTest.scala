@@ -209,11 +209,4 @@ class PublicationServiceTest extends PublicationServerBaseTest with ScalatestRou
       handled should be(false)
     }
   }
-
-  test("should return a health check response") {
-    Get("/monitoring/healthcheck") ~> publicationService.publicationRoutes ~> check {
-      val response = responseAs[String]
-      response should include ("buildNumber")
-    }
-  }
 }

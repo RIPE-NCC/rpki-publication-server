@@ -6,6 +6,7 @@ import java.util.Map.Entry
 import java.util.concurrent.TimeUnit
 
 import com.typesafe.config.{ConfigFactory, ConfigObject, ConfigValue}
+import spray.can.server.ServerSettings
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
@@ -16,7 +17,8 @@ import scala.concurrent.duration.Duration
 class AppConfig {
   def getConfig = AppConfig.config
 
-  lazy val port = getConfig.getInt("port")
+  lazy val publicationPort = getConfig.getInt("publication.port")
+  lazy val rrdpPort = getConfig.getInt("rrdp.port")
   lazy val rrdpRepositoryPath = getConfig.getString("locations.rrdp.repository.path")
   lazy val rrdpRepositoryUri  = getConfig.getString("locations.rrdp.repository.uri")
   lazy val locationLogfile = getConfig.getString("locations.logfile")
@@ -36,6 +38,14 @@ class AppConfig {
   lazy val rsyncRepositoryOnlineDirName = getConfig.getString("locations.rsync.online-dir-name")
   lazy val rsyncDirectoryPermissions = getConfig.getString("locations.rsync.directory-permissions")
   lazy val rsyncFilePermissions = getConfig.getString("locations.rsync.file-permissions")
+
+  lazy val publicationServerSettings = Some(ServerSettings(getConfig.getConfig("publication")
+                     .withFallback(ConfigFactory.defaultReference(getClass.getClassLoader))))
+
+  val publicationServerKeyStoreLocation = getConfig.getString("publication.server.keystore.location")
+  val publicationServerKeyStorePassword = getConfig.getString("publication.server.keystore.password")
+  val publicationServerTrustStoreLocation = getConfig.getString("publication.server.truststore.location")
+  val publicationServerTrustStorePassword = getConfig.getString("publication.server.truststore.password")
 }
 
 object AppConfig {

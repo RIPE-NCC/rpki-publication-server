@@ -4,8 +4,7 @@ import java.io.ByteArrayInputStream
 import java.sql.DriverManager
 import java.util.concurrent.Executors
 
-import akka.actor.SupervisorStrategy.{Escalate, Stop}
-import akka.actor.{Actor, ActorInitializationException, ActorRef, ActorRefFactory, OneForOneStrategy, Props}
+import akka.actor.{Actor, ActorRef, ActorRefFactory, Props}
 import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.parsing.PublicationMessageParser
@@ -16,17 +15,16 @@ import spray.http._
 import spray.httpx.unmarshalling._
 import spray.routing._
 
-import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.io.{BufferedSource, Source}
-import scala.util.{Try, Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 class PublicationServiceActor(fsWriterFactory: ActorRefFactory => ActorRef)
-  extends Actor with PublicationService with RRDPService {
+  extends Actor with PublicationService {
 
   def actorRefFactory = context
 
-  def receive = runRoute(publicationRoutes ~ rrdpRoutes)
+  def receive = runRoute(publicationRoutes)
 
   override def preStart() = {
     try {
@@ -50,7 +48,7 @@ object PublicationServiceActor {
     Props(new PublicationServiceActor(actorRefFactory))
 }
 
-trait PublicationService extends HttpService with RepositoryPath with SnapshotStateService {
+trait PublicationService extends HttpService with SnapshotStateService {
 
   val MediaTypeString = "application/rpki-publication"
   val RpkiPublicationType = MediaType.custom(MediaTypeString)
@@ -59,8 +57,6 @@ trait PublicationService extends HttpService with RepositoryPath with SnapshotSt
   val serviceLogger = LoggerFactory.getLogger("PublicationService")
 
   val msgParser = wire[PublicationMessageParser]
-
-  val healthChecks = wire[HealthChecks]
 
   implicit val BufferedSourceUnmarshaller =
     Unmarshaller[BufferedSource](spray.http.ContentTypeRange.*) {
@@ -95,10 +91,6 @@ trait PublicationService extends HttpService with RepositoryPath with SnapshotSt
             }
           }
         }
-      }
-    } ~ path("monitoring" / "healthcheck") {
-      get {
-        complete(healthChecks.healthString)
       }
     }
 
