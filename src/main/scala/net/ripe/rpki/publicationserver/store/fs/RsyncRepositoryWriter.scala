@@ -119,8 +119,8 @@ class RsyncRepositoryWriter extends Logging {
 
   private def createTempRepoDir(baseDir: Path): Path = {
     val parentDir: Path = stagingDirFor(baseDir)
-    Files.createDirectories(parentDir)
-    Files.createTempDirectory(parentDir, "temp-")
+    Files.createDirectories(parentDir, directoryPermissions)
+    Files.createTempDirectory(parentDir, "temp-", directoryPermissions)
   }
 
   private def stagingDirFor(base: Path): Path = base.resolve(conf.rsyncRepositoryStagingDirName)
