@@ -22,7 +22,8 @@ object Boot extends App {
 
   lazy val conf = wire[AppConfig]
 
-  setupLogging()
+  val logger = setupLogging()
+  logger.info("Starting up the publication server ...")
 
   implicit val system = ActorSystem("publication-rrdp-server")
 
@@ -79,7 +80,8 @@ object Boot extends App {
 
   def setupLogging() = {
     System.setProperty("LOG_FILE", conf.locationLogfile)
+    System.setOut(new PrintStream(new LoggingOutputStream(Logger.getRootLogger, Level.INFO), true))
     System.setErr(new PrintStream(new LoggingOutputStream(Logger.getRootLogger, Level.ERROR), true))
-    LoggerFactory.getLogger(this.getClass).info("Starting up the publication server ...")
+    LoggerFactory.getLogger(this.getClass)
   }
 }
