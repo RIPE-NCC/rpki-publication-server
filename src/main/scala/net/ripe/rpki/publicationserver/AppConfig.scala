@@ -1,7 +1,7 @@
 package net.ripe.rpki.publicationserver
 
 import java.net.URI
-import java.nio.file.{Paths, Path}
+import java.nio.file.{Path, Paths}
 import java.util.Map.Entry
 import java.util.concurrent.TimeUnit
 
@@ -42,10 +42,10 @@ class AppConfig {
   lazy val publicationServerSettings = Some(ServerSettings(getConfig.getConfig("publication")
                      .withFallback(ConfigFactory.defaultReference(getClass.getClassLoader))))
 
-  val publicationServerKeyStoreLocation = getConfig.getString("publication.server.keystore.location")
-  val publicationServerKeyStorePassword = getConfig.getString("publication.server.keystore.password")
-  val publicationServerTrustStoreLocation = getConfig.getString("publication.server.truststore.location")
-  val publicationServerTrustStorePassword = getConfig.getString("publication.server.truststore.password")
+  lazy val publicationServerKeyStoreLocation = getConfig.getString("publication.server.keystore.location")
+  lazy val publicationServerKeyStorePassword = getConfig.getString("publication.server.keystore.password")
+  lazy val publicationServerTrustStoreLocation = getConfig.getString("publication.server.truststore.location")
+  lazy val publicationServerTrustStorePassword = getConfig.getString("publication.server.truststore.password")
 }
 
 object AppConfig {
