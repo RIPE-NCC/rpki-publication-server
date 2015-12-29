@@ -1,7 +1,7 @@
 package net.ripe.rpki.publicationserver.store.fs
 
 import java.nio.file._
-import java.nio.file.attribute.FileTime
+import java.nio.file.attribute.{FileTime, PosixFilePermissions}
 
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.model.{Delta, Notification, ServerState, Snapshot}
@@ -21,6 +21,7 @@ class RrdpRepositoryWriter extends Logging {
     }
 
   private val snapshotFilename: String = "snapshot.xml"
+  private val fileAttributes = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-r--r--"))
 
   def writeSnapshot(rootDir: String, serverState: ServerState, snapshot: Snapshot) = {
     val ServerState(sessionId, serial) = serverState
@@ -36,7 +37,7 @@ class RrdpRepositoryWriter extends Logging {
   def writeNotification(rootDir: String, notification: Notification): Option[FileTime] = {
     val root = getRootFolder(rootDir)
 
-    val tmpFile = Files.createTempFile(root, "notification.", ".xml")
+    val tmpFile = Files.createTempFile(root, "notification.", ".xml", fileAttributes)
     try {
       writeFile(notification.serialized, tmpFile)
       val target = root.resolve("notification.xml")
