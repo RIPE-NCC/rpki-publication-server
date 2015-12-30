@@ -27,7 +27,7 @@ trait RRDPService extends HttpService with RepositoryPath {
 
   val rrdpRoutes =
     path("notification.xml") {
-      respondWithHeader(`Cache-Control`(CacheDirectives.`no-cache`)) {
+      respondWithHeader(`Cache-Control`(CacheDirectives.`max-age`(60), CacheDirectives.`no-transform`)) {
         respondWithMediaType(`application/xhtml+xml`) {
           complete {
             try {
@@ -55,7 +55,7 @@ trait RRDPService extends HttpService with RepositoryPath {
     }
 
   private def serveImmutableContent(filename: => String) = {
-    respondWithHeader(`Cache-Control`(CacheDirectives.`max-age`(immutableContentValiditySeconds))) {
+    respondWithHeader(`Cache-Control`(CacheDirectives.`max-age`(immutableContentValiditySeconds), CacheDirectives.`no-transform`)) {
       serve(filename)
     }
   }
