@@ -1,10 +1,9 @@
 package net.ripe.rpki.publicationserver
 
 import java.io.ByteArrayInputStream
-import java.sql.DriverManager
 import java.util.concurrent.Executors
 
-import akka.actor.{Actor, ActorRef, ActorRefFactory, Props}
+import akka.actor._
 import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.parsing.PublicationMessageParser
@@ -17,7 +16,7 @@ import spray.routing._
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.io.{BufferedSource, Source}
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 
 class PublicationServiceActor(fsWriterFactory: ActorRefFactory => ActorRef)
   extends Actor with PublicationService {
@@ -26,20 +25,15 @@ class PublicationServiceActor(fsWriterFactory: ActorRefFactory => ActorRef)
 
   def receive = runRoute(publicationRoutes)
 
+  override val supervisorStrategy = OneForOneStrategy(maxNrOfRetries = 1) {
+    case _: Exception                =>
+      SupervisorStrategy.Escalate
+  }
+
   override def preStart() = {
-    try {
       Migrations.migrate()
       val fsWriter = fsWriterFactory(context)
       init(fsWriter)
-    } catch {
-      case e: Exception =>
-        logger.error("Failure while initializing", e)
-        context.system.shutdown()
-    }
-  }
-
-  override def postStop() = {
-    Try(DriverManager.getConnection("jdbc:derby:;shutdown=true"))
   }
 }
 

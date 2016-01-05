@@ -10,6 +10,7 @@ import net.ripe.rpki.publicationserver.{Config, Logging}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
+import scala.util.control.ControlThrowable
 import scala.util.{Failure, Success, Try}
 
 
@@ -35,10 +36,7 @@ class FSWriterActor extends Actor with Logging with Config {
 
   override def receive = {
     case InitCommand(newServerState) =>
-      Try(initFSContent(newServerState)).recover { case e =>
-        logger.error("Error in repository init, bailing out", e)
-        context.system.shutdown()
-      }
+      initFSContent(newServerState)
 
     case WriteCommand(newServerState) =>
       tryProcess(updateFSContent(newServerState))
@@ -56,6 +54,12 @@ class FSWriterActor extends Actor with Logging with Config {
       logger.error("Error processing command", _)
     }
 
+  def throwFatalException = {
+    logger.error("Error in repository init, bailing out")
+    // ThreadDeath is one of the few exceptions that Akka considers fatal, i.e. which can trigger jvm termination
+    throw new ThreadDeath
+  }
+
   def initFSContent(newServerState: ServerState): Unit = {
     val objects = objectStore.listAll
     val snapshot = Snapshot(newServerState, objects)
@@ -63,7 +67,8 @@ class FSWriterActor extends Actor with Logging with Config {
     val rsync = Future {
       try rsyncWriter.writeSnapshot(snapshot) catch {
         case e: Throwable =>
-          logger.error(s"Error occurred while synching rsync repository", e)
+          logger.error(s"Error occurred while syncing rsync repository", e)
+          throwFatalException
       }
     }
 
@@ -88,12 +93,14 @@ class FSWriterActor extends Actor with Logging with Config {
             cleanupDeltas(deltasToDelete.filter(_.whenToDelete.exists(_.getTime < now)))
           case Failure(e) =>
             logger.error("Could not write XML files to filesystem: " + e.getMessage, e)
+            throwFatalException
         }
       } else {
         failures.foreach { x =>
           val (d, f) = x
-          logger.info(s"Error occurred while writing a delta ${d.serial}: $f")
+          logger.error(s"Error occurred while writing a delta ${d.serial}: $f")
         }
+        throwFatalException
       }
     } finally {
       Await.result(rsync, 10.minutes)
@@ -205,3 +212,5 @@ class FSWriterActor extends Actor with Logging with Config {
 object FSWriterActor {
   def props() = Props(new FSWriterActor())
 }
+
+class InitialisationException extends Exception with ControlThrowable

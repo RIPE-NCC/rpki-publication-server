@@ -2,7 +2,7 @@ package net.ripe.rpki.publicationserver
 
 import java.util.UUID
 
-import akka.actor.ActorRef
+import akka.actor.{Actor, ActorRef}
 import net.ripe.rpki.publicationserver.model._
 import net.ripe.rpki.publicationserver.store.fs.{InitCommand, WriteCommand}
 import net.ripe.rpki.publicationserver.store.{DB, DeltaStore, ObjectStore, ServerStateStore}
