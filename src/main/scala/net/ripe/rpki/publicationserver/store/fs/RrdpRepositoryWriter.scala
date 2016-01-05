@@ -7,6 +7,7 @@ import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.model.{Delta, Notification, ServerState, Snapshot}
 
 import scala.util.{Failure, Try}
+import scala.xml.{Node, XML}
 
 class RrdpRepositoryWriter extends Logging {
 
@@ -26,12 +27,12 @@ class RrdpRepositoryWriter extends Logging {
   def writeSnapshot(rootDir: String, serverState: ServerState, snapshot: Snapshot) = {
     val ServerState(sessionId, serial) = serverState
     val stateDir = getStateDir(rootDir, sessionId.toString, serial)
-    writeFile(snapshot.serialized, stateDir.resolve(snapshotFilename))
+    writeFile(snapshot.serialize, stateDir.resolve(snapshotFilename))
   }
 
   def writeDelta(rootDir: String, delta: Delta) = Try {
     val stateDir = getStateDir(rootDir, delta.sessionId.toString, delta.serial)
-    writeFile(delta.serialize.mkString, stateDir.resolve("delta.xml"))
+    writeFile(delta.serialize, stateDir.resolve("delta.xml"))
   }
 
   def writeNotification(rootDir: String, notification: Notification): Option[FileTime] = {
@@ -39,7 +40,7 @@ class RrdpRepositoryWriter extends Logging {
 
     val tmpFile = Files.createTempFile(root, "notification.", ".xml", fileAttributes)
     try {
-      writeFile(notification.serialized, tmpFile)
+      writeFile(notification.serialize, tmpFile)
       val target = root.resolve("notification.xml")
       val previousNotificationTimestamp = Try(Files.getLastModifiedTime(target)).toOption
       Files.move(tmpFile, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
@@ -49,8 +50,9 @@ class RrdpRepositoryWriter extends Logging {
     }
   }
 
-  private def writeFile(content: String, path: Path) =
-    Files.write(path, content.getBytes("UTF-8"))
+  private def writeFile(content: Node, path: Path) =
+    XML.save(path.toString, content, "UTF-8")
+//    Files.write(path, content.getBytes("UTF-8"))
 
   private def getRootFolder(rootDir: String): Path =
     Files.createDirectories(Paths.get(rootDir))
