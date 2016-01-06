@@ -74,8 +74,11 @@ trait PublicationService extends HttpService with SnapshotStateService {
             }
             respondWithMediaType(RpkiPublicationType) {
               entity(as[BufferedSource]) { xmlMessage =>
-                val parsedMessage = msgParser.parse(xmlMessage)
-                onComplete(Future(processRequest(ClientId(clientId))(parsedMessage))(executor = singleThreadEC)) {
+                onComplete {
+                  Future(msgParser.parse(xmlMessage)) flatMap { parsedMessage =>
+                    Future(processRequest(ClientId(clientId), parsedMessage))(executor = singleThreadEC)
+                  }
+                } {
                   case Success(result) =>
                     complete(result)
                   case Failure(error) =>
@@ -89,7 +92,7 @@ trait PublicationService extends HttpService with SnapshotStateService {
       }
     }
 
-  private def processRequest[T](clientId: ClientId)(parsedMessage: Either[BaseError, T]) = {
+  private def processRequest[T](clientId: ClientId, parsedMessage: Either[BaseError, T]) = {
     def logErrors(errors: Seq[ReplyPdu]): Unit = {
       serviceLogger.warn(s"Request contained ${errors.size} PDU(s) with errors:")
       errors.foreach { e =>
