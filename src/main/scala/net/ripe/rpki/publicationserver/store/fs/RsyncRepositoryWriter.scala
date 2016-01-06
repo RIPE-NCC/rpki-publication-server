@@ -94,10 +94,9 @@ class RsyncRepositoryWriter extends Logging {
   }
 
   private def removeFile(uri: URI): Unit = {
-    val target: Path = onlineFileFor(resolvePath(uri))
-    val deleted: Boolean = Files.deleteIfExists(target)
-    if (deleted) logger.info(s"Deleted $target")
-    else logger.warn(s"File to delete (${target}) does not exist")
+    val target = onlineFileFor(resolvePath(uri))
+    if (Files.deleteIfExists(target)) logger.info(s"Deleted $target")
+    else logger.warn(s"File to delete ($target) does not exist")
   }
 
   private def decodedStreamFor(base64: Base64): InputStream = {
