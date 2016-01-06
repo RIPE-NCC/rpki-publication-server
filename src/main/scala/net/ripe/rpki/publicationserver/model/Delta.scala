@@ -8,15 +8,13 @@ import scala.xml.{Elem, Node}
 
 case class Delta(sessionId: UUID, serial: Long, pdus: Seq[QueryPdu], whenToDelete : Option[Date] = None) extends Hashing {
 
-  lazy val serialized = serialize.mkString
-  private lazy val bytes = serialized.getBytes
-
+  lazy val bytes = serialize.mkString.getBytes("UTF-8")
   lazy val contentHash = hash(bytes)
   lazy val binarySize = bytes.length
 
   def markForDeletion(d: Date) = copy(whenToDelete = Some(d))
 
-  def serialize = deltaXml(
+  private def serialize = deltaXml(
     sessionId.toString,
     serial,
     pdus.map {

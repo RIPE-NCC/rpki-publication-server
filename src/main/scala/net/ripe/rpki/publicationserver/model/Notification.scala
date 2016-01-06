@@ -13,8 +13,6 @@ case class DeltaLocator(serial: BigInt, uri: String, hash: Hash)
 // TODO Merge it with ChangeSet
 case class Notification(sessionId: UUID, serial: BigInt, snapshot: SnapshotLocator, deltas: Iterable[DeltaLocator]) {
 
-  lazy val serialized = serialize.mkString
-
   def serialize = notificationXml (
     sessionId,
     serial,
