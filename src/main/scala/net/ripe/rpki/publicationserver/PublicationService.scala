@@ -73,8 +73,9 @@ trait PublicationService extends HttpService with SnapshotStateService {
               serviceLogger.warn("Request does not specify content-type")
             }
             respondWithMediaType(RpkiPublicationType) {
-              entity(as[BufferedSource]) { e =>
-                onComplete(Future(processRequest(ClientId(clientId))(e))(executor = singleThreadEC)) {
+              entity(as[BufferedSource]) { xmlMessage =>
+                val parsedMessage = msgParser.parse(xmlMessage)
+                onComplete(Future(processRequest(ClientId(clientId))(parsedMessage))(executor = singleThreadEC)) {
                   case Success(result) =>
                     complete(result)
                   case Failure(error) =>
@@ -88,7 +89,7 @@ trait PublicationService extends HttpService with SnapshotStateService {
       }
     }
 
-  private def processRequest(clientId: ClientId) (xmlMessage: BufferedSource) = {
+  private def processRequest[T](clientId: ClientId)(parsedMessage: Either[BaseError, T]) = {
     def logErrors(errors: Seq[ReplyPdu]): Unit = {
       serviceLogger.warn(s"Request contained ${errors.size} PDU(s) with errors:")
       errors.foreach { e =>
@@ -96,7 +97,7 @@ trait PublicationService extends HttpService with SnapshotStateService {
       }
     }
 
-    val response = msgParser.parse(xmlMessage) match {
+    val response = parsedMessage match {
       case Right(QueryMessage(pdus)) =>
         val elements = updateWith(clientId, pdus)
         elements.filter(_.isInstanceOf[ReportError]) match {
