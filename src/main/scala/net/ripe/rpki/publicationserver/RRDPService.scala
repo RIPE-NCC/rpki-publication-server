@@ -21,7 +21,7 @@ class RRDPServiceActor() extends Actor with RRDPService {
 
 
 trait RRDPService extends HttpService with RepositoryPath {
-  val immutableContentValiditySeconds: Long = 31536000 // ~one year
+  val immutableContentValiditySeconds: Long = 24*60*60 // ~one day
 
   val healthChecks = wire[HealthChecks]
 
