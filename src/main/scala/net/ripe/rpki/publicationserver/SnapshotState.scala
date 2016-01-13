@@ -9,7 +9,8 @@ import net.ripe.rpki.publicationserver.store.{DB, DeltaStore, ObjectStore, Serve
 import slick.dbio.DBIO
 import slick.driver.DerbyDriver.api._
 
-import scala.concurrent.Await
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Future, Await}
 
 
 /**
@@ -20,6 +21,8 @@ object SnapshotState extends SnapshotStateService {
 }
 
 trait SnapshotStateService extends Config with Logging with Hashing {
+
+  import scala.concurrent.ExecutionContext.Implicits.global
 
   import SnapshotState.semaphore
 
@@ -64,19 +67,20 @@ trait SnapshotStateService extends Config with Logging with Hashing {
       errors
     }
     else {
-      val replies = results.collect { case Right((reply, _, _)) => reply }
-      val actions = results.collect { case Right((_, action, _)) => action }
+      val replies = Future(results.collect { case Right((reply, _, _)) => reply })
+      val actions = Future(results.collect { case Right((_, action, _)) => action })
       val validPdus = results.collect { case Right((_, _, qPdu)) => qPdu }
 
       try {
-        val publishActions = DBIO.seq(actions: _*)
         val deltaAction = deltaStore.addDeltaAction(clientId, Delta(sessionId, newServerState.serialNumber, validPdus))
         val serverStateAction = serverStateStore.updateAction(newServerState)
+
+        val publishActions = DBIO.seq(waitFor(actions): _*)
         val allActions = DBIO.seq(publishActions, deltaAction, serverStateAction).transactionally
         Await.result(db.run(allActions), conf.defaultTimeout)
 
         fsWriter ! WriteCommand(newServerState)
-        replies
+        waitFor(replies)
       } catch {
         case e: Exception =>
           logger.error("Couldn't persist objects", e)
@@ -85,30 +89,32 @@ trait SnapshotStateService extends Config with Logging with Hashing {
     }
   }
 
+  def waitFor[T](f: Future[T]) = Await.result(f, Duration.Inf)
+
   def snapshotRetainPeriod = conf.unpublishedFileRetainPeriod
 
   /*
    * TODO Check if the client doesn't try to modify objects that belong to other client
    */
   def getPersistAction(clientId: ClientId, queries: Seq[QueryPdu], serverState: ServerState) = {
-    queries.map {
-      case pq@PublishQ(uri, tag, None, base64) =>
+    queries.par.map {
+      case publishQ@PublishQ(uri, tag, None, base64) =>
         objectStore.find(uri) match {
           case Some((_, h, _)) =>
             Left(ReportError(BaseError.HashForInsert, Some(s"Tried to insert existing object [$uri].")))
           case None =>
             Right((PublishR(uri, tag),
               objectStore.insertAction(clientId, (base64, hash(base64), uri)),
-              pq))
+              publishQ))
         }
-      case pq@PublishQ(uri, tag, Some(sHash), base64) =>
+      case publishQ@PublishQ(uri, tag, Some(sHash), base64) =>
         objectStore.find(uri) match {
           case Some(obj) =>
             val (_, h, _) = obj
             if (Hash(sHash) == h) {
               Right((PublishR(uri, tag),
                 objectStore.updateAction(clientId, (base64, hash(base64), uri)),
-                pq))
+                publishQ))
             }
             else {
               Left(ReportError(BaseError.NonMatchingHash, Some(s"Cannot republish the object [$uri], hash doesn't match")))
@@ -117,21 +123,21 @@ trait SnapshotStateService extends Config with Logging with Hashing {
             Left(ReportError(BaseError.NoObjectToUpdate, Some(s"No object [$uri] has been found.")))
         }
 
-      case wq@WithdrawQ(uri, tag, sHash) =>
+      case withdrawQ@WithdrawQ(uri, tag, sHash) =>
         objectStore.find(uri) match {
           case Some(obj) =>
             val (_, h, _) = obj
             if (Hash(sHash) == h)
               Right((WithdrawR(uri, tag),
                 objectStore.deleteAction(clientId, h),
-                wq))
+                withdrawQ))
             else {
               Left(ReportError(BaseError.NonMatchingHash, Some(s"Cannot withdraw the object [$uri], hash doesn't match.")))
             }
           case None =>
             Left(ReportError(BaseError.NoObjectForWithdraw, Some(s"No object [$uri] found.")))
         }
-    }
+    }.seq
   }
 
 }
