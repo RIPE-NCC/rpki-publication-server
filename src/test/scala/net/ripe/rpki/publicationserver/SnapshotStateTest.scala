@@ -9,7 +9,7 @@ import akka.testkit.{TestActorRef, TestProbe}
 import com.typesafe.config.ConfigFactory
 import net.ripe.rpki.publicationserver.model._
 import net.ripe.rpki.publicationserver.store.fs._
-import net.ripe.rpki.publicationserver.store.{DeltaStore, Migrations, ObjectStore, ServerStateStore}
+import net.ripe.rpki.publicationserver.store._
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 
@@ -21,7 +21,7 @@ class SnapshotStateTest extends PublicationServerBaseTest with Config with Hashi
 
   private var sessionId: UUID = _
 
-  private val testDeltaStore = new DeltaStore
+  private val testDeltaStore = new UpdateStore
 
   private val serverStateStore = new ServerStateStore
 
@@ -37,10 +37,10 @@ class SnapshotStateTest extends PublicationServerBaseTest with Config with Hashi
 
   private val fsWriterRef = TestActorRef(Props(new TestFSWriter))
 
-  def makeSnapshotState(os: ObjectStore = testObjectStore, ds: DeltaStore = testDeltaStore, fsWriter: ActorRef = fsWriterRef) = {
+  def makeSnapshotState(os: ObjectStore = testObjectStore, ds: UpdateStore = testDeltaStore, fsWriter: ActorRef = fsWriterRef) = {
     val snapshotState = new SnapshotStateService {
       override lazy val objectStore = os
-      override lazy val deltaStore = ds
+      override lazy val updateStore = ds
     }
     snapshotState.init(fsWriter)
     snapshotState
@@ -57,7 +57,7 @@ class SnapshotStateTest extends PublicationServerBaseTest with Config with Hashi
   }
 
   test("should write the snapshot and delta's from the db to the filesystem on init") {
-    val mockDeltaStore = spy(new DeltaStore)
+    val mockDeltaStore = spy(new UpdateStore)
 
     when(mockDeltaStore.getDeltas).thenReturn(Seq(Delta(sessionId, 1L, Seq.empty)))
     val snapshotState = makeSnapshotState(ds = mockDeltaStore)
@@ -70,7 +70,7 @@ class SnapshotStateTest extends PublicationServerBaseTest with Config with Hashi
 
     snapshotState.updateWith(ClientId("bla"), Seq(PublishQ(uri = new URI("rsync://host/zzz.cer"), tag = None, hash = None, base64 = Base64("aaaa="))))
 
-    snapshotState.deltaStore.getDeltas should be(Seq(
+    snapshotState.updateStore.getDeltas should be(Seq(
       Delta(
         sessionId,
         2L,
@@ -91,7 +91,7 @@ class SnapshotStateTest extends PublicationServerBaseTest with Config with Hashi
         hash = Some("BBA9DB5E8BE9B6876BB90D0018115E23FC741BA6BF2325E7FCF88EFED750C4C7"),
         base64 = Base64("cccc="))))
 
-    snapshotState.deltaStore.getDeltas.toList should be(Seq(
+    snapshotState.updateStore.getDeltas.toList should be(Seq(
       Delta(
         sessionId,
         2L,
@@ -201,9 +201,9 @@ class SnapshotStateTest extends PublicationServerBaseTest with Config with Hashi
     snapshotState.updateWith(ClientId("bla"), Seq(PublishQ(uri = new URI("rsync://host/cert1.cer"), tag = None, hash = None, base64 = Base64("cccc="))))
     snapshotState.updateWith(ClientId("bla"), Seq(PublishQ(uri = new URI("rsync://host/cert2.cer"), tag = None, hash = None, base64 = Base64("bbbb="))))
 
-    snapshotState.deltaStore.getDeltas.size should be(2)
-    snapshotState.deltaStore.getDeltas.head.pdus should be(Seq(PublishQ(uri = new URI("rsync://host/cert1.cer"), tag = None, hash = None, base64 = Base64("cccc="))))
-    snapshotState.deltaStore.getDeltas.tail.head.pdus should be(Seq(PublishQ(uri = new URI("rsync://host/cert2.cer"), tag = None, hash = None, base64 = Base64("bbbb="))))
+    snapshotState.updateStore.getDeltas.size should be(2)
+    snapshotState.updateStore.getDeltas.head.pdus should be(Seq(PublishQ(uri = new URI("rsync://host/cert1.cer"), tag = None, hash = None, base64 = Base64("cccc="))))
+    snapshotState.updateStore.getDeltas.tail.head.pdus should be(Seq(PublishQ(uri = new URI("rsync://host/cert2.cer"), tag = None, hash = None, base64 = Base64("bbbb="))))
   }
 
   test("should write the snapshot and the deltas to the filesystem when a message is successfully processed") {
@@ -240,8 +240,8 @@ class SnapshotStateTest extends PublicationServerBaseTest with Config with Hashi
   }
 
   test("should not write a snapshot to the filesystem when updating delta throws an error") {
-    val deltaStoreSpy = spy(new DeltaStore)
-    doThrow(new IllegalArgumentException()).when(deltaStoreSpy).addDeltaAction(any[ClientId], any[Delta])
+    val deltaStoreSpy = spy(new UpdateStore)
+    doThrow(new IllegalArgumentException()).when(deltaStoreSpy).updateAction(any[ClientId], any[Delta])
 
     val fsWriterSpy = TestProbe()
     val snapshotStateService = makeSnapshotState(ds = deltaStoreSpy, fsWriter = fsWriterSpy.ref)

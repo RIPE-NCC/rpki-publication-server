@@ -11,7 +11,7 @@ import akka.testkit.TestKit._
 import com.typesafe.config.ConfigFactory
 import net.ripe.rpki.publicationserver.model.Delta
 import net.ripe.rpki.publicationserver.store.fs._
-import net.ripe.rpki.publicationserver.store.{DeltaStore, Migrations, ObjectStore, ServerStateStore}
+import net.ripe.rpki.publicationserver.store._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.mock.MockitoSugar
 import spray.testkit.ScalatestRouteTest
@@ -29,7 +29,7 @@ object RepositoryStateTest {
   val rootDirName = rootDir.toString
 
   var retainPeriodOverride: Int = 1
-  val theDeltaStore = new DeltaStore {
+  val theUpdateStore = new UpdateStore {
     // override interval so it does not take that long
     override def afterRetainPeriod(period: Duration): Date = new Date(System.currentTimeMillis() + retainPeriodOverride)
   }
@@ -40,7 +40,7 @@ object RepositoryStateTest {
 
   class TestFSWriter extends FSWriterActor with Config with MockitoSugar {
 
-    override protected val deltaStore = theDeltaStore
+    override protected val updateStore = theUpdateStore
     override protected val objectStore = theObjectStore
     override lazy val rsyncWriter = theRsyncWriter
 
@@ -75,7 +75,7 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
     val service = new PublicationService with Context {
       override lazy val objectStore = theObjectStore
       override lazy val serverStateStore = theServerStateStore
-      override lazy val deltaStore = theDeltaStore
+      override lazy val updateStore = theUpdateStore
     }
     service.init(fsWriterRef)
     service
@@ -85,7 +85,7 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
     cleanDir(rootDir.toFile)
     serial = 1L
     theObjectStore.clear()
-    theDeltaStore.clear()
+    theUpdateStore.clear()
     theServerStateStore.clear()
     Migrations.initServerState()
     sessionDir = rootDir.resolve(theServerStateStore.get.sessionId.toString).toString

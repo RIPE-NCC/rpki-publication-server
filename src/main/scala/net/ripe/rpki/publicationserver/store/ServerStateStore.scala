@@ -27,9 +27,24 @@ class ServerStateStore {
     Await.result(f, conf.defaultTimeout)
   }
 
+  def getLastSynced: BigInt = getAttr("LAST_SYNCED_UPDATE_NUMBER", 0, BigInt(_))
+
+  def getSerial: Long = getAttr("SERIAL", 0, _.toLong)
+
+  def getSessionId: String = getAttr("SESSION_ID", "", identity)
+
+  private def getAttr[T](attrName: String, default: => T, parse: String => T) = {
+    val q = attributes.filter(_.name === attrName)
+    Await.result(db.run(q.result), conf.defaultTimeout) match {
+      case Seq() => default
+      case Seq((_, x)) => parse(x)
+    }
+  }
+
   def updateAction(serverState: ServerState) = serverStates.update(serverState)
 
   def clear() = Await.result(db.run(serverStates.delete), conf.defaultTimeout)
+
 }
 
 object ServerStateStore {

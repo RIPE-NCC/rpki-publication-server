@@ -5,7 +5,7 @@ import java.util.UUID
 import akka.actor.{Actor, ActorRef}
 import net.ripe.rpki.publicationserver.model._
 import net.ripe.rpki.publicationserver.store.fs.{InitCommand, WriteCommand}
-import net.ripe.rpki.publicationserver.store.{DB, DeltaStore, ObjectStore, ServerStateStore}
+import net.ripe.rpki.publicationserver.store._
 import slick.dbio.DBIO
 import slick.driver.DerbyDriver.api._
 
@@ -32,7 +32,7 @@ trait SnapshotStateService extends Config with Logging with Hashing {
 
   lazy val serverStateStore = new ServerStateStore
 
-  lazy val deltaStore = DeltaStore.get
+  lazy val updateStore = UpdateStore.get
 
   var sessionId: UUID = _
 
@@ -44,7 +44,7 @@ trait SnapshotStateService extends Config with Logging with Hashing {
     sessionId = serverStateStore.get.sessionId
 
     logger.info("Initializing delta cache")
-    deltaStore.initCache(sessionId)
+    updateStore.initCache(sessionId)
 
     val serverState = serverStateStore.get
     fsWriter ! InitCommand(serverState)
@@ -72,7 +72,7 @@ trait SnapshotStateService extends Config with Logging with Hashing {
       val validPdus = results.collect { case Right((_, _, qPdu)) => qPdu }
 
       try {
-        val deltaAction = deltaStore.addDeltaAction(clientId, Delta(sessionId, newServerState.serialNumber, validPdus))
+        val deltaAction = updateStore.updateAction(clientId, Delta(sessionId, newServerState.serialNumber, validPdus))
         val serverStateAction = serverStateStore.updateAction(newServerState)
 
         val publishActions = DBIO.seq(waitFor(actions): _*)
@@ -89,7 +89,7 @@ trait SnapshotStateService extends Config with Logging with Hashing {
     }
   }
 
-  def waitFor[T](f: Future[T]) = Await.result(f, Duration.Inf)
+  private def waitFor[T](f: Future[T]) = Await.result(f, Duration.Inf)
 
   def snapshotRetainPeriod = conf.unpublishedFileRetainPeriod
 

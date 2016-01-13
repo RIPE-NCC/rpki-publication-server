@@ -11,7 +11,7 @@ import akka.testkit.TestKit._
 import com.typesafe.config.ConfigFactory
 import net.ripe.rpki.publicationserver.model.{Delta, ClientId}
 import net.ripe.rpki.publicationserver.store.fs._
-import net.ripe.rpki.publicationserver.store.{DeltaStore, Migrations, ObjectStore, ServerStateStore}
+import net.ripe.rpki.publicationserver.store._
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
@@ -28,7 +28,7 @@ object MassiveDeltaRemovalTest {
   val deadline = timeToRunTheTest.fromNow
   val deadlineDate: Date = new Date(System.currentTimeMillis() + deadline.timeLeft.toMillis)
 
-  val theDeltaStore = new DeltaStore {
+  val theUpdateStore = new UpdateStore {
     // for test, override it with constant time at deadline
     override def afterRetainPeriod(period: Duration) = deadlineDate
   }
@@ -42,7 +42,7 @@ object MassiveDeltaRemovalTest {
   val theRsyncWriter = MockitoSugar.mock[RsyncRepositoryWriter]
 
   class TestFSWriter extends FSWriterActor with Config with MockitoSugar {
-    override protected val deltaStore = theDeltaStore
+    override protected val updateStore = theUpdateStore
     override protected val objectStore = theObjectStore
     override lazy val rsyncWriter = theRsyncWriter
 
@@ -71,7 +71,7 @@ class MassiveDeltaRemovalTest extends PublicationServerBaseTest with Hashing wit
     val service = new SnapshotStateService {
       override lazy val objectStore = theObjectStore
       override lazy val serverStateStore = theServerStateStore
-      override lazy val deltaStore = theDeltaStore
+      override lazy val updateStore = theUpdateStore
     }
     service.init(fsWriterRef)
     service
@@ -80,7 +80,7 @@ class MassiveDeltaRemovalTest extends PublicationServerBaseTest with Hashing wit
   before {
     cleanDir(rootDir.toFile)
     theObjectStore.clear()
-    theDeltaStore.clear()
+    theUpdateStore.clear()
     theServerStateStore.clear()
     Migrations.initServerState()
     sessionDir = rootDir.resolve(theServerStateStore.get.sessionId.toString).toString

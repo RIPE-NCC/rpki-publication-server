@@ -5,7 +5,7 @@ import java.nio.file.attribute.FileTime
 import akka.actor._
 import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver.model.{Delta, Notification, ServerState, Snapshot}
-import net.ripe.rpki.publicationserver.store.{DeltaStore, ObjectStore, ServerStateStore}
+import net.ripe.rpki.publicationserver.store.{UpdateStore, ObjectStore, ServerStateStore}
 import net.ripe.rpki.publicationserver.{Config, Logging}
 
 import scala.concurrent.duration._
@@ -28,7 +28,7 @@ class FSWriterActor extends Actor with Logging with Config {
   lazy val rrdpWriter = wire[RrdpRepositoryWriter]
   lazy val rsyncWriter = wire[RsyncRepositoryWriter]
 
-  protected val deltaStore = DeltaStore.get
+  protected val updateStore = UpdateStore.get
 
   protected val objectStore = ObjectStore.get
 
@@ -73,7 +73,7 @@ class FSWriterActor extends Actor with Logging with Config {
     }
 
     try {
-      val deltas = deltaStore.markOldestDeltasForDeletion(snapshot.binarySize, conf.unpublishedFileRetainPeriod)
+      val deltas = updateStore.markOldestDeltasForDeletion(snapshot.binarySize, conf.unpublishedFileRetainPeriod)
       val (deltasToPublish, deltasToDelete) = deltas.partition(_.whenToDelete.isEmpty)
       val newNotification = Notification.create(snapshot, newServerState, deltasToPublish.toSeq)
 
@@ -115,7 +115,7 @@ class FSWriterActor extends Actor with Logging with Config {
   }
 
   def updateFSDelta(givenSerial: Long) = {
-    deltaStore.getDelta(givenSerial) match {
+    updateStore.getDelta(givenSerial) match {
       case None =>
         logger.error(s"Could not find delta $givenSerial")
       case Some(delta) =>
@@ -140,7 +140,7 @@ class FSWriterActor extends Actor with Logging with Config {
     logger.info(s"Writing snapshot ${serverState.serialNumber} to filesystem")
     val snapshot = Snapshot(serverState, objects)
 
-    val deltas = deltaStore.markOldestDeltasForDeletion(snapshot.binarySize, conf.unpublishedFileRetainPeriod)
+    val deltas = updateStore.markOldestDeltasForDeletion(snapshot.binarySize, conf.unpublishedFileRetainPeriod)
 
     val (deltasToPublish, deltasToDelete) = deltas.partition(_.whenToDelete.isEmpty)
     val newNotification = Notification.create(snapshot, serverState, deltasToPublish.toSeq)
@@ -203,7 +203,7 @@ class FSWriterActor extends Actor with Logging with Config {
     if (deltasToDelete.nonEmpty) {
       logger.info("Removing deltas: " + deltasToDelete.map(_.serial).mkString(","))
       rrdpWriter.deleteDeltas(conf.rrdpRepositoryPath, deltasToDelete)
-      deltaStore.delete(deltasToDelete)
+      updateStore.delete(deltasToDelete)
     }
   }
 

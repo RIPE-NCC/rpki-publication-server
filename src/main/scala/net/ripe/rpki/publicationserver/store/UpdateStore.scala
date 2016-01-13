@@ -10,7 +10,7 @@ import net.ripe.rpki.publicationserver.model.{ClientId, Delta}
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
-class DeltaStore extends Hashing with Logging {
+class UpdateStore extends Hashing with Logging {
 
   import DB._
   import slick.driver.DerbyDriver.api._
@@ -21,7 +21,7 @@ class DeltaStore extends Hashing with Logging {
 
   private val deltaMap: scala.collection.concurrent.Map[Long, Delta] = new java.util.concurrent.ConcurrentHashMap[Long, Delta]()
 
-  def addDeltaAction(clientId: ClientId, delta: Delta) = {
+  def updateAction(clientId: ClientId, delta: Delta) = {
     val ClientId(cId) = clientId
     val actions = delta.pdus.map {
       case PublishQ(u, tag, Some(h), b64) =>
@@ -100,8 +100,8 @@ class DeltaStore extends Hashing with Logging {
   }
 }
 
-object DeltaStore {
-  lazy val store = new DeltaStore
+object UpdateStore {
+  lazy val store = new UpdateStore
 
   def get = store
 }
