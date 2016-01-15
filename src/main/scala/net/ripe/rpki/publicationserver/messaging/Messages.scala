@@ -1,4 +1,4 @@
-package net.ripe.rpki.publicationserver.model
+package net.ripe.rpki.publicationserver.messaging
 
 import java.net.URI
 
