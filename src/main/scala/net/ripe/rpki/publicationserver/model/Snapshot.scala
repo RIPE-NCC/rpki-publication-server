@@ -17,7 +17,7 @@ case class Snapshot(serverState: ServerState, pdus: Seq[DB.RRDPObject]) extends 
       sessionId.toString,
       serial,
       pdus.map { e =>
-        val (base64, _, uri) = e
+        val (base64, _, uri, _) = e
         <publish uri={uri.toString}>
           {base64.value}
         </publish>

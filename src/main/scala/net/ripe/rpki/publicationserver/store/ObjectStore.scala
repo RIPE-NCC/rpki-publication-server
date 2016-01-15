@@ -40,13 +40,13 @@ class ObjectStore extends Hashing {
 
   def getAllAction = mapQ(objects)
 
-  def insertAction(clientId: ClientId, obj: RRDPObject) = {
-    val (base64, hash, uri) = obj
+  def insertAction(obj: RRDPObject) = {
+    val (base64, hash, uri, clientId) = obj
     objects += (base64.value, hash.hash, uri.toString, clientId.value)
   }
 
-  def updateAction(clientId: ClientId, obj: RRDPObject) = {
-    val (base64, hash, uri) = obj
+  def updateAction(obj: RRDPObject) = {
+    val (base64, hash, uri, clientId) = obj
     objects.filter(_.uri === uri.toString).update {
       (base64.value, hash.hash, uri.toString, clientId.value)
     }
@@ -70,8 +70,8 @@ class ObjectStore extends Hashing {
 
   private def mapQ(q: Query[RepoObject, StoredTuple, Seq]) = q.result.map {
     _.map { o =>
-      val (b64, h, u, _) = o
-      (Base64(b64), Hash(h), new URI(u))
+      val (b64, h, u, clientId) = o
+      (Base64(b64), Hash(h), new URI(u), ClientId(clientId))
     }
   }
 
@@ -79,12 +79,10 @@ class ObjectStore extends Hashing {
     Await.result(db.run(mapQ(q)), conf.defaultTimeout)
 
 
-  type State = Map[URI, (Base64, Hash)]
-
-  def getState : State = {
+  def getState : ObjectStore.State = {
     listAll.map { o =>
-      val (base64, hash, uri) = o
-      uri -> (base64, hash)
+      val (base64, hash, uri, clientId) = o
+      uri -> (base64, hash, clientId)
     }.toMap
   }
 
@@ -93,9 +91,9 @@ class ObjectStore extends Hashing {
       case WithdrawQ(uri, tag, hash) =>
         deleteAction(clientId, Hash(hash))
       case PublishQ(uri, tag, None, base64) =>
-        insertAction(clientId, (base64, hash(base64), uri))
+        insertAction((base64, hash(base64), uri, clientId))
       case PublishQ(uri, tag, Some(h), base64) =>
-        updateAction(clientId, (base64, hash(base64), uri))
+        updateAction((base64, hash(base64), uri, clientId))
     }
     db.run(DBIO.seq(actions: _*).transactionally)
   }
@@ -103,6 +101,7 @@ class ObjectStore extends Hashing {
 }
 
 object ObjectStore {
+  type State = Map[URI, (Base64, Hash, ClientId)]
   // it's stateless, so we can return new instance every time
   def get = new ObjectStore
 }

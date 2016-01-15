@@ -5,6 +5,7 @@ import java.util.concurrent.Executors
 
 import akka.actor._
 import com.softwaremill.macwire.MacwireMacros._
+import net.ripe.rpki.publicationserver.messaging.Messages.RawMessage
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.parsing.PublicationMessageParser
 import net.ripe.rpki.publicationserver.store.Migrations
@@ -32,17 +33,22 @@ class PublicationServiceActor(fsWriterFactory: ActorRefFactory => ActorRef)
 
   override def preStart() = {
       Migrations.migrate()
-      val fsWriter = fsWriterFactory(context)
-      init(fsWriter)
+//      val fsWriter = fsWriterFactory(context)
+      init(context.actorOf(StateActor.props))
   }
 }
 
 object PublicationServiceActor {
-  def props(actorRefFactory: ActorRefFactory => ActorRef) =
-    Props(new PublicationServiceActor(actorRefFactory))
+  def props(actorRefFactory: ActorRefFactory => ActorRef) = Props(new PublicationServiceActor(actorRefFactory))
 }
 
-trait PublicationService extends HttpService with SnapshotStateService {
+trait PublicationService extends HttpService {
+
+  var stateActor: ActorRef = _
+
+  def init(stateActorRef: ActorRef) = {
+    stateActor = stateActorRef
+  }
 
   val MediaTypeString = "application/rpki-publication"
   val RpkiPublicationType = MediaType.custom(MediaTypeString)
@@ -92,6 +98,7 @@ trait PublicationService extends HttpService with SnapshotStateService {
       }
     }
 
+
   private def processRequest[T](clientId: ClientId, parsedMessage: Either[BaseError, T]) = {
     def logErrors(errors: Seq[ReplyPdu]): Unit = {
       serviceLogger.warn(s"Request contained ${errors.size} PDU(s) with errors:")
@@ -102,17 +109,19 @@ trait PublicationService extends HttpService with SnapshotStateService {
 
     val response = parsedMessage match {
       case Right(QueryMessage(pdus)) =>
-        val elements = updateWith(clientId, pdus)
-        elements.filter(_.isInstanceOf[ReportError]) match {
-          case Seq() =>
-            serviceLogger.info("Request handled successfully")
-          case errors =>
-            logErrors(errors)
-        }
-        ReplyMsg(elements).serialize
+//        val elements = updateWith(clientId, pdus)
+//        elements.filter(_.isInstanceOf[ReportError]) match {
+//          case Seq() =>
+//            serviceLogger.info("Request handled successfully")
+//          case errors =>
+//            logErrors(errors)
+//        }
+//        ReplyMsg(elements).serialize
+        ReplyMsg(Seq()).serialize
 
       case Right(ListMessage()) =>
-        ReplyMsg(list(clientId)).serialize
+//        ReplyMsg(list(clientId)).serialize
+        ReplyMsg(Seq()).serialize
 
       case Left(msgError) =>
         serviceLogger.warn("Error while handling request: {}", msgError)

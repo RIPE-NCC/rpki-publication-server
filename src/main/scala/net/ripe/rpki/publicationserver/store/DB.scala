@@ -4,7 +4,7 @@ import java.net.URI
 import java.util.UUID
 import java.util.concurrent.Executors
 
-import net.ripe.rpki.publicationserver.model.ServerState
+import net.ripe.rpki.publicationserver.model.{ClientId, ServerState}
 import net.ripe.rpki.publicationserver.{Base64, Hash}
 import slick.jdbc.meta.MTable
 
@@ -23,7 +23,7 @@ object DB {
   // to prevent it being stuck when the default EC is exhausted
   implicit val ec: ExecutionContext = ExecutionContext.fromExecutor(Executors.newCachedThreadPool())
 
-  type RRDPObject = (Base64, Hash, URI)
+  type RRDPObject = (Base64, Hash, URI, ClientId)
 
   type DBType = Database
 

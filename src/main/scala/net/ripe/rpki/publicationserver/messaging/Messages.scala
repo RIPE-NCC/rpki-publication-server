@@ -1,17 +1,15 @@
 package net.ripe.rpki.publicationserver.messaging
 
-import java.net.URI
-
-import net.ripe.rpki.publicationserver.{Base64, Hash, QueryMessage}
+import net.ripe.rpki.publicationserver.QueryMessage
+import net.ripe.rpki.publicationserver.model.ClientId
+import net.ripe.rpki.publicationserver.store.ObjectStore
 
 object Messages {
 
-  type State = Map[URI, (Base64, Hash)]
+  case class RawMessage(message: net.ripe.rpki.publicationserver.Message, clientId: ClientId)
 
-  case class RawMessage(queryMessage: QueryMessage)
+  case class ValidatedMessage(queryMessage: QueryMessage, state: ObjectStore.State)
 
-  case class ValidatedMessage(queryMessage: QueryMessage, state: State)
-
-  case class BatchMessage(messages: Seq[ValidatedMessage], state: State)
+  case class BatchMessage(messages: Seq[ValidatedMessage], state: ObjectStore.State)
 }
 
