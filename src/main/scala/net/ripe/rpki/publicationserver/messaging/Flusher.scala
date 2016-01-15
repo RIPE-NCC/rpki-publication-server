@@ -1,6 +1,8 @@
 package net.ripe.rpki.publicationserver.messaging
 
 
+import java.nio.file.attribute.FileTime
+
 import akka.actor.{Props, Actor}
 
 import java.net.URI
@@ -12,12 +14,12 @@ import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver.messaging.Messages._
 import net.ripe.rpki.publicationserver.model.{Delta, Notification, ServerState, Snapshot}
 import net.ripe.rpki.publicationserver.store.ObjectStore
-import net.ripe.rpki.publicationserver.store.fs.{RrdpRepositoryWriter, RsyncRepositoryWriter}
+import net.ripe.rpki.publicationserver.store.fs.{CleanSnapshotsCommand, RrdpRepositoryWriter, RsyncRepositoryWriter}
 import net.ripe.rpki.publicationserver.{Config, Hash, Logging, QueryMessage}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
-import scala.util.{Failure, Success}
+import scala.util.{Try, Failure, Success}
 
 object Flusher {
   def props = Props(new Flusher)
@@ -25,7 +27,7 @@ object Flusher {
 
 class Flusher extends Actor with Config with Logging {
 
-  import scala.concurrent.ExecutionContext.Implicits.global
+  import context._
 
   lazy val rrdpWriter = wire[RrdpRepositoryWriter]
   lazy val rsyncWriter = wire[RsyncRepositoryWriter]
@@ -69,16 +71,18 @@ class Flusher extends Actor with Config with Logging {
     waitFor(rrdp).flatMap { _ =>
       waitFor(rsync).flatMap { _ =>
         rrdpWriter.writeNewState(conf.rrdpRepositoryPath, newServerState, newNotification, snapshot)
-      }.recover {
+      }.recoverWith {
         case e: Exception =>
           logger.error(s"Could not write delta $serial to RRDP repo: ", e)
+          Failure(e)
       }
-    }.recover {
+    }.recoverWith {
       case e: Exception =>
         logger.error(s"Could not write delta $serial to rsync repo: ", e)
+        Failure(e)
     } match {
       case Success(timestampOption) =>
-      //            timestampOption.foreach(scheduleSnapshotCleanup
+        timestampOption.foreach(scheduleSnapshotCleanup)
       //            val now = System.currentTimeMillis
       //            cleanupDeltas(deltasToDelete.filter(_.whenToDelete.exists(_.getTime < now)))
       case Failure(e) =>
@@ -96,5 +100,27 @@ class Flusher extends Actor with Config with Logging {
       true
     }
   }
+
+  def snapshotCleanInterval: FiniteDuration = {
+    val i = conf.unpublishedFileRetainPeriod / 10
+    if (i < 1.second) 1.second else i
+  }
+
+  var snapshotFSCleanupScheduled = false
+
+  def scheduleSnapshotCleanup(timestamp: FileTime): Unit = {
+    if (!snapshotFSCleanupScheduled) {
+      system.scheduler.scheduleOnce(snapshotCleanInterval, new Runnable() {
+        override def run() = {
+          val command = CleanSnapshotsCommand(timestamp)
+          self ! command
+          logger.debug(s"$command has been sent")
+          snapshotFSCleanupScheduled = false
+        }
+      })
+      snapshotFSCleanupScheduled = true
+    }
+  }
+
 
 }
