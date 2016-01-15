@@ -1,5 +1,7 @@
 package net.ripe.rpki.publicationserver
 
+import java.net.URI
+
 import akka.actor.{Actor, ActorRef, Props}
 import net.ripe.rpki.publicationserver.messaging.Accumulator
 import net.ripe.rpki.publicationserver.messaging.Messages.{RawMessage, ValidatedMessage}
@@ -61,41 +63,60 @@ class StateActor extends Actor with Hashing with Logging {
     }
   }
 
-  def applyPdu(state: State, pdu: QueryPdu, clientId: ClientId): Either[ReportError, State] =
+  def applyPdu(state: State, pdu: QueryPdu, clientId: ClientId): Either[ReportError, State] = {
     pdu match {
-
       case PublishQ(uri, tag, None, base64) =>
-        if (state.contains(uri)) {
-          Left(ReportError(BaseError.HashForInsert, Some(s"Tried to insert existing object [$uri].")))
-        } else {
-          Right(state + (uri ->(base64, hash(base64), clientId)))
-        }
-
+        applyCreate(state, clientId, uri, base64)
       case PublishQ(uri, tag, Some(strHash), base64) =>
-        state.get(uri) match {
-          case Some((_, Hash(h), _)) =>
-            if (h == strHash)
-              Right(state + (uri ->(base64, hash(base64), clientId)))
-            else
-              Left(ReportError(BaseError.NonMatchingHash, Some(s"Cannot republish the object [$uri], hash doesn't match")))
-          case None =>
-            Left(ReportError(BaseError.NoObjectToUpdate, Some(s"No object [$uri] has been found.")))
-        }
-
+        applyReplace(state, clientId, uri, strHash, base64)
       case WithdrawQ(uri, tag, strHash) =>
-        state.get(uri) match {
-          case Some((base64, Hash(h), _)) =>
-            if (h == strHash)
-              Right(state - uri)
-            else {
-              Left(ReportError(BaseError.NonMatchingHash, Some(s"Cannot withdraw the object [$uri], hash doesn't match.")))
-            }
-          case None =>
-            Left(ReportError(BaseError.NoObjectForWithdraw, Some(s"No object [$uri] found.")))
-        }
+        applyDelete(state, uri, strHash)
     }
+  }
+
+  def applyDelete(state: State, uri: URI, strHash: String): Either[ReportError, State] = {
+    state.get(uri) match {
+      case Some((base64, Hash(h), _)) =>
+        if (h == strHash)
+          Right(state - uri)
+        else {
+          Left(ReportError(BaseError.NonMatchingHash, Some(s"Cannot withdraw the object [$uri], hash doesn't match.")))
+        }
+      case None =>
+        Left(ReportError(BaseError.NoObjectForWithdraw, Some(s"No object [$uri] found.")))
+    }
+  }
+
+  def applyReplace(state: State, clientId: ClientId, uri: URI, strHash: String, base64: Base64): Either[ReportError, State] = {
+    state.get(uri) match {
+      case Some((_, Hash(h), _)) =>
+        if (h == strHash)
+          Right(state + (uri ->(base64, hash(base64), clientId)))
+        else
+          Left(ReportError(BaseError.NonMatchingHash, Some(s"Cannot republish the object [$uri], hash doesn't match")))
+      case None =>
+        Left(ReportError(BaseError.NoObjectToUpdate, Some(s"No object [$uri] has been found.")))
+    }
+  }
+
+  def applyCreate(state: State, clientId: ClientId, uri: URI, base64: Base64): Either[ReportError, State] = {
+    if (state.contains(uri)) {
+      Left(ReportError(BaseError.HashForInsert, Some(s"Tried to insert existing object [$uri].")))
+    } else {
+      Right(state + (uri ->(base64, hash(base64), clientId)))
+    }
+  }
 
   def processListMessage(clientId: ClientId): Unit = {
-
+    try {
+      val replies = state collect {
+        case (uri, (b64, h, clId)) if clId == clientId =>
+          ListR(uri, h.hash, None)
+      }
+      sender() ! akka.actor.Status.Success(replies)
+    } catch {
+      case e: Exception =>
+        sender() ! akka.actor.Status.Failure(e)
+    }
   }
 }
