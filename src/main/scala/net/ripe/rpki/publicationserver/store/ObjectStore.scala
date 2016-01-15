@@ -75,6 +75,23 @@ class ObjectStore extends Hashing {
 
   private def getSeq(q: Query[RepoObject, StoredTuple, Seq]): Seq[RRDPObject] =
     Await.result(db.run(mapQ(q)), conf.defaultTimeout)
+
+
+  type State = Map[URI, (Base64, Hash)]
+
+  def getState : State = {
+    listAll.map { o =>
+      val (base64, hash, uri) = o
+      uri -> (base64, hash)
+    }.toMap
+  }
+
+  type ChangeSet = String
+
+  def applyChanges(changeSet: ChangeSet) = {
+
+  }
+
 }
 
 object ObjectStore {
