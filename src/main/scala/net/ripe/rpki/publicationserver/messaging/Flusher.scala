@@ -1,7 +1,11 @@
 package net.ripe.rpki.publicationserver.messaging
 
-import akka.actor.Actor
+import akka.actor.{Props, Actor}
 import net.ripe.rpki.publicationserver.messaging.Messages._
+
+object Flusher {
+  def props = Props(new Flusher)
+}
 
 class Flusher extends Actor {
 

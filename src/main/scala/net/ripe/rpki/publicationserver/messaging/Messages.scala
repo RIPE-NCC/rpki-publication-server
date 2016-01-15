@@ -10,6 +10,7 @@ object Messages {
 
   case class ValidatedMessage(queryMessage: QueryMessage, state: ObjectStore.State)
 
-  case class BatchMessage(messages: Seq[ValidatedMessage], state: ObjectStore.State)
+  case class BatchMessage(messages: Seq[QueryMessage], state: ObjectStore.State)
+
 }
 
