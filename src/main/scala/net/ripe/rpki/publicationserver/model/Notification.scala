@@ -40,4 +40,15 @@ object Notification extends Hashing with Config {
     val ServerState(sessionId, serial) = serverState
     Notification(sessionId, serial, snapshotLocator, deltaLocators)
   }
+
+  def create2(snapshot: Snapshot, serverState: ServerState, deltas: Seq[(Long, Hash)]): Notification = {
+    val snapshotLocator = SnapshotLocator(snapshotUrl(serverState), snapshot.contentHash)
+    val deltaLocators = deltas.sortBy(-_._1).map { d =>
+      val (serial, hash) = d
+      DeltaLocator(serial, deltaUrl(snapshot.serverState.sessionId, serial), hash)
+    }.seq
+    val ServerState(sessionId, serial) = serverState
+    Notification(sessionId, serial, snapshotLocator, deltaLocators)
+  }
+
 }

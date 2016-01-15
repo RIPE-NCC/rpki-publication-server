@@ -39,20 +39,18 @@ class FSWriterActor extends Actor with Logging with Config {
       initFSContent(newServerState)
 
     case WriteCommand(newServerState) =>
-      tryProcess(updateFSContent(newServerState))
+      tryTo(updateFSContent(newServerState))
 
     case UpdateSnapsot() =>
-      tryProcess(updateFSSnapshot())
+      tryTo(updateFSSnapshot())
 
     case CleanSnapshotsCommand(timestamp) =>
-      tryProcess(cleanupSnapshots(timestamp))
+      tryTo(cleanupSnapshots(timestamp))
   }
 
-  def tryProcess[T](f : => T) =
-    Try(f)
-    .failed.foreach {
-      logger.error("Error processing command", _)
-    }
+  def tryTo[T](f: => T) = Try(f).failed.foreach {
+    logger.error("Error processing command", _)
+  }
 
   def throwFatalException = {
     logger.error("Error in repository init, bailing out")
@@ -146,8 +144,7 @@ class FSWriterActor extends Actor with Logging with Config {
     val newNotification = Notification.create(snapshot, serverState, deltasToPublish.toSeq)
     rrdpWriter.writeNewState(conf.rrdpRepositoryPath, serverState, newNotification, snapshot) match {
       case Success(timestampOption) =>
-        if (timestampOption.isDefined)
-          scheduleSnapshotCleanup(timestampOption.get)
+        timestampOption.foreach(scheduleSnapshotCleanup)
         val now = System.currentTimeMillis
         cleanupDeltas(deltasToDelete.filter(_.whenToDelete.exists(_.getTime < now)))
       case Failure(e) =>

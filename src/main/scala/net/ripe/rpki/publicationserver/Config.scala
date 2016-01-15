@@ -1,5 +1,7 @@
 package net.ripe.rpki.publicationserver
 
+import java.util.UUID
+
 import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver.model.{Delta, ServerState}
 
@@ -13,5 +15,7 @@ trait Config {
     repositoryUri + "/" + sessionId + "/" + serial + "/snapshot.xml"
   }
 
-  def deltaUrl(delta: Delta) = repositoryUri + "/" + delta.sessionId + "/" + delta.serial + "/delta.xml"
+  def deltaUrl(delta: Delta) : String = deltaUrl(delta.sessionId, delta.serial)
+
+  def deltaUrl(sessionId: UUID, serial: Long) = repositoryUri + "/" + sessionId + "/" + serial + "/delta.xml"
 }
