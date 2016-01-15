@@ -5,9 +5,11 @@ import java.net.URI
 import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.model.ClientId
+import slick.dbio.Effect.Write
 import slick.driver.DerbyDriver.api._
+import slick.profile.FixedSqlAction
 
-import scala.concurrent.Await
+import scala.concurrent.{Await, Future}
 
 class ObjectStore extends Hashing {
 
@@ -86,8 +88,8 @@ class ObjectStore extends Hashing {
     }.toMap
   }
 
-  def applyChanges(changeSet: QueryMessage, clientId: ClientId) = {
-    changeSet.pdus.map {
+  def applyChanges(changeSet: QueryMessage, clientId: ClientId): Future[Unit] = {
+    val actions: Seq[FixedSqlAction[Int, NoStream, Write]] = changeSet.pdus.map {
       case WithdrawQ(uri, tag, hash) =>
         deleteAction(clientId, Hash(hash))
       case PublishQ(uri, tag, None, base64) =>
@@ -95,6 +97,7 @@ class ObjectStore extends Hashing {
       case PublishQ(uri, tag, Some(h), base64) =>
         updateAction(clientId, (base64, hash(base64), uri))
     }
+    db.run(DBIO.seq(actions: _*).transactionally)
   }
 
 }
