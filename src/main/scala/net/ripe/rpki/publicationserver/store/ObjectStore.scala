@@ -86,10 +86,14 @@ class ObjectStore extends Hashing {
     }.toMap
   }
 
-  def applyChanges(changeSet: QueryMessage) = {
-    changeSet.pdus.foreach {
+  def applyChanges(changeSet: QueryMessage, clientId: ClientId) = {
+    changeSet.pdus.map {
       case WithdrawQ(uri, tag, hash) =>
-      case PublishQ(uri, tag, hash, base64) =>
+        deleteAction(clientId, Hash(hash))
+      case PublishQ(uri, tag, None, base64) =>
+        insertAction(clientId, (base64, hash(base64), uri))
+      case PublishQ(uri, tag, Some(h), base64) =>
+        updateAction(clientId, (base64, hash(base64), uri))
     }
   }
 
