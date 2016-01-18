@@ -2,11 +2,7 @@ package net.ripe.rpki.publicationserver
 
 import java.net.URI
 
-import net.ripe.rpki.publicationserver.parsing._
-
-import scala.annotation.tailrec
-import scala.io.Source
-import scala.xml._
+import scala.xml.{Elem, NodeSeq}
 
 object BaseError extends Enumeration {
   type Code = Value
@@ -83,7 +79,7 @@ case class ReplyMsg(pdus: Seq[ReplyPdu]) extends Msg {
       case ListR(uri, hash, None) => <list uri={uri.toString} hash={hash}/>
       case ReportError(code, message) =>
         <report_error error_code={code.toString}>
-          {message}
+          {message.getOrElse("Unspecified error")}
         </report_error>
     }
   }
