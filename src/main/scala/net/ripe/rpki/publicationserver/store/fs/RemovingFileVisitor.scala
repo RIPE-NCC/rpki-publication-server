@@ -8,7 +8,7 @@ import net.ripe.rpki.publicationserver.Logging
 
 class RemovingFileVisitor(timestamp: FileTime, filenameToDelete: Path, latestSerial: Long) extends SimpleFileVisitor[Path] with Logging {
 
-  val latestSnapshotNameComponent = Paths.get(latestSerial.toString, filenameToDelete.toString)
+  val latestFileNameComponent = Paths.get(latestSerial.toString, filenameToDelete.toString)
 
   override def visitFileFailed(file: Path, exc: IOException): FileVisitResult = {
     logger.error(s"Error visiting $file: ${exc.getMessage}")
@@ -17,7 +17,7 @@ class RemovingFileVisitor(timestamp: FileTime, filenameToDelete: Path, latestSer
   }
 
   override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
-    if (file.endsWith(filenameToDelete) && !file.endsWith(latestSnapshotNameComponent) && isModifiedBefore(file)) {
+    if (file.endsWith(filenameToDelete) && !file.endsWith(latestFileNameComponent) && isModifiedBefore(file)) {
       logger.info(s"Removing $file")
       Files.deleteIfExists(file)
     }

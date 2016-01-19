@@ -1,11 +1,12 @@
 package net.ripe.rpki.publicationserver.model
 
-import net.ripe.rpki.publicationserver.Hashing
-import net.ripe.rpki.publicationserver.store.DB
+import java.net.URI
+
+import net.ripe.rpki.publicationserver.{Base64, Hashing}
 
 import scala.xml.{Elem, Node}
 
-case class Snapshot(serverState: ServerState, pdus: Seq[DB.RRDPObject]) extends Hashing {
+case class Snapshot(serverState: ServerState, pdus: Seq[(Base64, URI)]) extends Hashing {
 
   lazy val bytes = serialize.mkString.getBytes
   lazy val contentHash = hash(bytes)
@@ -17,7 +18,7 @@ case class Snapshot(serverState: ServerState, pdus: Seq[DB.RRDPObject]) extends 
       sessionId.toString,
       serial,
       pdus.map { e =>
-        val (base64, _, uri, _) = e
+        val (base64, uri) = e
         <publish uri={uri.toString}>
           {base64.value}
         </publish>

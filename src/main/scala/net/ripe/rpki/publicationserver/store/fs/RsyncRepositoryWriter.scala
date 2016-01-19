@@ -51,8 +51,7 @@ class RsyncRepositoryWriter extends Logging {
 
   private def groupByBaseDir(snapshot: Snapshot): Map[Path, Seq[(publicationserver.Base64, RsyncFsLocation)]] = {
     snapshot.pdus.map {
-      case (base64, _, uri, _) =>
-        (base64, resolvePath(uri))
+      case (base64, uri) => (base64, resolvePath(uri))
     }.groupBy(_._2.base)
   }
 

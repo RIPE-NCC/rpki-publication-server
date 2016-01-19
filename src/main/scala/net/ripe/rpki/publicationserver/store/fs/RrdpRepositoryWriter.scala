@@ -1,7 +1,8 @@
 package net.ripe.rpki.publicationserver.store.fs
 
 import java.nio.file._
-import java.nio.file.attribute.{FileTime, PosixFilePermissions}
+import java.nio.file.attribute.{BasicFileAttributes, FileTime, PosixFilePermissions}
+import java.util.UUID
 
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.model.{Delta, Notification, ServerState, Snapshot}
@@ -10,6 +11,27 @@ import scala.util.{Failure, Try}
 import scala.xml.{Node, XML}
 
 class RrdpRepositoryWriter extends Logging {
+
+  def createSession(rootDir: String, sessionId: UUID, serial: Long): Unit = {
+    logger.info(s"Initializing session directory: $rootDir, session-id = $sessionId, serial = $serial")
+    getStateDir(rootDir, sessionId.toString, serial)
+  }
+
+  class RemoveAllVisitor extends SimpleFileVisitor[Path] {
+    override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
+      Files.deleteIfExists(file)
+      FileVisitResult.CONTINUE
+    }
+  }
+
+  def cleanRepository(rootDir: String) = {
+    Files.walkFileTree(Paths.get(rootDir), new RemoveAllVisitor)
+  }
+
+  private val snapshotFilename = "snapshot.xml"
+  private val deltaFilename = "delta.xml"
+
+  private val fileAttributes = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-r--r--"))
 
   def writeNewState(rootDir: String, serverState: ServerState, newNotification: Notification, snapshot: Snapshot): Try[Option[FileTime]] =
     Try {
@@ -21,8 +43,6 @@ class RrdpRepositoryWriter extends Logging {
       Failure(e)
     }
 
-  private val snapshotFilename: String = "snapshot.xml"
-  private val fileAttributes = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-r--r--"))
 
   def writeSnapshot(rootDir: String, serverState: ServerState, snapshot: Snapshot) = {
     val ServerState(sessionId, serial) = serverState
@@ -71,6 +91,10 @@ class RrdpRepositoryWriter extends Logging {
     Files.walkFileTree(Paths.get(rootDir), new RemovingFileVisitor(timestamp, Paths.get(snapshotFilename), latestSerial))
   }
 
+  def deleteDeltaOlderThan(rootDir: String, timestamp: FileTime, latestSerial: Long): Unit = {
+    Files.walkFileTree(Paths.get(rootDir), new RemovingFileVisitor(timestamp, Paths.get(deltaFilename), latestSerial))
+  }
+
   def deleteSnapshot(rootDir: String, serverState: ServerState) = deleteSessionFile(rootDir, serverState, snapshotFilename)
 
   def deleteDelta(rootDir: String, serverState: ServerState) = deleteSessionFile(rootDir, serverState, "delta.xml")
@@ -83,4 +107,6 @@ class RrdpRepositoryWriter extends Logging {
       deleteDelta(rootDir, ServerState(d.sessionId, d.serial))
     }
 
+  def deleteDeltas(rootDir: String, sessionId: UUID, serials: Iterable[Long]) =
+    serials.par.foreach(s => deleteDelta(rootDir, ServerState(sessionId, s)))
 }

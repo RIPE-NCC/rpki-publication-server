@@ -1,12 +1,13 @@
 package net.ripe.rpki.publicationserver.store.fs
 
+import java.net.URI
 import java.nio.file.attribute.FileTime
 
 import akka.actor._
 import com.softwaremill.macwire.MacwireMacros._
-import net.ripe.rpki.publicationserver.model.{Delta, Notification, ServerState, Snapshot}
+import net.ripe.rpki.publicationserver.model._
 import net.ripe.rpki.publicationserver.store.{UpdateStore, ObjectStore, ServerStateStore}
-import net.ripe.rpki.publicationserver.{Config, Logging}
+import net.ripe.rpki.publicationserver.{Hash, Base64, Config, Logging}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
@@ -16,7 +17,7 @@ import scala.util.{Failure, Success, Try}
 
 case class InitCommand(newServerState: ServerState)
 case class WriteCommand(newServerState: ServerState)
-case class CleanSnapshotsCommand(timestamp: FileTime)
+case class CleanSnapshotsCommand(timestamp: FileTime, serial: Long = 0)
 
 case class UpdateSnapsot()
 case class SetTarget(actor: ActorRef)
@@ -44,7 +45,7 @@ class FSWriterActor extends Actor with Logging with Config {
     case UpdateSnapsot() =>
       tryTo(updateFSSnapshot())
 
-    case CleanSnapshotsCommand(timestamp) =>
+    case CleanSnapshotsCommand(timestamp, _) =>
       tryTo(cleanupSnapshots(timestamp))
   }
 
@@ -60,7 +61,7 @@ class FSWriterActor extends Actor with Logging with Config {
 
   def initFSContent(newServerState: ServerState): Unit = {
     val objects = objectStore.listAll
-    val snapshot = Snapshot(newServerState, objects)
+    val snapshot = Snapshot(newServerState, objects.map(o => (o._1, o._3)))
 
     val rsync = Future {
       try rsyncWriter.writeSnapshot(snapshot) catch {
@@ -136,7 +137,7 @@ class FSWriterActor extends Actor with Logging with Config {
     val objects = objectStore.listAll
 
     logger.info(s"Writing snapshot ${serverState.serialNumber} to filesystem")
-    val snapshot = Snapshot(serverState, objects)
+    val snapshot = Snapshot(serverState, objects.map(o => (o._1, o._3)))
 
     val deltas = updateStore.markOldestDeltasForDeletion(snapshot.binarySize, conf.unpublishedFileRetainPeriod)
 
