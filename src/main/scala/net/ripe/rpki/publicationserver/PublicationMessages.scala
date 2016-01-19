@@ -36,7 +36,7 @@ case class PublishQ(uri: URI, tag: Option[String], hash: Option[String], base64:
 
 case class WithdrawQ(uri: URI, tag: Option[String], hash: String) extends QueryPdu
 
-case class ListQ() extends QueryPdu
+case class ListQ(tag: Option[String] = None) extends QueryPdu
 
 class ReplyPdu()
 

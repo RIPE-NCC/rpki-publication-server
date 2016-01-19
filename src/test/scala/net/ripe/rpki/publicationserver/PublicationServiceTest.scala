@@ -104,9 +104,12 @@ class PublicationServiceTest extends PublicationServerBaseTest with ScalatestRou
   }
 
   test("should return an ok response for a valid withdraw request") {
-    val pdus = Seq(PublishQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), None, None, Base64("bla")))
     val service = publicationService
-    service.updateWith(ClientId("1234"), pdus)
+
+    val pdus = Seq(PublishQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), None, None, Base64("bla")))
+    POST("/?clientId=1234", xml(pdus).mkString) ~> service.publicationRoutes ~> check {
+      status should be(StatusCodes.Success)
+    }
 
     val withdrawXml = getFile("/withdraw.xml")
     val withdrawXmlResponse = getFile("/withdrawResponse.xml")
@@ -119,8 +122,11 @@ class PublicationServiceTest extends PublicationServerBaseTest with ScalatestRou
 
   test("should return the tag in the response if it was present in the withdraw request") {
     val service = publicationService
+
     val pdus = Seq(PublishQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), None, None, Base64("bla")))
-    service.updateWith(ClientId("1234"), pdus)
+    POST("/?clientId=1234", xml(pdus).mkString) ~> service.publicationRoutes ~> check {
+      status should be(StatusCodes.Success)
+    }
 
     val withdrawXml = getFile("/withdrawWithTag.xml")
     val withdrawXmlResponse = getFile("/withdrawWithTagResponse.xml")

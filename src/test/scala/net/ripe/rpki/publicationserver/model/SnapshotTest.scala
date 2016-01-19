@@ -9,7 +9,7 @@ class SnapshotTest extends PublicationServerBaseTest {
 
   test("should serialize to proper xml") {
     val sessionId = UUID.randomUUID()
-    val state = Snapshot(ServerState(sessionId, 123L), Seq((Base64("321"), Hash("123"), new URI("rsync://bla"))))
+    val state = Snapshot(ServerState(sessionId, 123L), Seq((Base64("321"), new URI("rsync://bla"))))
 
     val xml = state.serialize.mkString
 

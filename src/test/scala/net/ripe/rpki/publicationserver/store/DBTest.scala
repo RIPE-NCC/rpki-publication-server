@@ -5,7 +5,7 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 import net.ripe.rpki.publicationserver.model.ClientId
-import net.ripe.rpki.publicationserver.{Base64, Hash, PublicationServerBaseTest}
+import net.ripe.rpki.publicationserver._
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
@@ -30,7 +30,9 @@ class DBTest extends PublicationServerBaseTest {
     def crash = throw new Exception("I'm dying")
 
     val clientId = ClientId(UUID.randomUUID().toString)
-    val i = objectStore.insertAction(clientId, (Base64("AAAA=="), Hash("jfkfhjghj"), new URI("rsync://host.com/path")))
+    val query = QueryMessage(Seq(PublishQ(new URI("rsync://host.com/path"), tag = None, Some("jfkfhjghj"), Base64("AAAA=="))))
+    objectStore.applyChanges(query, clientId)
+
     try {
       Await.result(db.run(
         DBIO.seq(i, DB.liftDB(crash)).transactionally
