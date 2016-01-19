@@ -61,7 +61,7 @@ abstract class PublicationServerBaseTest extends FunSuite with BeforeAndAfter wi
     </msg>
 
 
-  def updateState(service: PublicationService, pdus: Seq[QueryPdu], clientId: ClientId = ClientId("1234")) = {
+  def updateState(service: PublicationServiceActor, pdus: Seq[QueryPdu], clientId: ClientId = ClientId("1234")) = {
     POST(s"/?clientId=${clientId.value}", xml(pdus).mkString) ~> service.publicationRoutes ~> check {
       status should be(StatusCodes.Success)
     }

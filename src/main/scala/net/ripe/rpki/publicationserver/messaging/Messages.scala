@@ -15,6 +15,8 @@ object Messages {
 
   case class BatchMessage(messages: Seq[QueryMessage], state: ObjectStore.State)
 
+  case class InitRepo(state: ObjectStore.State)
+
   case class CleanUpSnapshot(timestamp: FileTime, serial: Long)
 
   case class CleanUpDeltas(sessionId: UUID, serials: Iterable[Long])

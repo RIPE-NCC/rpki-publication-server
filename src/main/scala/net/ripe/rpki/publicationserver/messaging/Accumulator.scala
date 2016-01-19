@@ -3,16 +3,16 @@ package net.ripe.rpki.publicationserver.messaging
 import akka.actor.{Actor, ActorRef, ActorRefFactory, Props}
 import net.ripe.rpki.publicationserver.messaging.Messages._
 import net.ripe.rpki.publicationserver.store.ObjectStore
-import net.ripe.rpki.publicationserver.{Config, Logging, QueryMessage}
+import net.ripe.rpki.publicationserver.{AppConfig, Logging, QueryMessage}
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration._
 
 object Accumulator {
-  def props(): Props = Props(new Accumulator())
+  def props(conf: AppConfig): Props = Props(new Accumulator(conf))
 }
 
-class Accumulator() extends Actor with Config with Logging {
+class Accumulator(conf: AppConfig) extends Actor with Logging {
 
   import context._
 
@@ -23,12 +23,7 @@ class Accumulator() extends Actor with Config with Logging {
   private var latestState: ObjectStore.State = _
 
   override def preStart() = {
-    flusher = context.actorOf(FSFlusher.props)
-  }
-
-  def flushInterval: FiniteDuration = {
-    val i = conf.unpublishedFileRetainPeriod / 10
-    if (i < 1.second) 1.second else i
+    flusher = context.actorOf(FSFlusher.props(conf))
   }
 
   override def receive: Receive = {
@@ -36,11 +31,13 @@ class Accumulator() extends Actor with Config with Logging {
       messages += m
       latestState = state
       handleFlushing()
+    case ir : InitRepo =>
+      flusher ! ir
   }
 
   def handleFlushing() = {
     if (!scheduled) {
-      system.scheduler.scheduleOnce(flushInterval, new Runnable() {
+      system.scheduler.scheduleOnce(conf.snapshotSyncDelay, new Runnable() {
         override def run() = {
           flusher ! BatchMessage(messages.toSeq, latestState)
           logger.debug("BatchMessage has been sent")

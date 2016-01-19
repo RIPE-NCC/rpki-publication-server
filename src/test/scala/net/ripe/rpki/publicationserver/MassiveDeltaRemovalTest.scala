@@ -3,16 +3,14 @@ package net.ripe.rpki.publicationserver
 import java.io.File
 import java.net.URI
 import java.nio.file.{Files, Path, Paths}
-import java.util.{UUID, Date}
+import java.util.{Date, UUID}
 
-import akka.actor.ActorSystem
 import akka.testkit.TestActorRef
 import akka.testkit.TestKit._
-import com.typesafe.config.ConfigFactory
-import net.ripe.rpki.publicationserver.messaging.{FSFlusher, FSFlusher$}
-import net.ripe.rpki.publicationserver.model.{Delta, ClientId}
-import net.ripe.rpki.publicationserver.store.fs._
+import net.ripe.rpki.publicationserver.messaging.FSFlusher
+import net.ripe.rpki.publicationserver.model.{ClientId, Delta}
 import net.ripe.rpki.publicationserver.store._
+import net.ripe.rpki.publicationserver.store.fs._
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
@@ -40,18 +38,15 @@ object MassiveDeltaRemovalTest {
   val theRsyncWriter = MockitoSugar.mock[RsyncRepositoryWriter]
   val theSessionId = UUID.randomUUID()
 
-  class TestFSFSFlusher extends FSFlusher with Config with MockitoSugar {
+  lazy val conf = new AppConfig {
+    override lazy val unpublishedFileRetainPeriod = Duration.Zero
+    override lazy val rrdpRepositoryPath = rootDirName
+  }
 
+  class TestFSFSFlusher extends FSFlusher(conf) with MockitoSugar {
     override lazy val rsyncWriter = theRsyncWriter
-
     override def afterRetainPeriod = deadlineDate
-
     override val sessionId = theSessionId
-
-    override lazy val conf = new AppConfig {
-      override lazy val unpublishedFileRetainPeriod = Duration.Zero
-      override lazy val rrdpRepositoryPath = rootDirName
-    }
   }
 }
 
@@ -61,21 +56,10 @@ class MassiveDeltaRemovalTest extends PublicationServerBaseTest with Hashing wit
 
   private var sessionDir: String = _
 
-  private val fsWriterRef = TestActorRef[TestFSFSFlusher]
-
-  trait Context {
-    def actorRefFactory = system
-  }
-
-  def publicationService = {
-    val service = new PublicationService with Context
-    service.init(fsWriterRef)
-    service
-  }
+  def publicationService = TestActorRef(PublicationServiceActor.props(conf)).underlyingActor
 
   before {
     cleanDir(rootDir.toFile)
-    theUpdateStore.clear()
     Migrations.initServerState()
     sessionDir = rootDir.resolve(theSessionId.toString).toString
     when(MassiveDeltaRemovalTest.theRsyncWriter.writeDelta(any[Delta])).thenReturn(Try {})

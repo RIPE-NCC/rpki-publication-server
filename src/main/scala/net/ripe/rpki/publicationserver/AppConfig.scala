@@ -3,9 +3,11 @@ package net.ripe.rpki.publicationserver
 import java.net.URI
 import java.nio.file.{Path, Paths}
 import java.util.Map.Entry
+import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 import com.typesafe.config.{ConfigFactory, ConfigObject, ConfigValue}
+import net.ripe.rpki.publicationserver.model.{Delta, ServerState}
 import spray.can.server.ServerSettings
 
 import scala.collection.JavaConverters._
@@ -46,6 +48,15 @@ class AppConfig {
   lazy val publicationServerKeyStorePassword = getConfig.getString("publication.server.keystore.password")
   lazy val publicationServerTrustStoreLocation = getConfig.getString("publication.server.truststore.location")
   lazy val publicationServerTrustStorePassword = getConfig.getString("publication.server.truststore.password")
+
+  def snapshotUrl(serverState: ServerState) = {
+    val ServerState(sessionId, serial) = serverState
+    rrdpRepositoryUri + "/" + sessionId + "/" + serial + "/snapshot.xml"
+  }
+
+  def deltaUrl(delta: Delta) : String = deltaUrl(delta.sessionId, delta.serial)
+
+  def deltaUrl(sessionId: UUID, serial: Long) = rrdpRepositoryUri + "/" + sessionId + "/" + serial + "/delta.xml"
 }
 
 object AppConfig {

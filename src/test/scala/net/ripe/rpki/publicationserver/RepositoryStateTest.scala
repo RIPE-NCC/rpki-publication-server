@@ -9,6 +9,7 @@ import akka.actor.ActorSystem
 import akka.testkit.TestActorRef
 import akka.testkit.TestKit._
 import com.typesafe.config.ConfigFactory
+import net.ripe.rpki.publicationserver.messaging.FSFlusher
 import net.ripe.rpki.publicationserver.model.Delta
 import net.ripe.rpki.publicationserver.store.fs._
 import net.ripe.rpki.publicationserver.store._
@@ -29,25 +30,15 @@ object RepositoryStateTest {
   val rootDirName = rootDir.toString
 
   var retainPeriodOverride: Int = 1
-  val theUpdateStore = new UpdateStore {
-    // override interval so it does not take that long
-    override def afterRetainPeriod(period: Duration): Date = new Date(System.currentTimeMillis() + retainPeriodOverride)
-  }
 
-  val theServerStateStore = new ServerStateStore
   val theObjectStore = new ObjectStore
   val theRsyncWriter = MockitoSugar.mock[RsyncRepositoryWriter]
 
-  class TestFSWriter extends FSWriterActor with Config with MockitoSugar {
 
-    override protected val updateStore = theUpdateStore
-    override protected val objectStore = theObjectStore
-    override lazy val rsyncWriter = theRsyncWriter
-
-    override lazy val conf = new AppConfig {
-      override lazy val unpublishedFileRetainPeriod = Duration.Zero
-      override lazy val rrdpRepositoryPath = rootDirName
-    }
+  lazy val conf = new AppConfig {
+    override lazy val unpublishedFileRetainPeriod = 1.millisecond
+    override lazy val snapshotSyncDelay = 1.millisecond
+    override lazy val rrdpRepositoryPath = rootDirName
   }
 }
 
@@ -61,30 +52,14 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
   // TODO Remove (of tune) it after debugging
   implicit val customTimeout = RouteTestTimeout(6000.seconds)
 
-  override implicit val system = ActorSystem("MyActorSystem", ConfigFactory.load())
-
-//  private val fsWriterRef = TestActorRef[RepositoryStateTest.TestFSWriter]
-  private val fsWriterRef = TestActorRef[StateActor]
-
   val waitTime: FiniteDuration = Duration(30, TimeUnit.SECONDS)
 
-  trait Context {
-    def actorRefFactory = system
-  }
-
-  def publicationService = {
-    val service = new PublicationService with Context {
-    }
-    service.init(fsWriterRef)
-    service
-  }
+  def publicationService = TestActorRef(new PublicationServiceActor(conf)).underlyingActor
 
   before {
     cleanDir(rootDir.toFile)
     serial = 1L
     theObjectStore.clear()
-    theUpdateStore.clear()
-    theServerStateStore.clear()
     Migrations.initServerState()
     sessionDir = rootDir.resolve(theServerStateStore.get.sessionId.toString).toString
     when(RepositoryStateTest.theRsyncWriter.writeDelta(any[Delta])).thenReturn(Try {})

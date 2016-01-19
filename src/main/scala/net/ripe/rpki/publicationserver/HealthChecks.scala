@@ -7,7 +7,7 @@ import spray.json._
 
 import scala.util.Try
 
-class HealthChecks extends Config {
+class HealthChecks {
 
   case class BuildInformation(buildNumber: String, buildTimestamp: String, revisionNumber: String, host: String, memory : Memory)
   object BuildInformation

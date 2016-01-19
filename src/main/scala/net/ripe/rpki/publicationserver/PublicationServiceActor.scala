@@ -23,35 +23,19 @@ import scala.concurrent.duration._
 import scala.io.{BufferedSource, Source}
 import scala.util.{Failure, Success}
 
-class PublicationServiceActor(fsWriterFactory: ActorRefFactory => ActorRef)
-  extends Actor with PublicationService {
+object PublicationServiceActor {
+  def props(conf: AppConfig) = Props(new PublicationServiceActor(conf))
+}
 
-  def actorRefFactory = context
+class PublicationServiceActor(conf: AppConfig) extends HttpServiceActor {
 
   def receive = runRoute(publicationRoutes)
 
-  override val supervisorStrategy = OneForOneStrategy(maxNrOfRetries = 1) {
-    case _: Exception                =>
-      SupervisorStrategy.Escalate
-  }
-
-  override def preStart() = {
-      Migrations.migrate()
-//      val fsWriter = fsWriterFactory(context)
-      init(context.actorOf(StateActor.props))
-  }
-}
-
-object PublicationServiceActor {
-  def props(actorRefFactory: ActorRefFactory => ActorRef) = Props(new PublicationServiceActor(actorRefFactory))
-}
-
-trait PublicationService extends HttpService {
-
   var stateActor: ActorRef = _
 
-  def init(stateActorRef: ActorRef) = {
-    stateActor = stateActorRef
+  override val supervisorStrategy = OneForOneStrategy(maxNrOfRetries = 1) {
+    case _: Exception =>
+      SupervisorStrategy.Escalate
   }
 
   val MediaTypeString = "application/rpki-publication"
@@ -61,6 +45,11 @@ trait PublicationService extends HttpService {
   val serviceLogger = LoggerFactory.getLogger("PublicationService")
 
   val msgParser = wire[PublicationMessageParser]
+
+  override def preStart() = {
+    Migrations.migrate()
+    stateActor = context.system.actorOf(StateActor.props(conf))
+  }
 
   implicit val BufferedSourceUnmarshaller =
     Unmarshaller[BufferedSource](spray.http.ContentTypeRange.*) {
@@ -128,7 +117,7 @@ trait PublicationService extends HttpService {
   private def processRequest[T](parsedMessage: T, clientId: ClientId) = {
     implicit val timeout = Timeout(61.seconds)
     parsedMessage match {
-      case queryMessage @ QueryMessage(pdus) =>
+      case queryMessage@QueryMessage(pdus) =>
         stateActor ? RawMessage(queryMessage, clientId)
       case ListMessage() =>
         stateActor ? RawMessage(ListMessage(), clientId)

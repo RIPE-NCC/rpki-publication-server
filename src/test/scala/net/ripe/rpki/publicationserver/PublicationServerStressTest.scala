@@ -5,7 +5,6 @@ import java.util.UUID
 
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store.ObjectStore
-import net.ripe.rpki.publicationserver.store.fs.FSWriterActor
 import org.apache.commons.io.FileUtils
 import spray.testkit.ScalatestRouteTest
 
@@ -14,20 +13,7 @@ import scala.concurrent.{Await, Future, Promise}
 
 class PublicationServerStressTest extends PublicationServerBaseTest with ScalatestRouteTest with Hashing {
 
-  // Use the production actorsystem for the fsWriterActor and not the one from ScalatestRouterTest, because the latter is single threaded!
-  val fsWriterRef = system.actorOf(FSWriterActor.props)
-
-  def actorRefFactory = system
-
-  trait Context {
-    def actorRefFactory = system
-  }
-
-  lazy val publicationService = {
-    val service = new PublicationService with Context
-    service.init(fsWriterRef)
-    service
-  }
+  lazy val publicationService = new PublicationServiceActor(new AppConfig)
 
   val objectStore = new ObjectStore
 

@@ -3,29 +3,30 @@ package net.ripe.rpki.publicationserver
 import java.net.URI
 
 import akka.actor.{Status, Actor, ActorRef, Props}
-import net.ripe.rpki.publicationserver.messaging.Accumulator
-import net.ripe.rpki.publicationserver.messaging.Messages.{RawMessage, ValidatedMessage}
+import net.ripe.rpki.publicationserver.messaging.{FSFlusher, Accumulator}
+import net.ripe.rpki.publicationserver.messaging.Messages.{InitRepo, BatchMessage, RawMessage, ValidatedMessage}
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store.ObjectStore
 import net.ripe.rpki.publicationserver.store.ObjectStore.State
 
 object StateActor {
-  def props: Props = Props(new StateActor)
+  def props(conf: AppConfig): Props = Props(new StateActor(conf))
 }
 
 
-class StateActor extends Actor with Hashing with Logging {
+class StateActor(conf: AppConfig) extends Actor with Hashing with Logging {
 
   lazy val objectStore = new ObjectStore
 
   var state: ObjectStore.State = _
 
-  val accActor: ActorRef = context.actorOf(Accumulator.props(), "accumulator")
+  val accActor: ActorRef = context.actorOf(Accumulator.props(conf), "accumulator")
 
   @throws[Exception](classOf[Exception])
   override def preStart(): Unit = {
     super.preStart()
     state = objectStore.getState
+    accActor ! InitRepo(state)
   }
 
 

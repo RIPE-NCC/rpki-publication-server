@@ -14,13 +14,13 @@ import net.ripe.rpki.publicationserver.store.fs.{RrdpRepositoryWriter, RsyncRepo
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
-import scala.util.{Failure, Success}
+import scala.util.{Try, Failure, Success}
 
 object FSFlusher {
-  def props = Props(new FSFlusher)
+  def props(conf: AppConfig) = Props(new FSFlusher(conf))
 }
 
-class FSFlusher extends Actor with Config with Logging {
+class FSFlusher(conf: AppConfig) extends Actor with Logging {
 
   import context._
 
@@ -34,27 +34,60 @@ class FSFlusher extends Actor with Config with Logging {
 
   val sessionId = UUID.randomUUID()
 
-  private var serial = 1L
+  private var serial : Long = _
 
   private var dataCleaner: ActorRef = _
 
   override def preStart() = {
-    dataCleaner = context.actorOf(Cleaner.props)
+    dataCleaner = context.actorOf(Cleaner.props(conf))
+  }
 
-    // TODO Implement safer removal if needed (create new session
-    // TODO before removing all the others or something)
-    rrdpWriter.cleanRepository(conf.rrdpRepositoryPath)
-    rrdpWriter.createSession(conf.rrdpRepositoryPath, sessionId, serial)
+  def throwFatalException = {
+    logger.error("Error in repository init, bailing out")
+    // ThreadDeath is one of the few exceptions that Akka considers fatal, i.e. which can trigger jvm termination
+    throw new ThreadDeath
   }
 
   override def receive: Receive = {
     case BatchMessage(messages, state) =>
-      flush(messages, state)
+      updateFS(messages, state)
       serial += 1
+    case InitRepo(state) =>
+      serial = 1L
+      rrdpWriter.cleanRepository(conf.rrdpRepositoryPath)
+      initFS(state)
   }
 
 
-  def flush(messages: Seq[QueryMessage], state: ObjectStore.State) = {
+  def initFS(state: ObjectStore.State) = {
+    val serverState = ServerState(sessionId, serial)
+    val snapshotPdus = state.map { e =>
+      val (uri, (base64, _, _)) = e
+      (base64, uri)
+    }.toSeq
+
+    val snapshot = Snapshot(serverState, snapshotPdus)
+    val notification = Notification.create(conf)(snapshot, serverState, Seq())
+
+    val rsyncF = Future(Try(rsyncWriter.writeSnapshot(snapshot)))
+    val rrdpF = Future(rrdpWriter.writeNewState(conf.rrdpRepositoryPath, serverState, notification, snapshot))
+
+    val rrdp = waitFor(rrdpF)
+    val rsync = waitFor(rsyncF)
+
+    rrdp.recover {
+      case e: Exception =>
+        logger.error(s"Could not write snapshot to rrdp repo: ", e)
+        throwFatalException
+    }
+    rsync.recover {
+      case e: Exception =>
+        logger.error(s"Could not write snapshot to rsync repo: ", e)
+        throwFatalException
+    }
+  }
+
+  def updateFS(messages: Seq[QueryMessage], state: ObjectStore.State) = {
     val pdus = messages.flatMap(_.pdus)
     val delta = Delta(sessionId, serial, pdus)
     deltas += serial -> (serial, delta.contentHash, delta.binarySize, Instant.now())
@@ -73,7 +106,7 @@ class FSFlusher extends Actor with Config with Logging {
       (serial, hash)
     }.toSeq
 
-    val notification = Notification.create2(snapshot, serverState, deltaDefs)
+    val notification = Notification.create(conf)(snapshot, serverState, deltaDefs)
 
     val rrdp = Future {
       logger.debug(s"Writing delta $serial to rsync filesystem")
@@ -169,7 +202,7 @@ class FSFlusher extends Actor with Config with Logging {
 }
 
 
-class Cleaner extends Actor with Config with Logging {
+class Cleaner(conf: AppConfig) extends Actor with Logging {
 
   private lazy val rrdpWriter = wire[RrdpRepositoryWriter]
 
@@ -185,5 +218,5 @@ class Cleaner extends Actor with Config with Logging {
 }
 
 object Cleaner {
-  def props = Props(new Cleaner)
+  def props(conf: AppConfig) = Props(new Cleaner(conf))
 }

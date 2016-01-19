@@ -4,13 +4,12 @@ import java.io.{FileInputStream, PrintStream}
 import java.security.KeyStore
 import javax.net.ssl.{KeyManager, KeyManagerFactory, SSLContext, TrustManager, TrustManagerFactory}
 
-import akka.actor.{ActorRefFactory, ActorSystem}
+import akka.actor.ActorSystem
 import akka.io.IO
 import akka.pattern.ask
 import akka.util.Timeout
 import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.logging.LoggingOutputStream
-import net.ripe.rpki.publicationserver.store.fs.FSWriterActor
 import org.apache.log4j.{Level, Logger}
 import org.slf4j.LoggerFactory
 import spray.can.Http
@@ -27,9 +26,7 @@ object Boot extends App {
 
   implicit val system = ActorSystem("publication-rrdp-server")
 
-  val fsWriterFactory = (context:ActorRefFactory) => context.actorOf(FSWriterActor.props())
-
-  val publicationService = system.actorOf(PublicationServiceActor.props(fsWriterFactory), "publication-service")
+  val publicationService = system.actorOf(PublicationServiceActor.props(conf), "publication-service")
   val rrdpService = system.actorOf(RRDPServiceActor.props(), "rrdp-service")
 
   implicit val timeout = Timeout(5.seconds)
