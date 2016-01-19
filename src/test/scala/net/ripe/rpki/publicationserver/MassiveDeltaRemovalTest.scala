@@ -3,12 +3,13 @@ package net.ripe.rpki.publicationserver
 import java.io.File
 import java.net.URI
 import java.nio.file.{Files, Path, Paths}
-import java.util.Date
+import java.util.{UUID, Date}
 
 import akka.actor.ActorSystem
 import akka.testkit.TestActorRef
 import akka.testkit.TestKit._
 import com.typesafe.config.ConfigFactory
+import net.ripe.rpki.publicationserver.messaging.{FSFlusher, FSFlusher$}
 import net.ripe.rpki.publicationserver.model.{Delta, ClientId}
 import net.ripe.rpki.publicationserver.store.fs._
 import net.ripe.rpki.publicationserver.store._
@@ -33,18 +34,19 @@ object MassiveDeltaRemovalTest {
     override def afterRetainPeriod(period: Duration) = deadlineDate
   }
 
-  val theServerStateStore = new ServerStateStore
-  val theObjectStore = new ObjectStore
-
   val rootDir = Files.createTempDirectory(Paths.get("/tmp"),"test_pub_server_")
   rootDir.toFile.deleteOnExit()
   val rootDirName = rootDir.toString
   val theRsyncWriter = MockitoSugar.mock[RsyncRepositoryWriter]
+  val theSessionId = UUID.randomUUID()
 
-  class TestFSWriter extends FSWriterActor with Config with MockitoSugar {
-    override protected val updateStore = theUpdateStore
-    override protected val objectStore = theObjectStore
+  class TestFSFSFlusher extends FSFlusher with Config with MockitoSugar {
+
     override lazy val rsyncWriter = theRsyncWriter
+
+    override def afterRetainPeriod = deadlineDate
+
+    override val sessionId = theSessionId
 
     override lazy val conf = new AppConfig {
       override lazy val unpublishedFileRetainPeriod = Duration.Zero
@@ -59,31 +61,23 @@ class MassiveDeltaRemovalTest extends PublicationServerBaseTest with Hashing wit
 
   private var sessionDir: String = _
 
-  implicit val system = ActorSystem("DeltaRemovalTestActorSystem", ConfigFactory.load())
-
-  private val fsWriterRef = TestActorRef[TestFSWriter]
+  private val fsWriterRef = TestActorRef[TestFSFSFlusher]
 
   trait Context {
     def actorRefFactory = system
   }
 
-  def snapshotStateService: SnapshotStateService = {
-    val service = new SnapshotStateService {
-      override lazy val objectStore = theObjectStore
-      override lazy val serverStateStore = theServerStateStore
-      override lazy val updateStore = theUpdateStore
-    }
+  def publicationService = {
+    val service = new PublicationService with Context
     service.init(fsWriterRef)
     service
   }
 
   before {
     cleanDir(rootDir.toFile)
-    theObjectStore.clear()
     theUpdateStore.clear()
-    theServerStateStore.clear()
     Migrations.initServerState()
-    sessionDir = rootDir.resolve(theServerStateStore.get.sessionId.toString).toString
+    sessionDir = rootDir.resolve(theSessionId.toString).toString
     when(MassiveDeltaRemovalTest.theRsyncWriter.writeDelta(any[Delta])).thenReturn(Try {})
   }
 
@@ -92,12 +86,13 @@ class MassiveDeltaRemovalTest extends PublicationServerBaseTest with Hashing wit
     Files.deleteIfExists(rootDir)
   }
 
+
   test("should create snapshots after removing deltas") {
 
     val data = Base64("AAAAAA==")
     val uri = "rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"
 
-    val service = snapshotStateService
+    val service = publicationService
 
     val clientId: ClientId = ClientId("test")
     val publishQuery: Seq[QueryPdu] = Seq(PublishQ(URI.create(uri), None, None, data))
@@ -108,20 +103,19 @@ class MassiveDeltaRemovalTest extends PublicationServerBaseTest with Hashing wit
 
     // publish, withdraw and re-publish the same object as often as we could during the wait period
     while (deadline.hasTimeLeft()) {
-      service.updateWith(clientId, publishQuery)
-      service.updateWith(clientId, withdrawQuery)
-      expectedSerial += 2
+      updateState(service, publishQuery, clientId)
+      updateState(service, withdrawQuery, clientId)
     }
     logger.info("Expected serial: {}", expectedSerial)
 
-    checkFileExists(Paths.get(sessionDir, String.valueOf(expectedSerial), "delta.xml"))
-    checkFileExists(Paths.get(sessionDir, String.valueOf(expectedSerial), "snapshot.xml"))
+    checkFileExists(Paths.get(sessionDir, String.valueOf(1), "delta.xml"))
+    checkFileExists(Paths.get(sessionDir, String.valueOf(1), "snapshot.xml"))
 
     // this update should trigger removal of all deltas scheduled for deadlineDate
-    service.updateWith(clientId, publishQuery)
+    updateState(service, publishQuery, clientId)
 
-    checkFileExists(Paths.get(sessionDir, String.valueOf(expectedSerial+1), "delta.xml"))
-    checkFileExists(Paths.get(sessionDir, String.valueOf(expectedSerial+1), "snapshot.xml"))
+    checkFileExists(Paths.get(sessionDir, String.valueOf(1), "delta.xml"))
+    checkFileExists(Paths.get(sessionDir, String.valueOf(1), "snapshot.xml"))
 
     // check cleanup job
     checkFileAbsent(Paths.get(sessionDir, String.valueOf(expectedSerial), "snapshot.xml"))
@@ -130,7 +124,7 @@ class MassiveDeltaRemovalTest extends PublicationServerBaseTest with Hashing wit
     }
 
     // and after that everything should work correctly
-    service.updateWith(clientId, withdrawQuery)
+    updateState(service, withdrawQuery, clientId)
     checkFileExists(Paths.get(sessionDir, String.valueOf(expectedSerial+2), "delta.xml"))
     checkFileExists(Paths.get(sessionDir, String.valueOf(expectedSerial+2), "snapshot.xml"))
   }

@@ -63,7 +63,8 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
 
   override implicit val system = ActorSystem("MyActorSystem", ConfigFactory.load())
 
-  private val fsWriterRef = TestActorRef[RepositoryStateTest.TestFSWriter]
+//  private val fsWriterRef = TestActorRef[RepositoryStateTest.TestFSWriter]
+  private val fsWriterRef = TestActorRef[StateActor]
 
   val waitTime: FiniteDuration = Duration(30, TimeUnit.SECONDS)
 
@@ -73,9 +74,6 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
 
   def publicationService = {
     val service = new PublicationService with Context {
-      override lazy val objectStore = theObjectStore
-      override lazy val serverStateStore = theServerStateStore
-      override lazy val updateStore = theUpdateStore
     }
     service.init(fsWriterRef)
     service

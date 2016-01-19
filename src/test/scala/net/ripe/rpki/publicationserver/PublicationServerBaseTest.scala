@@ -1,14 +1,17 @@
 package net.ripe.rpki.publicationserver
 
+import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store.{Migrations, DBConfig}
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfter, Matchers, FunSuite}
 import spray.http.HttpHeaders.RawHeader
-import spray.http.{HttpMethods, HttpRequest}
+
+import spray.http._
+import spray.testkit.ScalatestRouteTest
 
 import scala.io.Source
 
-abstract class PublicationServerBaseTest extends FunSuite with BeforeAndAfter with Matchers with MockitoSugar with TestLogSetup {
+abstract class PublicationServerBaseTest extends FunSuite with BeforeAndAfter with Matchers with MockitoSugar with TestLogSetup with ScalatestRouteTest {
 
   DBConfig.useMemoryDatabase = true
   Migrations.migrate()
@@ -24,22 +27,27 @@ abstract class PublicationServerBaseTest extends FunSuite with BeforeAndAfter wi
     entity = content)
 
   def xml(pdus: Seq[QueryPdu]) =
-    <msg
-    type="query"
-    version="3"
-    xmlns="http://www.hactrn.net/uris/rpki/publication-spec/">
+    <msg type="query" version="3" xmlns="http://www.hactrn.net/uris/rpki/publication-spec/">
       {pdus.map {
       case PublishQ(uri, None, None, Base64(b)) =>
-        <publish uri={uri.toString}>{b}</publish>
+        <publish uri={uri.toString}>
+          {b}
+        </publish>
 
       case PublishQ(uri, None, Some(hash), Base64(b)) =>
-        <publish uri={uri.toString} hash={hash}>{b}</publish>
+        <publish uri={uri.toString} hash={hash}>
+          {b}
+        </publish>
 
       case PublishQ(uri, Some(tag), None, Base64(b)) =>
-        <publish uri={uri.toString} tag={tag}>{b}</publish>
+        <publish uri={uri.toString} tag={tag}>
+          {b}
+        </publish>
 
       case PublishQ(uri, Some(tag), Some(hash), Base64(b)) =>
-        <publish uri={uri.toString} hash={hash} tag={tag}>{b}</publish>
+        <publish uri={uri.toString} hash={hash} tag={tag}>
+          {b}
+        </publish>
 
       case WithdrawQ(uri, None, hash) =>
           <withdraw uri={uri.toString} hash={hash}/>
@@ -51,5 +59,12 @@ abstract class PublicationServerBaseTest extends FunSuite with BeforeAndAfter wi
       case ListQ(Some(tag)) => <list tag={tag}/>
     }}
     </msg>
+
+
+  def updateState(service: PublicationService, pdus: Seq[QueryPdu], clientId: ClientId = ClientId("1234")) = {
+    POST(s"/?clientId=${clientId.value}", xml(pdus).mkString) ~> service.publicationRoutes ~> check {
+      status should be(StatusCodes.Success)
+    }
+  }
 
 }

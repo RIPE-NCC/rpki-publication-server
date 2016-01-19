@@ -24,18 +24,18 @@ class ObjectStoreTest extends PublicationServerBaseTest {
 
   test("should store an object and extract it") {
     val clientId = ClientId("client1")
-    val i = objectStore.insertAction(clientId, (Base64("AAAA=="), Hash("jfkfhjghj"), new URI("rsync://host.com/path")))
+    val i = objectStore.insertAction((Base64("AAAA=="), Hash("jfkfhjghj"), new URI("rsync://host.com/path"), clientId))
     Await.result(db.run(i), Duration(1, TimeUnit.MINUTES))
-    objectStore.list(clientId) should be(Vector((Base64("AAAA=="), Hash("jfkfhjghj"), new URI("rsync://host.com/path"))))
+    objectStore.list(clientId) should be(Vector((Base64("AAAA=="), Hash("jfkfhjghj"), new URI("rsync://host.com/path"), clientId)))
   }
 
   test("should store an object, withdraw it and make sure it's not there anymore") {
     val clientId = ClientId("client1")
     val hash = Hash("98623986923")
-    val i = objectStore.insertAction(clientId, (Base64("AAAA=="), hash, new URI("rsync://host.com/another_path")))
+    val i = objectStore.insertAction((Base64("AAAA=="), hash, new URI("rsync://host.com/another_path"), clientId))
     Await.result(db.run(i), Duration(1, TimeUnit.MINUTES))
 
-    objectStore.list(clientId) should be(Vector((Base64("AAAA=="), hash, new URI("rsync://host.com/another_path"))))
+    objectStore.list(clientId) should be(Vector((Base64("AAAA=="), hash, new URI("rsync://host.com/another_path"), clientId)))
 
     val d = objectStore.deleteAction(clientId, hash)
     Await.result(db.run(d), Duration(1, TimeUnit.MINUTES))
@@ -43,11 +43,11 @@ class ObjectStoreTest extends PublicationServerBaseTest {
     objectStore.list(clientId) should be(Vector())
   }
 
-  test("should list object only in case of correct serail number") {
+  test("should list object only in case of correct serial number") {
     val clientId = ClientId("client1")
-    val i = objectStore.insertAction(clientId, (Base64("AAAA=="), Hash("jfkfhjghj"), new URI("rsync://host.com/path")))
+    val i = objectStore.insertAction((Base64("AAAA=="), Hash("jfkfhjghj"), new URI("rsync://host.com/path"), clientId))
     Await.result(db.run(i), Duration(1, TimeUnit.MINUTES))
-    objectStore.listAll(serverStateStore.get.serialNumber) should be(Some(Vector((Base64("AAAA=="), Hash("jfkfhjghj"), new URI("rsync://host.com/path")))))
+    objectStore.listAll(serverStateStore.get.serialNumber) should be(Some(Vector((Base64("AAAA=="), Hash("jfkfhjghj"), new URI("rsync://host.com/path"), clientId))))
     objectStore.listAll(serverStateStore.get.serialNumber + 1) should be(None)
   }
 

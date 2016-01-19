@@ -16,23 +16,23 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.util.{Failure, Success}
 
-object Flusher {
-  def props = Props(new Flusher)
+object FSFlusher {
+  def props = Props(new FSFlusher)
 }
 
-class Flusher extends Actor with Config with Logging {
+class FSFlusher extends Actor with Config with Logging {
 
   import context._
 
-  private lazy val rrdpWriter = wire[RrdpRepositoryWriter]
-  private lazy val rsyncWriter = wire[RsyncRepositoryWriter]
+  protected lazy val rrdpWriter = wire[RrdpRepositoryWriter]
+  protected lazy val rsyncWriter = wire[RsyncRepositoryWriter]
 
   private type DeltaMap = Map[Long, (Long, Hash, Long, Instant)]
 
   private var deltas: DeltaMap = Map()
   private var deltasToDelete: Seq[(Long, Instant)] = Seq()
 
-  private val sessionId = UUID.randomUUID()
+  val sessionId = UUID.randomUUID()
 
   private var serial = 1L
 

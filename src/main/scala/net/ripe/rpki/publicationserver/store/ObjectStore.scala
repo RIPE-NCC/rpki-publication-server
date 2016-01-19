@@ -40,19 +40,19 @@ class ObjectStore extends Hashing {
 
   def getAllAction = mapQ(objects)
 
-  private def insertAction(obj: RRDPObject) = {
+  def insertAction(obj: RRDPObject) = {
     val (base64, hash, uri, clientId) = obj
     objects += (base64.value, hash.hash, uri.toString, clientId.value)
   }
 
-  private def updateAction(obj: RRDPObject) = {
+  def updateAction(obj: RRDPObject) = {
     val (base64, hash, uri, clientId) = obj
     objects.filter(_.uri === uri.toString).update {
       (base64.value, hash.hash, uri.toString, clientId.value)
     }
   }
 
-  private def deleteAction(clientId: ClientId, hash: Hash) =
+  def deleteAction(clientId: ClientId, hash: Hash) =
     objects.filter(_.hash === hash.hash).delete
 
   def find(uri: URI): Option[RRDPObject] =

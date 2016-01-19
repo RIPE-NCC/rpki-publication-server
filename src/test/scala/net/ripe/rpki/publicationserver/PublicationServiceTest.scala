@@ -15,7 +15,7 @@ import spray.testkit.ScalatestRouteTest
 
 import scala.util.Try
 
-class PublicationServiceTest extends PublicationServerBaseTest with ScalatestRouteTest {
+class PublicationServiceTest extends PublicationServerBaseTest {
 
   val theRsyncWriter = mock[RsyncRepositoryWriter]
 
@@ -107,9 +107,7 @@ class PublicationServiceTest extends PublicationServerBaseTest with ScalatestRou
     val service = publicationService
 
     val pdus = Seq(PublishQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), None, None, Base64("bla")))
-    POST("/?clientId=1234", xml(pdus).mkString) ~> service.publicationRoutes ~> check {
-      status should be(StatusCodes.Success)
-    }
+    updateState(service, pdus)
 
     val withdrawXml = getFile("/withdraw.xml")
     val withdrawXmlResponse = getFile("/withdrawResponse.xml")
@@ -124,9 +122,7 @@ class PublicationServiceTest extends PublicationServerBaseTest with ScalatestRou
     val service = publicationService
 
     val pdus = Seq(PublishQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), None, None, Base64("bla")))
-    POST("/?clientId=1234", xml(pdus).mkString) ~> service.publicationRoutes ~> check {
-      status should be(StatusCodes.Success)
-    }
+    updateState(service, pdus)
 
     val withdrawXml = getFile("/withdrawWithTag.xml")
     val withdrawXmlResponse = getFile("/withdrawWithTagResponse.xml")

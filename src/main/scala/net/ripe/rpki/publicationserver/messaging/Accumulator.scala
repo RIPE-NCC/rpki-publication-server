@@ -23,7 +23,7 @@ class Accumulator() extends Actor with Config with Logging {
   private var latestState: ObjectStore.State = _
 
   override def preStart() = {
-    flusher = context.actorOf(Flusher.props)
+    flusher = context.actorOf(FSFlusher.props)
   }
 
   def flushInterval: FiniteDuration = {

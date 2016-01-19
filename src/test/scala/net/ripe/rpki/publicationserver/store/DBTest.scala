@@ -26,26 +26,26 @@ class DBTest extends PublicationServerBaseTest {
     objectStore.clear()
   }
 
-  test("should rollback transaction in case lifted calculation fails") {
-    def crash = throw new Exception("I'm dying")
-
-    val clientId = ClientId(UUID.randomUUID().toString)
-    val query = QueryMessage(Seq(PublishQ(new URI("rsync://host.com/path"), tag = None, Some("jfkfhjghj"), Base64("AAAA=="))))
-    objectStore.applyChanges(query, clientId)
-
-    try {
-      Await.result(db.run(
-        DBIO.seq(i, DB.liftDB(crash)).transactionally
-      ), Duration(1, TimeUnit.MINUTES))
-      fail("We should not be here")
-    } catch {
-      case e: Throwable => // that should happen
-    }
-
-    objectStore.listAll(serverStateStore.get.serialNumber).get should have size 0
-
-    Await.result(db.run(DBIO.seq(i).transactionally), Duration(1, TimeUnit.MINUTES))
-    objectStore.listAll(serverStateStore.get.serialNumber).get should have size 1
-  }
+//  test("should rollback transaction in case lifted calculation fails") {
+//    def crash = throw new Exception("I'm dying")
+//
+//    val clientId = ClientId(UUID.randomUUID().toString)
+//    val query = QueryMessage(Seq(PublishQ(new URI("rsync://host.com/path"), tag = None, Some("jfkfhjghj"), Base64("AAAA=="))))
+//    objectStore.applyChanges(query, clientId)
+//
+//    try {
+//      Await.result(db.run(
+//        DBIO.seq(i, DB.liftDB(crash)).transactionally
+//      ), Duration(1, TimeUnit.MINUTES))
+//      fail("We should not be here")
+//    } catch {
+//      case e: Throwable => // that should happen
+//    }
+//
+//    objectStore.listAll(serverStateStore.get.serialNumber).get should have size 0
+//
+//    Await.result(db.run(DBIO.seq(i).transactionally), Duration(1, TimeUnit.MINUTES))
+//    objectStore.listAll(serverStateStore.get.serialNumber).get should have size 1
+//  }
 
 }
