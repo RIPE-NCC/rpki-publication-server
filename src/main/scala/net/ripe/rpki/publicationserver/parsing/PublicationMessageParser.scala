@@ -42,7 +42,7 @@ class PublicationMessageParser extends MessageParser[Message] {
                 val pdu = new WithdrawQ(uri = new URI(lastAttributes("uri")), tag = lastAttributes.get("tag"), hash = lastAttributes("hash"))
                 Right(pdu)
 
-              case "list" =>
+              case "list" =>    // TODO ??? implement tags for list query
                 Left(ListMessage())
             }
 

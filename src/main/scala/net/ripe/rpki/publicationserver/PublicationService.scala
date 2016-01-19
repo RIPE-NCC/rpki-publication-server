@@ -4,6 +4,8 @@ import java.io.ByteArrayInputStream
 import java.util.concurrent.Executors
 
 import akka.actor._
+import akka.pattern.ask
+import akka.util.Timeout
 import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver.messaging.Messages.RawMessage
 import net.ripe.rpki.publicationserver.model.ClientId
@@ -16,6 +18,7 @@ import spray.httpx.unmarshalling._
 import spray.routing._
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration._
 import scala.io.{BufferedSource, Source}
 import scala.util.{Failure, Success}
 
@@ -81,12 +84,11 @@ trait PublicationService extends HttpService {
             respondWithMediaType(RpkiPublicationType) {
               entity(as[BufferedSource]) { xmlMessage =>
                 onComplete {
-                  Future(msgParser.parse(xmlMessage)) flatMap { parsedMessage =>
-                    Future(processRequest(ClientId(clientId), parsedMessage))(executor = singleThreadEC)
-                  }
+                  Future(msgParser.parse(xmlMessage)).flatMap(
+                    parsedMessage => processRequest(ClientId(clientId), parsedMessage))(executor = singleThreadEC)
                 } {
                   case Success(result) =>
-                    complete(result)
+                    complete(result.serialize)
                   case Failure(error) =>
                     serviceLogger.error(s"Error processing POST request with clientId=$clientId", error)
                     complete(500, error.getMessage)
@@ -99,7 +101,7 @@ trait PublicationService extends HttpService {
     }
 
 
-  private def processRequest[T](clientId: ClientId, parsedMessage: Either[BaseError, T]) = {
+  private def processRequest[T](clientId: ClientId, parsedMessage: Either[BaseError, T]): Future[Msg] = {
     def logErrors(errors: Seq[ReplyPdu]): Unit = {
       serviceLogger.warn(s"Request contained ${errors.size} PDU(s) with errors:")
       errors.foreach { e =>
@@ -108,26 +110,25 @@ trait PublicationService extends HttpService {
     }
 
     val response = parsedMessage match {
-      case Right(QueryMessage(pdus)) =>
-//        val elements = updateWith(clientId, pdus)
-//        elements.filter(_.isInstanceOf[ReportError]) match {
-//          case Seq() =>
-//            serviceLogger.info("Request handled successfully")
-//          case errors =>
-//            logErrors(errors)
-//        }
-//        ReplyMsg(elements).serialize
-        ReplyMsg(Seq()).serialize
-
-      case Right(ListMessage()) =>
-//        ReplyMsg(list(clientId)).serialize
-        ReplyMsg(Seq()).serialize
-
+      case Right(request) =>
+        processRequest(request, clientId)
       case Left(msgError) =>
-        serviceLogger.warn("Error while handling request: {}", msgError)
-        ErrorMsg(msgError).serialize
+        Future {
+          serviceLogger.warn("Error while handling request: {}", msgError)
+          ErrorMsg(msgError)
+        }
     }
-    response
+    response.mapTo[Msg]
+  }
+
+  private def processRequest[T](parsedMessage: T, clientId: ClientId) = {
+    implicit val timeout = Timeout(61.seconds)
+    parsedMessage match {
+      case queryMessage @ QueryMessage(pdus) =>
+        stateActor ? RawMessage(queryMessage, clientId)
+      case ListMessage() =>
+        stateActor ? RawMessage(ListMessage(), clientId)
+    }
   }
 
   private def checkContentType(header: HttpHeader): Option[ContentType] = header match {

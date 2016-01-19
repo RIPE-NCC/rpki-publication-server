@@ -2,7 +2,7 @@ package net.ripe.rpki.publicationserver
 
 import java.net.URI
 
-import akka.actor.{Actor, ActorRef, Props}
+import akka.actor.{Status, Actor, ActorRef, Props}
 import net.ripe.rpki.publicationserver.messaging.Accumulator
 import net.ripe.rpki.publicationserver.messaging.Messages.{RawMessage, ValidatedMessage}
 import net.ripe.rpki.publicationserver.model.ClientId
@@ -33,28 +33,35 @@ class StateActor extends Actor with Hashing with Logging {
     case RawMessage(queryMessage@QueryMessage(_), clientId) =>
       processQueryMessage(queryMessage, clientId)
     case RawMessage(ListMessage(), clientId) =>
-      processListMessage(clientId)
+      processListMessage(clientId, None)  // TODO ??? implement tags for list query
   }
 
   private def processQueryMessage(queryMessage: QueryMessage, clientId: ClientId): Unit = {
-    try {
+    val replyStatus = try {
       applyMessages(queryMessage, clientId) match {
         case Right(s) =>
           objectStore.applyChanges(queryMessage, clientId)
           state = s
-          sender() ! akka.actor.Status.Success("OK")
+          convertToReply(queryMessage)
         case Left(err) =>
-          sender() ! akka.actor.Status.Success(err)
+          ErrorMsg(BaseError(err.code, err.message.getOrElse("Unspecified error")))
       }
     } catch {
       case e: Exception =>
-        sender() ! akka.actor.Status.Failure(e)
-        throw e;
+        logger.error("Error processing query", e)
+        Status.Failure(e)
     }
-    accActor ! ValidatedMessage(queryMessage, state)
+
+    sender() ! replyStatus
+
+    replyStatus match {
+      case _: ReplyMsg =>
+        accActor ! ValidatedMessage(queryMessage, state)
+      case _ =>
+    }
   }
 
-  def applyMessages(queryMessage: QueryMessage, clientId: ClientId) = {
+  private def applyMessages(queryMessage: QueryMessage, clientId: ClientId): Either[ReportError, State] = {
     queryMessage.pdus.foldLeft(Right(state): Either[ReportError, State]) { (stateOrError, pdu) =>
       stateOrError match {
         case Right(s) => applyPdu(s, pdu, clientId)
@@ -63,7 +70,7 @@ class StateActor extends Actor with Hashing with Logging {
     }
   }
 
-  def applyPdu(state: State, pdu: QueryPdu, clientId: ClientId): Either[ReportError, State] = {
+  private def applyPdu(state: State, pdu: QueryPdu, clientId: ClientId): Either[ReportError, State] = {
     pdu match {
       case PublishQ(uri, tag, None, base64) =>
         applyCreate(state, clientId, uri, base64)
@@ -74,7 +81,7 @@ class StateActor extends Actor with Hashing with Logging {
     }
   }
 
-  def applyDelete(state: State, uri: URI, strHash: String): Either[ReportError, State] = {
+  private def applyDelete(state: State, uri: URI, strHash: String): Either[ReportError, State] = {
     state.get(uri) match {
       case Some((base64, Hash(h), _)) =>
         if (h == strHash)
@@ -87,7 +94,8 @@ class StateActor extends Actor with Hashing with Logging {
     }
   }
 
-  def applyReplace(state: State, clientId: ClientId, uri: URI, strHash: String, base64: Base64): Either[ReportError, State] = {
+  private def applyReplace(state: State, clientId: ClientId, uri: URI, strHash: String, base64: Base64):
+      Either[ReportError, State] = {
     state.get(uri) match {
       case Some((_, Hash(h), _)) =>
         if (h == strHash)
@@ -107,16 +115,24 @@ class StateActor extends Actor with Hashing with Logging {
     }
   }
 
-  def processListMessage(clientId: ClientId): Unit = {
+  def processListMessage(clientId: ClientId, tag: Option[String]): Unit = {
     try {
       val replies = state collect {
         case (uri, (b64, h, clId)) if clId == clientId =>
-          ListR(uri, h.hash, None)
+          ListR(uri, h.hash, tag)
       }
-      sender() ! akka.actor.Status.Success(replies)
+      sender() ! ReplyMsg(replies.toSeq)
     } catch {
       case e: Exception =>
-        sender() ! akka.actor.Status.Failure(e)
+        sender() ! Status.Failure(e)
     }
+  }
+
+  private def convertToReply(queryMessage: QueryMessage) = {
+    ReplyMsg(
+      queryMessage.pdus.map {
+        case  PublishQ(uri, tag, _, _) =>  PublishR(uri, tag)
+        case WithdrawQ(uri, tag, _)    => WithdrawR(uri, tag)
+      })
   }
 }

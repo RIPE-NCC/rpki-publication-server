@@ -54,7 +54,9 @@ object MsgType extends Enumeration {
   val reply = Value("reply")
 }
 
-class Msg {
+abstract class Msg {
+  def serialize: Elem
+
   protected def reply(pdus: => NodeSeq): Elem =
     <msg type="reply" version="3" xmlns="http://www.hactrn.net/uris/rpki/publication-spec/">
       {pdus}
@@ -62,7 +64,7 @@ class Msg {
 }
 
 case class ErrorMsg(error: BaseError) extends Msg {
-  def serialize = reply {
+  def serialize: Elem = reply {
     <report_error error_code={error.code.toString}>
       {error.message}
     </report_error>
@@ -71,7 +73,7 @@ case class ErrorMsg(error: BaseError) extends Msg {
 
 case class ReplyMsg(pdus: Seq[ReplyPdu]) extends Msg {
 
-  def serialize = reply {
+  def serialize: Elem = reply {
     pdus.map {
       case PublishR(uri, Some(tag)) => <publish tag={tag} uri={uri.toString}/>
       case PublishR(uri, None) => <publish uri={uri.toString}/>
