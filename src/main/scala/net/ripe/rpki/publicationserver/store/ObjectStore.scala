@@ -40,31 +40,23 @@ class ObjectStore extends Hashing {
 
   def getAllAction = mapQ(objects)
 
-  def insertAction(obj: RRDPObject) = {
+  private def insertAction(obj: RRDPObject) = {
     val (base64, hash, uri, clientId) = obj
     objects += (base64.value, hash.hash, uri.toString, clientId.value)
   }
 
-  def updateAction(obj: RRDPObject) = {
+  private def updateAction(obj: RRDPObject) = {
     val (base64, hash, uri, clientId) = obj
     objects.filter(_.uri === uri.toString).update {
       (base64.value, hash.hash, uri.toString, clientId.value)
     }
   }
 
-  def deleteAction(clientId: ClientId, hash: Hash) =
+  private def deleteAction(clientId: ClientId, hash: Hash) =
     objects.filter(_.hash === hash.hash).delete
 
   def find(uri: URI): Option[RRDPObject] =
     getSeq(objects.filter(_.uri === uri.toString)).headOption
-
-  def atomic[E <: Effect, T](actions: Seq[DBIOAction[_, NoStream, E]], f: => T) : T =
-    Await.result(db.run {
-      (for {
-        _ <- DBIO.seq(actions: _*)
-        t <- liftDB(f)
-      } yield t).transactionally
-    }, conf.defaultTimeout)
 
   def clear() = Await.result(db.run(objects.delete), conf.defaultTimeout)
 
