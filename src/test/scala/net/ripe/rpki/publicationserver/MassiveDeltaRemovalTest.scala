@@ -2,11 +2,10 @@ package net.ripe.rpki.publicationserver
 
 import java.io.File
 import java.net.URI
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, Paths}
 import java.util.{Date, UUID}
 
 import akka.testkit.TestActorRef
-import akka.testkit.TestKit._
 import net.ripe.rpki.publicationserver.messaging.FSFlusher
 import net.ripe.rpki.publicationserver.model.{ClientId, Delta}
 import net.ripe.rpki.publicationserver.store._
@@ -21,9 +20,8 @@ import scala.util.Try
 
 
 object MassiveDeltaRemovalTest {
-  import scala.language.postfixOps
 
-  val timeToRunTheTest: FiniteDuration = 30 seconds
+  val timeToRunTheTest: FiniteDuration = 30.seconds
   val deadline = timeToRunTheTest.fromNow
   val deadlineDate: Date = new Date(System.currentTimeMillis() + deadline.timeLeft.toMillis)
 
@@ -56,7 +54,9 @@ class MassiveDeltaRemovalTest extends PublicationServerBaseTest with Hashing wit
 
   private var sessionDir: String = _
 
-  def publicationService = TestActorRef(PublicationServiceActor.props(conf)).underlyingActor
+  override val waitTime = timeToRunTheTest
+
+  def publicationService = TestActorRef(new PublicationServiceActor(conf)).underlyingActor
 
   before {
     cleanDir(rootDir.toFile)
@@ -123,13 +123,5 @@ class MassiveDeltaRemovalTest extends PublicationServerBaseTest with Hashing wit
 
     if (dir.isDirectory)
       cleanDir_(dir)
-  }
-
-  def checkFileExists(path: Path): Unit = {
-    awaitCond(Files.exists(path), max = timeToRunTheTest)
-  }
-
-  def checkFileAbsent(path: Path): Unit = {
-    awaitCond(Files.notExists(path), max = timeToRunTheTest)
   }
 }

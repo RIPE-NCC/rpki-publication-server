@@ -1,54 +1,91 @@
 package net.ripe.rpki.publicationserver.store
 
 import java.net.URI
-import java.util.concurrent.TimeUnit
 
 import net.ripe.rpki.publicationserver.model.ClientId
-import net.ripe.rpki.publicationserver.{Base64, Hash, PublicationServerBaseTest}
+import net.ripe.rpki.publicationserver.{Base64, Hashing, PublicationServerBaseTest, PublishQ, QueryMessage, WithdrawQ}
 
 import scala.concurrent.Await
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration._
 
-class ObjectStoreTest extends PublicationServerBaseTest {
+class ObjectStoreTest extends PublicationServerBaseTest with Hashing {
 
-  val db = DB.db
-
+  DBConfig.useMemoryDatabase = true
   val objectStore = new ObjectStore
-  val serverStateStore = new ServerStateStore
 
   before {
-    serverStateStore.clear()
     Migrations.initServerState()
     objectStore.clear()
   }
 
-  test("should store an object and extract it") {
+  private val uri: URI = new URI("rsync://host.com/path")
+
+  test("should insert an object") {
     val clientId = ClientId("client1")
-    val i = objectStore.insertAction((Base64("AAAA=="), Hash("jfkfhjghj"), new URI("rsync://host.com/path"), clientId))
-    Await.result(db.run(i), Duration(1, TimeUnit.MINUTES))
-    objectStore.list(clientId) should be(Vector((Base64("AAAA=="), Hash("jfkfhjghj"), new URI("rsync://host.com/path"), clientId)))
+    val changeSet = QueryMessage(Seq(PublishQ(uri, Some("tag"), hash = None, Base64("AAAA=="))))
+
+    objectStore.applyChanges(changeSet, clientId).onFailure {
+      case e => println(e)
+    }
+
+    val obj = objectStore.getState.get(uri)
+    obj should be(defined)
+    obj.get should be((Base64("AAAA=="), hash(Base64("AAAA==")), clientId))
+  }
+
+  test("should replace an object") {
+    val clientId = ClientId("client1")
+
+    val changeSet = QueryMessage(Seq(PublishQ(uri, tag=None, hash=None, Base64("AAAA=="))))
+    Await.result(objectStore.applyChanges(changeSet, clientId), 1.minute)
+
+    val replaceSet = QueryMessage(Seq(PublishQ(uri, tag=None, Some(hash(Base64("AAAA==")).hash), Base64("BBBB=="))))
+    Await.result(objectStore.applyChanges(replaceSet, clientId), 1.minute)
+
+    val obj = objectStore.getState.get(uri)
+    obj should be(defined)
+    obj.get should be((Base64("BBBB=="), hash(Base64("BBBB==")), clientId))
+  }
+
+  test("should replace an object in the same message") {
+    val clientId = ClientId("client1")
+
+    val changeSet = QueryMessage(Seq(
+      PublishQ(uri, tag=None, hash=None, Base64("AAAA==")),
+      PublishQ(uri, tag=None, Some(hash(Base64("AAAA==")).hash), Base64("BBBB=="))
+    ))
+    Await.result(objectStore.applyChanges(changeSet, clientId), 1.minute)
+
+    val obj = objectStore.getState.get(uri)
+    obj should be(defined)
+    obj.get should be((Base64("BBBB=="), hash(Base64("BBBB==")), clientId))
   }
 
   test("should store an object, withdraw it and make sure it's not there anymore") {
     val clientId = ClientId("client1")
-    val hash = Hash("98623986923")
-    val i = objectStore.insertAction((Base64("AAAA=="), hash, new URI("rsync://host.com/another_path"), clientId))
-    Await.result(db.run(i), Duration(1, TimeUnit.MINUTES))
 
-    objectStore.list(clientId) should be(Vector((Base64("AAAA=="), hash, new URI("rsync://host.com/another_path"), clientId)))
+    val changeSet = QueryMessage(Seq(PublishQ(uri, tag=None, hash=None, Base64("AAAA=="))))
+    Await.result(objectStore.applyChanges(changeSet, clientId), 1.minute)
 
-    val d = objectStore.deleteAction(clientId, hash)
-    Await.result(db.run(d), Duration(1, TimeUnit.MINUTES))
+    val withdrawSet = QueryMessage(Seq(WithdrawQ(uri, tag=None, hash(Base64("AAAA==")).hash)))
+    Await.result(objectStore.applyChanges(withdrawSet, clientId), 1.minute)
 
-    objectStore.list(clientId) should be(Vector())
+    val obj = objectStore.getState.get(uri)
+    obj should not be defined
   }
 
-  test("should list object only in case of correct serial number") {
+  test("should store and withdraw object in the same message") {
     val clientId = ClientId("client1")
-    val i = objectStore.insertAction((Base64("AAAA=="), Hash("jfkfhjghj"), new URI("rsync://host.com/path"), clientId))
-    Await.result(db.run(i), Duration(1, TimeUnit.MINUTES))
-    objectStore.listAll(serverStateStore.get.serialNumber) should be(Some(Vector((Base64("AAAA=="), Hash("jfkfhjghj"), new URI("rsync://host.com/path"), clientId))))
-    objectStore.listAll(serverStateStore.get.serialNumber + 1) should be(None)
+
+    Await.result(
+      objectStore.applyChanges(
+        QueryMessage(Seq(
+          PublishQ(uri, tag=None, hash=None, Base64("AAAA==")),
+          WithdrawQ(uri, tag=None, hash(Base64("AAAA==")).hash)
+        )), clientId), 1.minute)
+
+    val obj = objectStore.getState.get(uri)
+    obj should not be defined
   }
 
 }

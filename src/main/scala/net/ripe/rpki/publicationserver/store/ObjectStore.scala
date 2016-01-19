@@ -21,42 +21,22 @@ class ObjectStore extends Hashing {
 
   private type StoredTuple = (String, String, String, String)
 
-  def list(cliendId: ClientId): Seq[RRDPObject] = {
-    val ClientId(cId) = cliendId
-    getSeq(objects.filter(_.clientId === cId))
-  }
+  private def listAll: Seq[RRDPObject] = getSeq(objects)
 
-  def listAll(serial: Long): Option[Seq[RRDPObject]] = {
-
-    // TODO Implement it as one transactional action
-    val correctSerial = Await.result(db.run(serverStates.filter(_.serialNumber === serial).exists.result), conf.defaultTimeout)
-    if (correctSerial)
-      Some(getSeq(objects))
-    else
-      None
-  }
-
-  def listAll: Seq[RRDPObject] = getSeq(objects)
-
-  def getAllAction = mapQ(objects)
-
-  def insertAction(obj: RRDPObject) = {
+  private def insertAction(obj: RRDPObject) = {
     val (base64, hash, uri, clientId) = obj
     objects += (base64.value, hash.hash, uri.toString, clientId.value)
   }
 
-  def updateAction(obj: RRDPObject) = {
+  private def updateAction(obj: RRDPObject) = {
     val (base64, hash, uri, clientId) = obj
     objects.filter(_.uri === uri.toString).update {
       (base64.value, hash.hash, uri.toString, clientId.value)
     }
   }
 
-  def deleteAction(clientId: ClientId, hash: Hash) =
+  private def deleteAction(clientId: ClientId, hash: Hash) =
     objects.filter(_.hash === hash.hash).delete
-
-  def find(uri: URI): Option[RRDPObject] =
-    getSeq(objects.filter(_.uri === uri.toString)).headOption
 
   def clear() = Await.result(db.run(objects.delete), conf.defaultTimeout)
 

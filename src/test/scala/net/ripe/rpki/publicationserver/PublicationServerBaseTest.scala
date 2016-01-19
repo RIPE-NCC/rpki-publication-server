@@ -1,17 +1,22 @@
 package net.ripe.rpki.publicationserver
 
-import net.ripe.rpki.publicationserver.model.ClientId
-import net.ripe.rpki.publicationserver.store.{Migrations, DBConfig}
-import org.scalatest.mock.MockitoSugar
-import org.scalatest.{BeforeAndAfter, Matchers, FunSuite}
-import spray.http.HttpHeaders.RawHeader
+import java.nio.file.{Files, Path}
 
+import akka.testkit.TestKit.awaitCond
+import net.ripe.rpki.publicationserver.model.ClientId
+import net.ripe.rpki.publicationserver.store.{DBConfig, Migrations}
+import org.scalatest.mock.MockitoSugar
+import org.scalatest.{BeforeAndAfter, FunSuite, Matchers}
+import spray.http.HttpHeaders.RawHeader
 import spray.http._
 import spray.testkit.ScalatestRouteTest
 
+import scala.concurrent.duration._
 import scala.io.Source
 
 abstract class PublicationServerBaseTest extends FunSuite with BeforeAndAfter with Matchers with MockitoSugar with TestLogSetup with ScalatestRouteTest {
+
+  protected def waitTime: FiniteDuration = 30.seconds
 
   DBConfig.useMemoryDatabase = true
   Migrations.migrate()
@@ -67,4 +72,11 @@ abstract class PublicationServerBaseTest extends FunSuite with BeforeAndAfter wi
     }
   }
 
+  def checkFileExists(path: Path): Unit = {
+    awaitCond(Files.exists(path), max = waitTime)
+  }
+
+  def checkFileAbsent(path: Path): Unit = {
+    awaitCond(Files.notExists(path), max = waitTime)
+  }
 }

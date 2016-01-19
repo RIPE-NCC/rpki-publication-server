@@ -10,25 +10,19 @@ import net.ripe.rpki.publicationserver.store.ObjectStore
 import org.apache.commons.io.FileUtils
 import spray.testkit.ScalatestRouteTest
 
+import scala.concurrent.duration._
+
 class RsyncTest extends PublicationServerBaseTest with ScalatestRouteTest {
 
   val rsyncDir = "/tmp/a"
 
-  val config = AppConfig
+  val config = new AppConfig {
+    override lazy val snapshotSyncDelay = 1.millisecond
+  }
 
   def actorRefFactory = system
 
-  trait Context {
-    def actorRefFactory = system
-  }
-
-  def publicationService = {
-    val service = new PublicationService with Context
-    service.init(fsWriterActor)
-    service
-  }
-
-  def fsWriterActor = TestActorRef[FSWriterActor]
+  def publicationService = TestActorRef(new PublicationServiceActor(config)).underlyingActor
 
   before {
     val tmpDir = new File(rsyncDir)
@@ -46,14 +40,13 @@ class RsyncTest extends PublicationServerBaseTest with ScalatestRouteTest {
       // filesystem location /tmp/a
       // So the filesystem location where the rsyncRepositoryWriter should publish the file is /tmp/a + /online + /Alice/blCrcCp9ltyPDNzYKPfxc.cer
 
-      Files.exists(FileSystems.getDefault.getPath(s"$rsyncDir/online/Alice/blCrcCp9ltyPDNzYKPfxc.cer")) should be(true)
+      FileSystems.getDefault.getPath(s"$rsyncDir/online/Alice/blCrcCp9ltyPDNzYKPfxc.cer").toFile should exist
     }
   }
 
   test("should write the snapshot and delta's from the db to the filesystem on init") {
     val sessionId = UUID.randomUUID()
     val newServerState = ServerState(sessionId, 123L)
-    fsWriterActor.underlyingActor.initFSContent(newServerState)
 
     // The tmp/a directory is removed in the 'before' method, but the database still contains the object published by the previous test.
     // So initFSContent should find the object in the database and write it to rsync

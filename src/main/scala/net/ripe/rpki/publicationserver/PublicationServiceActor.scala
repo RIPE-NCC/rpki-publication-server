@@ -18,8 +18,8 @@ import spray.http._
 import spray.httpx.unmarshalling._
 import spray.routing._
 
-import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Future}
 import scala.io.{BufferedSource, Source}
 import scala.util.{Failure, Success}
 
@@ -31,7 +31,7 @@ class PublicationServiceActor(conf: AppConfig) extends HttpServiceActor {
 
   def receive = runRoute(publicationRoutes)
 
-  var stateActor: ActorRef = _
+  var stateActor: ActorRef = context.system.actorOf(StateActor.props(conf))
 
   override val supervisorStrategy = OneForOneStrategy(maxNrOfRetries = 1) {
     case _: Exception =>
@@ -48,7 +48,6 @@ class PublicationServiceActor(conf: AppConfig) extends HttpServiceActor {
 
   override def preStart() = {
     Migrations.migrate()
-    stateActor = context.system.actorOf(StateActor.props(conf))
   }
 
   implicit val BufferedSourceUnmarshaller =

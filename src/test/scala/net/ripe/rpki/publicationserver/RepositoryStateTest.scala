@@ -2,26 +2,21 @@ package net.ripe.rpki.publicationserver
 
 import java.io.File
 import java.nio.file.{Files, Path, Paths}
-import java.util.{UUID, Date}
-import java.util.concurrent.TimeUnit
+import java.util.UUID
 
-import akka.actor.ActorSystem
 import akka.testkit.TestActorRef
 import akka.testkit.TestKit._
-import com.typesafe.config.ConfigFactory
-import net.ripe.rpki.publicationserver.messaging.FSFlusher
 import net.ripe.rpki.publicationserver.model.Delta
-import net.ripe.rpki.publicationserver.store.fs._
 import net.ripe.rpki.publicationserver.store._
+import net.ripe.rpki.publicationserver.store.fs._
+import org.mockito.Matchers._
+import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.mock.MockitoSugar
 import spray.testkit.ScalatestRouteTest
 
 import scala.concurrent.duration._
 import scala.language.postfixOps
-import org.mockito.Mockito._
-import org.mockito.Matchers._
-
 import scala.util.Try
 
 object RepositoryStateTest {
@@ -51,8 +46,6 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
 
   // TODO Remove (of tune) it after debugging
   implicit val customTimeout = RouteTestTimeout(6000.seconds)
-
-  val waitTime: FiniteDuration = Duration(30, TimeUnit.SECONDS)
 
   def publicationService = TestActorRef(new PublicationServiceActor(conf)).underlyingActor
 
@@ -180,14 +173,6 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
 
     if (dir.isDirectory)
       cleanDir_(dir)
-  }
-
-  def checkFileExists(path: Path): Unit = {
-    awaitCond(Files.exists(path), max = waitTime)
-  }
-
-  def checkFileAbsent(path: Path): Unit = {
-    awaitCond(Files.notExists(path), max = waitTime)
   }
 
   def findSessionDir(path: Path): File = {
