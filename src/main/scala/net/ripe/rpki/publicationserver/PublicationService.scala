@@ -2,6 +2,7 @@ package net.ripe.rpki.publicationserver
 
 import java.io.ByteArrayInputStream
 import java.util.concurrent.Executors
+import javax.xml.stream.XMLStreamException
 
 import akka.actor._
 import akka.pattern.ask
@@ -89,6 +90,9 @@ trait PublicationService extends HttpService {
                 } {
                   case Success(result) =>
                     complete(result.serialize)
+                  case Failure(error: XMLStreamException) =>
+                    serviceLogger.error(s"Error parsing POST request with clientId=$clientId", error)
+                    complete(400, error.getMessage)
                   case Failure(error) =>
                     serviceLogger.error(s"Error processing POST request with clientId=$clientId", error)
                     complete(500, error.getMessage)

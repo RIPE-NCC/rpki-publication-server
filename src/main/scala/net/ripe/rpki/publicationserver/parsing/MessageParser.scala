@@ -17,8 +17,6 @@ trait MessageParser[T] {
       // this way our parsing code can rely on the assumption that the xml is valid
       val parser = StaxParser.createFor(reader, Schema)
       parse(parser)
-    } catch {
-      case e: Exception => Left(BaseError(BaseError.ParseError, e.getMessage))
     } finally {
       reader.close()
     }
