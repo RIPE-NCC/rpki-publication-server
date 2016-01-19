@@ -7,7 +7,6 @@ import java.util.UUID
 import akka.testkit.TestActorRef
 import net.ripe.rpki.publicationserver.model.ServerState
 import net.ripe.rpki.publicationserver.store.ObjectStore
-import net.ripe.rpki.publicationserver.store.fs.FSWriterActor
 import org.apache.commons.io.FileUtils
 import spray.testkit.ScalatestRouteTest
 

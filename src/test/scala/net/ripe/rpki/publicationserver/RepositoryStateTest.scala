@@ -2,7 +2,7 @@ package net.ripe.rpki.publicationserver
 
 import java.io.File
 import java.nio.file.{Files, Path, Paths}
-import java.util.Date
+import java.util.{UUID, Date}
 import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorSystem
@@ -61,7 +61,7 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
     serial = 1L
     theObjectStore.clear()
     Migrations.initServerState()
-    sessionDir = rootDir.resolve(theServerStateStore.get.sessionId.toString).toString
+    sessionDir = findSessionDir(rootDir).toString
     when(RepositoryStateTest.theRsyncWriter.writeDelta(any[Delta])).thenReturn(Try {})
   }
 
@@ -189,4 +189,17 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
   def checkFileAbsent(path: Path): Unit = {
     awaitCond(Files.notExists(path), max = waitTime)
   }
+
+  def findSessionDir(path: Path): File = {
+    val maybeFiles: Option[Array[File]] = Option(path.toFile.listFiles)
+
+    awaitCond(maybeFiles.exists(_.exists { f =>
+      Try(UUID.fromString(f.getName)).isSuccess
+    }), max = waitTime)
+
+    maybeFiles.flatMap(_.find { f =>
+      Try(UUID.fromString(f.getName)).isSuccess
+    }).get
+  }
+
 }
