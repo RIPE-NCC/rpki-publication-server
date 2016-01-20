@@ -24,11 +24,6 @@ object MassiveDeltaRemovalTest {
   val deadline = timeToRunTheTest.fromNow
   val deadlineDate: Date = new Date(System.currentTimeMillis() + deadline.timeLeft.toMillis)
 
-  val theUpdateStore = new UpdateStore {
-    // for test, override it with constant time at deadline
-    override def afterRetainPeriod(period: Duration) = deadlineDate
-  }
-
   val rootDir = Files.createTempDirectory(Paths.get("/tmp"),"test_pub_server_")
   rootDir.toFile.deleteOnExit()
   val rootDirName = rootDir.toString
