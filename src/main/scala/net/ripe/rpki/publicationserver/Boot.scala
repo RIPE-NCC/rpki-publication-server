@@ -10,6 +10,7 @@ import akka.pattern.ask
 import akka.util.Timeout
 import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.logging.LoggingOutputStream
+import net.ripe.rpki.publicationserver.store.Migrations
 import org.apache.log4j.{Level, Logger}
 import org.slf4j.LoggerFactory
 import spray.can.Http
@@ -23,6 +24,7 @@ object Boot extends App {
 
   val logger = setupLogging()
   logger.info("Starting up the publication server ...")
+  Migrations.migrate()
 
   implicit val system = ActorSystem("publication-rrdp-server")
 
