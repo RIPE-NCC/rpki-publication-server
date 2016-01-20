@@ -6,7 +6,6 @@ import java.util.UUID
 
 import akka.testkit.TestActorRef
 import akka.testkit.TestKit._
-import net.ripe.rpki.publicationserver.model.Delta
 import net.ripe.rpki.publicationserver.store._
 import net.ripe.rpki.publicationserver.store.fs._
 import org.mockito.Matchers._
@@ -55,7 +54,7 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
     theObjectStore.clear()
     Migrations.initServerState()
     sessionDir = findSessionDir(rootDir).toString
-    when(RepositoryStateTest.theRsyncWriter.writeDelta(any[Delta])).thenReturn(Try {})
+    when(RepositoryStateTest.theRsyncWriter.updateRepo(any[QueryMessage])).thenReturn({})
   }
 
   override def afterAll() = {

@@ -10,11 +10,11 @@ import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.messaging.Messages._
 import net.ripe.rpki.publicationserver.model.{Delta, Notification, ServerState, Snapshot}
 import net.ripe.rpki.publicationserver.store.ObjectStore
-import net.ripe.rpki.publicationserver.store.fs.{RrdpRepositoryWriter, RsyncRepositoryWriter}
+import net.ripe.rpki.publicationserver.store.fs.RrdpRepositoryWriter
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
-import scala.util.{Try, Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 object FSFlusher {
   def props(conf: AppConfig) = Props(new FSFlusher(conf))
@@ -25,7 +25,6 @@ class FSFlusher(conf: AppConfig) extends Actor with Logging {
   import context._
 
   protected lazy val rrdpWriter = wire[RrdpRepositoryWriter]
-  protected lazy val rsyncWriter = wire[RsyncRepositoryWriter]
 
   private type DeltaMap = Map[Long, (Long, Hash, Long, Instant)]
 
@@ -69,20 +68,10 @@ class FSFlusher(conf: AppConfig) extends Actor with Logging {
     val snapshot = Snapshot(serverState, snapshotPdus)
     val notification = Notification.create(conf)(snapshot, serverState, Seq())
 
-    val rsyncF = Future(Try(rsyncWriter.writeSnapshot(snapshot)))
-    val rrdpF = Future(rrdpWriter.writeNewState(conf.rrdpRepositoryPath, serverState, notification, snapshot))
-
-    val rrdp = waitFor(rrdpF)
-    val rsync = waitFor(rsyncF)
-
-    rrdp.recover {
+    rrdpWriter.writeNewState(conf.rrdpRepositoryPath, serverState, notification, snapshot)
+    .recover {
       case e: Exception =>
         logger.error(s"Could not write snapshot to rrdp repo: ", e)
-        throwFatalException
-    }
-    rsync.recover {
-      case e: Exception =>
-        logger.error(s"Could not write snapshot to rsync repo: ", e)
         throwFatalException
     }
   }
@@ -108,36 +97,18 @@ class FSFlusher(conf: AppConfig) extends Actor with Logging {
 
     val notification = Notification.create(conf)(snapshot, serverState, deltaDefs)
 
-    val rrdp = Future {
-      logger.debug(s"Writing delta $serial to rsync filesystem")
+    logger.debug(s"Writing delta $serial to rsync filesystem")
+    Try {
       rrdpWriter.writeDelta(conf.rrdpRepositoryPath, delta)
-    }
-    val rsync = Future {
-      logger.debug(s"Writing delta $serial to RRDP filesystem")
-      rsyncWriter.writeDelta(delta)
-    }
-
-    waitFor(rrdp).flatMap { _ =>
-      waitFor(rsync).flatMap { _ =>
-        val result = rrdpWriter.writeNewState(conf.rrdpRepositoryPath, serverState, notification, snapshot)
-        deltas = deltasToPublish
-        result
-      }.recoverWith {
-        case e: Exception =>
-          logger.error(s"Could not write delta $serial to RRDP repo: ", e)
-          Failure(e)
-      }
-    }.recoverWith {
-      case e: Exception =>
-        logger.error(s"Could not write delta $serial to rsync repo: ", e)
-        Failure(e)
+    } flatMap { _ =>
+      rrdpWriter.writeNewState(conf.rrdpRepositoryPath, serverState, notification, snapshot)
     } match {
       case Success(timestampOption) =>
+        deltas = deltasToPublish
         timestampOption.foreach(scheduleSnapshotCleanup(serial))
-        val now = Instant.now()
         scheduleDeltaCleanups(deltasToDelete.keys)
       case Failure(e) =>
-        logger.error("Could not write notification.xml to filesystem: " + e.getMessage, e)
+        logger.error("Could not update RRDP files: ", e)
     }
 
   }

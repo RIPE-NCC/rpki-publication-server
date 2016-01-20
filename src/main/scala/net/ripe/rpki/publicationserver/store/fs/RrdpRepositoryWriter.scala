@@ -28,8 +28,9 @@ class RrdpRepositoryWriter extends Logging {
     Files.walkFileTree(Paths.get(rootDir), new RemoveAllVisitor)
   }
 
-  private val snapshotFilename = "snapshot.xml"
-  private val deltaFilename = "delta.xml"
+  val notificationFilename = "snapshot.xml"
+  val snapshotFilename = "snapshot.xml"
+  val deltaFilename = "delta.xml"
 
   private val fileAttributes = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-r--r--"))
 
@@ -50,9 +51,9 @@ class RrdpRepositoryWriter extends Logging {
     writeFile(snapshot.bytes, stateDir.resolve(snapshotFilename))
   }
 
-  def writeDelta(rootDir: String, delta: Delta) = Try {
+  def writeDelta(rootDir: String, delta: Delta) = {
     val stateDir = getStateDir(rootDir, delta.sessionId.toString, delta.serial)
-    writeFile(delta.bytes, stateDir.resolve("delta.xml"))
+    writeFile(delta.bytes, stateDir.resolve(deltaFilename))
   }
 
   def writeNotification(rootDir: String, notification: Notification): Option[FileTime] = {
@@ -61,7 +62,7 @@ class RrdpRepositoryWriter extends Logging {
     val tmpFile = Files.createTempFile(root, "notification.", ".xml", fileAttributes)
     try {
       writeFile(notification.serialize, tmpFile)
-      val target = root.resolve("notification.xml")
+      val target = root.resolve(notificationFilename)
       val previousNotificationTimestamp = Try(Files.getLastModifiedTime(target)).toOption
       Files.move(tmpFile, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
       previousNotificationTimestamp
@@ -97,10 +98,10 @@ class RrdpRepositoryWriter extends Logging {
 
   def deleteSnapshot(rootDir: String, serverState: ServerState) = deleteSessionFile(rootDir, serverState, snapshotFilename)
 
-  def deleteDelta(rootDir: String, serverState: ServerState) = deleteSessionFile(rootDir, serverState, "delta.xml")
+  def deleteDelta(rootDir: String, serverState: ServerState) = deleteSessionFile(rootDir, serverState, deltaFilename)
 
   def deleteNotification(rootDir: String) =
-    Files.deleteIfExists(Paths.get(rootDir, "notification.xml"))
+    Files.deleteIfExists(Paths.get(rootDir, notificationFilename))
 
   def deleteDeltas(rootDir: String, deltas: Iterable[Delta]) =
     deltas.foreach { d =>

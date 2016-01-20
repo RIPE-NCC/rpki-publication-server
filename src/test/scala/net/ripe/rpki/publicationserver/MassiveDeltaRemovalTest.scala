@@ -7,7 +7,7 @@ import java.util.{Date, UUID}
 
 import akka.testkit.TestActorRef
 import net.ripe.rpki.publicationserver.messaging.FSFlusher
-import net.ripe.rpki.publicationserver.model.{ClientId, Delta}
+import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store._
 import net.ripe.rpki.publicationserver.store.fs._
 import org.mockito.Matchers._
@@ -16,7 +16,6 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.mock.MockitoSugar
 
 import scala.concurrent.duration._
-import scala.util.Try
 
 
 object MassiveDeltaRemovalTest {
@@ -42,7 +41,6 @@ object MassiveDeltaRemovalTest {
   }
 
   class TestFSFSFlusher extends FSFlusher(conf) with MockitoSugar {
-    override lazy val rsyncWriter = theRsyncWriter
     override def afterRetainPeriod = deadlineDate
     override val sessionId = theSessionId
   }
@@ -62,7 +60,7 @@ class MassiveDeltaRemovalTest extends PublicationServerBaseTest with Hashing wit
     cleanDir(rootDir.toFile)
     Migrations.initServerState()
     sessionDir = rootDir.resolve(theSessionId.toString).toString
-    when(MassiveDeltaRemovalTest.theRsyncWriter.writeDelta(any[Delta])).thenReturn(Try {})
+    when(MassiveDeltaRemovalTest.theRsyncWriter.updateRepo(any[QueryMessage])).thenReturn({})
   }
 
   override def afterAll() = {

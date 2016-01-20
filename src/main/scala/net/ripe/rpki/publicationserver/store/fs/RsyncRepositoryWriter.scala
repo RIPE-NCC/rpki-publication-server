@@ -7,8 +7,8 @@ import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 
 import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver
-import net.ripe.rpki.publicationserver.model.{Delta, Snapshot}
-import net.ripe.rpki.publicationserver.{AppConfig, Base64, Logging, PublishQ, WithdrawQ}
+import net.ripe.rpki.publicationserver.store.ObjectStore
+import net.ripe.rpki.publicationserver.{AppConfig, Base64, Logging, PublishQ, QueryMessage, WithdrawQ}
 import org.apache.commons.io.FileUtils
 
 import scala.util.Try
@@ -23,8 +23,8 @@ class RsyncRepositoryWriter extends Logging {
 
   logger.info(s"Using following URL mapping:\n${conf.rsyncRepositoryMapping}")
 
-  def writeSnapshot(snapshot: Snapshot) = {
-    val objectsPerBaseDir = groupByBaseDir(snapshot)
+  def writeSnapshot(state: ObjectStore.State) = {
+    val objectsPerBaseDir = groupByBaseDir(state)
     for (baseDir <- objectsPerBaseDir.keys) {
       val tempRepoDir = createTempRepoDir(baseDir)
       Try {
@@ -39,19 +39,20 @@ class RsyncRepositoryWriter extends Logging {
     }
   }
 
-  def writeDelta(delta: Delta) = Try {
-    delta.pdus.foreach {
+  def updateRepo(message: QueryMessage) = {
+    message.pdus.foreach {
       case PublishQ(uri, tag, hash, base64) =>
         writeFile(uri, base64)
       case WithdrawQ(uri, tag, hash) =>
         removeFile(uri)
-      case unknown => throw new UnsupportedOperationException(s"Unknown PDU in delta: $unknown")
+      case unknown =>
+        throw new UnsupportedOperationException(s"Unknown PDU in ValidatedMesage: $unknown")
     }
   }
 
-  private def groupByBaseDir(snapshot: Snapshot): Map[Path, Seq[(publicationserver.Base64, RsyncFsLocation)]] = {
-    snapshot.pdus.map {
-      case (base64, uri) => (base64, resolvePath(uri))
+  private def groupByBaseDir(state: ObjectStore.State): Map[Path, Seq[(publicationserver.Base64, RsyncFsLocation)]] = {
+    state.toSeq.map {
+      case (uri, (base64, _, _)) => (base64, resolvePath(uri))
     }.groupBy(_._2.base)
   }
 

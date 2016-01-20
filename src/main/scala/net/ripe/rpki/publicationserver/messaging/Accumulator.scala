@@ -1,12 +1,15 @@
 package net.ripe.rpki.publicationserver.messaging
 
-import akka.actor.{Actor, ActorRef, ActorRefFactory, Props}
+import akka.actor.{Actor, ActorRef, Props}
+import com.softwaremill.macwire.MacwireMacros.wire
 import net.ripe.rpki.publicationserver.messaging.Messages._
 import net.ripe.rpki.publicationserver.store.ObjectStore
+import net.ripe.rpki.publicationserver.store.ObjectStore.State
+import net.ripe.rpki.publicationserver.store.fs.RsyncRepositoryWriter
 import net.ripe.rpki.publicationserver.{AppConfig, Logging, QueryMessage}
 
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.duration._
+import scala.util.Try
 
 object Accumulator {
   def props(conf: AppConfig): Props = Props(new Accumulator(conf))
@@ -15,6 +18,8 @@ object Accumulator {
 class Accumulator(conf: AppConfig) extends Actor with Logging {
 
   import context._
+
+  protected lazy val rsyncWriter = wire[RsyncRepositoryWriter]
 
   private var flusher: ActorRef = _
 
@@ -31,8 +36,10 @@ class Accumulator(conf: AppConfig) extends Actor with Logging {
       messages += m
       latestState = state
       handleFlushing()
+      updateRsyncRepo(m)
     case ir : InitRepo =>
       flusher ! ir
+      initRsyncRepo(ir.state)
   }
 
   def handleFlushing() = {
@@ -46,5 +53,21 @@ class Accumulator(conf: AppConfig) extends Actor with Logging {
       })
       scheduled = true
     }
+  }
+
+  def initRsyncRepo(state: State) = {
+    Try {
+      rsyncWriter.writeSnapshot(state)
+    } recover {
+      case e: Exception =>
+        logger.error(s"Could not write to rsync repo, bailing out: ", e)
+        // ThreadDeath is one of the few exceptions that Akka considers fatal, i.e. which can trigger jvm termination
+        throw new ThreadDeath
+    }
+  }
+
+  def updateRsyncRepo(message: QueryMessage): Unit = {
+    logger.debug(s"Writing message to rsync repo:\n$message")
+    rsyncWriter.updateRepo(message)
   }
 }

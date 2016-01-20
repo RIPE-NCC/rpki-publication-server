@@ -3,13 +3,10 @@ package net.ripe.rpki.publicationserver
 import java.net.URI
 
 import akka.testkit.TestActorRef
-import net.ripe.rpki.publicationserver.model.Delta
 import net.ripe.rpki.publicationserver.store.ObjectStore
 import net.ripe.rpki.publicationserver.store.fs.RsyncRepositoryWriter
 import org.mockito.Matchers._
 import org.mockito.Mockito._
-
-import scala.util.Try
 
 class PublicationServiceTest extends PublicationServerBaseTest {
 
@@ -21,7 +18,7 @@ class PublicationServiceTest extends PublicationServerBaseTest {
 
   before {
     objectStore.clear()
-    when(theRsyncWriter.writeDelta(any[Delta])).thenReturn(Try {})
+    when(theRsyncWriter.updateRepo(any[QueryMessage])).thenReturn({})
   }
 
   test("should return a response with content-type application/rpki-publication") {
