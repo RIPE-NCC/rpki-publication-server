@@ -59,15 +59,15 @@ class FSFlusher(conf: AppConfig) extends Actor with Logging {
   }
 
 
-  def scheduleRrdpRepositoryCleanup() = {
-    system.scheduler.scheduleOnce(conf.unpublishedFileRetainPeriod, new Runnable() {
-      override def run() = {
-        val command = CleanUpRepo(sessionId)
-        dataCleaner ! command
-        logger.debug(s"$command has been sent")
-      }
-    })
-  }
+  def scheduleRrdpRepositoryCleanup() = scheduleCleanup(CleanUpRepo(sessionId))
+
+  def scheduleSnapshotCleanup(currentSerial: Long)(timestamp: FileTime) = scheduleCleanup(CleanUpSnapshot(timestamp, currentSerial))
+
+  def scheduleDeltaCleanups(deltasToDeleteFromFS: Seq[Long]) = scheduleCleanup(CleanUpDeltas(sessionId, deltasToDeleteFromFS))
+
+  def scheduleCleanup(message: => Any) =
+    system.scheduler.scheduleOnce(conf.unpublishedFileRetainPeriod, dataCleaner, message)
+
 
   def initFS(state: ObjectStore.State) = {
     val serverState = ServerState(sessionId, serial)
@@ -80,11 +80,11 @@ class FSFlusher(conf: AppConfig) extends Actor with Logging {
     val notification = Notification.create(conf)(snapshot, serverState, Seq())
 
     rrdpWriter.writeNewState(conf.rrdpRepositoryPath, serverState, notification, snapshot)
-    .recover {
-      case e: Exception =>
-        logger.error(s"Could not write snapshot to rrdp repo: ", e)
-        throwFatalException
-    }
+      .recover {
+        case e: Exception =>
+          logger.error(s"Could not write snapshot to rrdp repo: ", e)
+          throwFatalException
+      }
   }
 
   def updateFS(messages: Seq[QueryMessage], state: ObjectStore.State) = {
@@ -123,39 +123,7 @@ class FSFlusher(conf: AppConfig) extends Actor with Logging {
 
   private def waitFor[T](f: Future[T]) = Await.result(f, 10.minutes)
 
-  def snapshotCleanInterval = {
-    val i = conf.unpublishedFileRetainPeriod / 10
-    if (i < 1.second) 1.second else i
-  }
-
   def afterRetainPeriod = new Date(System.currentTimeMillis() + conf.unpublishedFileRetainPeriod.toMillis)
-
-  var snapshotFSCleanupScheduled = false
-
-  def scheduleSnapshotCleanup(currentSerial: Long)(timestamp: FileTime) = {
-    if (!snapshotFSCleanupScheduled) {
-      system.scheduler.scheduleOnce(snapshotCleanInterval, new Runnable() {
-        override def run() = {
-          val command = CleanUpSnapshot(timestamp, currentSerial)
-          dataCleaner ! command
-          logger.debug(s"$command has been sent")
-          snapshotFSCleanupScheduled = false
-        }
-      })
-      snapshotFSCleanupScheduled = true
-    }
-  }
-
-  def scheduleDeltaCleanups(deltasToDeleteFromFS: Seq[Long]) = {
-    logger.info(s"Scheduling to remove deltas with serials: $deltasToDeleteFromFS")
-    system.scheduler.scheduleOnce(conf.unpublishedFileRetainPeriod, new Runnable() {
-      override def run() = {
-        val command = CleanUpDeltas(sessionId, deltasToDeleteFromFS)
-        dataCleaner ! command
-        logger.debug(s"$command has been sent")
-      }
-    })
-  }
 
   def deleteExtraDeltas(snapshotSize: Long): Seq[Long] = {
     val deltasToDelete = ListBuffer[Long]()
