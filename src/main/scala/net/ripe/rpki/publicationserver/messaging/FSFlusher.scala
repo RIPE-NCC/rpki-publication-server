@@ -12,6 +12,8 @@ import net.ripe.rpki.publicationserver.model.{Delta, Notification, ServerState, 
 import net.ripe.rpki.publicationserver.store.ObjectStore
 import net.ripe.rpki.publicationserver.store.fs.RrdpRepositoryWriter
 
+import scala.collection.mutable
+import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.util.{Failure, Success, Try}
@@ -26,14 +28,12 @@ class FSFlusher(conf: AppConfig) extends Actor with Logging {
 
   protected lazy val rrdpWriter = wire[RrdpRepositoryWriter]
 
-  private type DeltaMap = Map[Long, (Long, Hash, Long, Instant)]
-
-  private var deltas: DeltaMap = Map()
-  private var deltasToDelete: Seq[(Long, Instant)] = Seq()
+  private var deltas = mutable.Queue[(Long, Hash, Int, Instant)]()
+  private var deltasTotalSize = 0L
 
   val sessionId = UUID.randomUUID()
 
-  private var serial : Long = _
+  private var serial = 1L
 
   private var dataCleaner: ActorRef = _
 
@@ -55,6 +55,7 @@ class FSFlusher(conf: AppConfig) extends Actor with Logging {
       serial = 1L
       rrdpWriter.cleanRepository(conf.rrdpRepositoryPath)
       initFS(state)
+      serial += 1
   }
 
 
@@ -79,7 +80,8 @@ class FSFlusher(conf: AppConfig) extends Actor with Logging {
   def updateFS(messages: Seq[QueryMessage], state: ObjectStore.State) = {
     val pdus = messages.flatMap(_.pdus)
     val delta = Delta(sessionId, serial, pdus)
-    deltas += serial -> (serial, delta.contentHash, delta.binarySize, Instant.now())
+    deltas.enqueue((serial, delta.contentHash, delta.binarySize, Instant.now()))
+    deltasTotalSize += delta.binarySize
 
     val serverState = ServerState(sessionId, serial)
     val snapshotPdus = state.map { e =>
@@ -88,14 +90,8 @@ class FSFlusher(conf: AppConfig) extends Actor with Logging {
     }.toSeq
 
     val snapshot = Snapshot(serverState, snapshotPdus)
-    val (deltasToPublish, deltasToDelete) = separateDeltas(deltas, snapshot.binarySize)
-
-    val deltaDefs = deltasToPublish.map { e =>
-      val (serial, (_, hash, _, _)) = e
-      (serial, hash)
-    }.toSeq
-
-    val notification = Notification.create(conf)(snapshot, serverState, deltaDefs)
+    val deltasToDeleteFromFS = deleteExtraDeltas(snapshot.binarySize)
+    val notification = Notification.create(conf)(snapshot, serverState, deltas.map(e => (e._1, e._2)))
 
     Try {
       logger.info(s"Writing delta $serial to RRDP filesystem")
@@ -105,9 +101,10 @@ class FSFlusher(conf: AppConfig) extends Actor with Logging {
       rrdpWriter.writeNewState(conf.rrdpRepositoryPath, serverState, notification, snapshot)
     } match {
       case Success(timestampOption) =>
-        deltas = deltasToPublish
         timestampOption.foreach(scheduleSnapshotCleanup(serial))
-        scheduleDeltaCleanups(deltasToDelete.keys)
+        if (deltasToDeleteFromFS.nonEmpty) {
+          scheduleDeltaCleanups(deltasToDeleteFromFS)
+        }
       case Failure(e) =>
         logger.error("Could not update RRDP files: ", e)
     }
@@ -115,28 +112,6 @@ class FSFlusher(conf: AppConfig) extends Actor with Logging {
   }
 
   private def waitFor[T](f: Future[T]) = Await.result(f, 10.minutes)
-
-  def separateDeltas(deltas: Map[Long, (Long, Hash, Long, Instant)], snapshotSize: Long) : (DeltaMap, DeltaMap) = {
-    if (deltas.isEmpty)
-      (deltas, Map())
-    else {
-      val deltasNewestFirst = deltas.values.toSeq.sortBy(-_._1)
-      var accDeltaSize = deltasNewestFirst.head._3
-      val thresholdDelta = deltasNewestFirst.tail.find { d =>
-        accDeltaSize += d._3
-        accDeltaSize > snapshotSize
-      }
-
-      thresholdDelta match {
-        case Some((s, _, _, _)) =>
-          val p = deltas.partition(_._1 < s)
-          logger.info(s"Deltas with serials smaller than $s will be removed after $afterRetainPeriod, ${p._2.keys.mkString}")
-          p
-        case None => (deltas, Map())
-      }
-    }
-  }
-
 
   def snapshotCleanInterval = {
     val i = conf.unpublishedFileRetainPeriod / 10
@@ -161,16 +136,26 @@ class FSFlusher(conf: AppConfig) extends Actor with Logging {
     }
   }
 
-  def scheduleDeltaCleanups(deltasToDelete: Iterable[Long]) = {
+  def scheduleDeltaCleanups(deltasToDeleteFromFS: Seq[Long]) = {
+    logger.info(s"Scheduling to remove deltas with serials: $deltasToDeleteFromFS")
     system.scheduler.scheduleOnce(conf.unpublishedFileRetainPeriod, new Runnable() {
       override def run() = {
-        val command = CleanUpDeltas(sessionId, deltasToDelete)
+        val command = CleanUpDeltas(sessionId, deltasToDeleteFromFS)
         dataCleaner ! command
         logger.debug(s"$command has been sent")
       }
     })
   }
 
+  def deleteExtraDeltas(snapshotSize: Long): Seq[Long] = {
+    val deltasToDelete = ListBuffer[Long]()
+    while (deltasTotalSize > snapshotSize && deltas.nonEmpty) {
+      val (serial, _, size, _) = deltas.dequeue()
+      deltasTotalSize -= size
+      deltasToDelete += serial
+    }
+    deltasToDelete
+  }
 }
 
 
