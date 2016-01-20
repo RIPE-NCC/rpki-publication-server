@@ -24,18 +24,16 @@ class RsyncFlusher extends Actor with Logging {
       initRsyncRepo(ir.state)
   }
 
-  private def initRsyncRepo(state: State) = {
-    Try {
-      rsyncWriter.writeSnapshot(state)
-    } recover {
-      case e: Exception =>
-        logger.error(s"Could not write to rsync repo, bailing out: ", e)
-        // ThreadDeath is one of the few exceptions that Akka considers fatal, i.e. which can trigger jvm termination
-        throw new ThreadDeath
-    }
+  private def initRsyncRepo(state: State) = Try {
+    rsyncWriter.writeSnapshot(state)
+  } recover {
+    case e: Exception =>
+      logger.error(s"Could not write to rsync repo, bailing out: ", e)
+      // ThreadDeath is one of the few exceptions that Akka considers fatal, i.e. which can trigger jvm termination
+      throw new ThreadDeath
   }
 
-  private def updateRsyncRepo(message: QueryMessage): Unit = {
+  private def updateRsyncRepo(message: QueryMessage) = {
     logger.debug(s"Writing message to rsync repo:\n$message")
     rsyncWriter.updateRepo(message)
   }
