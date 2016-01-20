@@ -53,11 +53,21 @@ class FSFlusher(conf: AppConfig) extends Actor with Logging {
       serial += 1
     case InitRepo(state) =>
       serial = 1L
-      rrdpWriter.cleanRepository(conf.rrdpRepositoryPath)
+      scheduleRrdpRepositoryCleanup()
       initFS(state)
       serial += 1
   }
 
+
+  def scheduleRrdpRepositoryCleanup() = {
+    system.scheduler.scheduleOnce(conf.unpublishedFileRetainPeriod, new Runnable() {
+      override def run() = {
+        val command = CleanUpRepo(sessionId)
+        dataCleaner ! command
+        logger.debug(s"$command has been sent")
+      }
+    })
+  }
 
   def initFS(state: ObjectStore.State) = {
     val serverState = ServerState(sessionId, serial)
@@ -170,6 +180,9 @@ class Cleaner(conf: AppConfig) extends Actor with Logging {
     case CleanUpDeltas(sessionId, serials) =>
       logger.info(s"Removing deltas with serials: $serials")
       rrdpWriter.deleteDeltas(conf.rrdpRepositoryPath, sessionId, serials)
+    case CleanUpRepo(sessionId) =>
+      logger.info(s"Removing all the content in RRDP repository except for the session $sessionId")
+      rrdpWriter.cleanRepositoryExceptOneSession(conf.rrdpRepositoryPath, sessionId)
   }
 
 }

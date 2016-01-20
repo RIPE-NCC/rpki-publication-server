@@ -17,7 +17,7 @@ class RemovingFileVisitor(timestamp: FileTime, filenameToDelete: Path, latestSer
   }
 
   override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
-    if (file.endsWith(filenameToDelete) && !file.endsWith(latestFileNameComponent) && isModifiedBefore(file)) {
+    if (file.endsWith(filenameToDelete) && !file.endsWith(latestFileNameComponent) && FSUtil.isModifiedBefore(file, timestamp)) {
       logger.info(s"Removing $file")
       Files.deleteIfExists(file)
     }
@@ -25,27 +25,52 @@ class RemovingFileVisitor(timestamp: FileTime, filenameToDelete: Path, latestSer
   }
 
   override def postVisitDirectory(dir: Path, exc: IOException): FileVisitResult = {
-    if (isEmptyDir(dir) && isCreatedBefore(dir)) {
+    if (FSUtil.isEmptyDir(dir) && FSUtil.isCreatedBefore(dir, timestamp)) {
       logger.info(s"Removing directory $dir")
       Files.deleteIfExists(dir)
     }
     FileVisitResult.CONTINUE
   }
 
-  def isModifiedBefore(file: Path): Boolean = {
-    Files.getLastModifiedTime(file).compareTo(timestamp) <= 0
+}
+
+class RemoveAllVisitorExceptOneSession(sessionId: String) extends SimpleFileVisitor[Path] with Logging {
+  override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
+    if (file.toString.contains(sessionId))
+      FileVisitResult.SKIP_SUBTREE
+    else {
+      Files.deleteIfExists(file)
+      FileVisitResult.CONTINUE
+    }
   }
 
-  def isCreatedBefore(path: Path): Boolean = {
-    Files.readAttributes(path, classOf[BasicFileAttributes]).creationTime.compareTo(timestamp) <= 0
+  override def postVisitDirectory(dir: Path, exc: IOException): FileVisitResult = {
+    if (dir.toString.contains(sessionId))
+      FileVisitResult.SKIP_SUBTREE
+    else {
+      if (FSUtil.isEmptyDir(dir)) {
+        Files.deleteIfExists(dir)
+      }
+      FileVisitResult.CONTINUE
+    }
   }
+}
 
+private object FSUtil {
   def isEmptyDir(dir: Path): Boolean = {
     val stream = Files.newDirectoryStream(dir)
     try {
-      ! stream.iterator().hasNext
+      !stream.iterator().hasNext
     } finally {
       stream.close()
     }
+  }
+
+  def isModifiedBefore(file: Path, timestamp: FileTime): Boolean = {
+    Files.getLastModifiedTime(file).compareTo(timestamp) <= 0
+  }
+
+  def isCreatedBefore(path: Path, timestamp: FileTime): Boolean = {
+    Files.readAttributes(path, classOf[BasicFileAttributes]).creationTime.compareTo(timestamp) <= 0
   }
 }

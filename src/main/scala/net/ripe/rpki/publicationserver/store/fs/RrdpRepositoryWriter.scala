@@ -1,5 +1,6 @@
 package net.ripe.rpki.publicationserver.store.fs
 
+import java.io.IOException
 import java.nio.file._
 import java.nio.file.attribute.{BasicFileAttributes, FileTime, PosixFilePermissions}
 import java.util.UUID
@@ -17,15 +18,8 @@ class RrdpRepositoryWriter extends Logging {
     getStateDir(rootDir, sessionId.toString, serial)
   }
 
-  class RemoveAllVisitor extends SimpleFileVisitor[Path] {
-    override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
-      Files.deleteIfExists(file)
-      FileVisitResult.CONTINUE
-    }
-  }
-
-  def cleanRepository(rootDir: String) = {
-    Files.walkFileTree(Paths.get(rootDir), new RemoveAllVisitor)
+  def cleanRepositoryExceptOneSession(rootDir: String, sessionId: UUID) = {
+    Files.walkFileTree(Paths.get(rootDir), new RemoveAllVisitorExceptOneSession(sessionId.toString))
   }
 
   val notificationFilename = "notification.xml"
