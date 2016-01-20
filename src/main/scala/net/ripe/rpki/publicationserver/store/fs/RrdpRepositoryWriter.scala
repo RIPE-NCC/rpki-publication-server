@@ -28,7 +28,7 @@ class RrdpRepositoryWriter extends Logging {
     Files.walkFileTree(Paths.get(rootDir), new RemoveAllVisitor)
   }
 
-  val notificationFilename = "snapshot.xml"
+  val notificationFilename = "notification.xml"
   val snapshotFilename = "snapshot.xml"
   val deltaFilename = "delta.xml"
 
