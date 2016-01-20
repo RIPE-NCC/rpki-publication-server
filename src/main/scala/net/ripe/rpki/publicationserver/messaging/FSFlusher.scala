@@ -97,10 +97,11 @@ class FSFlusher(conf: AppConfig) extends Actor with Logging {
 
     val notification = Notification.create(conf)(snapshot, serverState, deltaDefs)
 
-    logger.debug(s"Writing delta $serial to rsync filesystem")
     Try {
+      logger.info(s"Writing delta $serial to RRDP filesystem")
       rrdpWriter.writeDelta(conf.rrdpRepositoryPath, delta)
     } flatMap { _ =>
+      logger.info(s"Writing snapshot $serial to RRDP filesystem")
       rrdpWriter.writeNewState(conf.rrdpRepositoryPath, serverState, notification, snapshot)
     } match {
       case Success(timestampOption) =>
