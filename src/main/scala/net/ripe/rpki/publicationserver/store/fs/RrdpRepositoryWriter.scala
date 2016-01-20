@@ -1,8 +1,7 @@
 package net.ripe.rpki.publicationserver.store.fs
 
-import java.io.IOException
 import java.nio.file._
-import java.nio.file.attribute.{BasicFileAttributes, FileTime, PosixFilePermissions}
+import java.nio.file.attribute.{FileTime, PosixFilePermissions}
 import java.util.UUID
 
 import net.ripe.rpki.publicationserver._
@@ -22,10 +21,6 @@ class RrdpRepositoryWriter extends Logging {
     Files.walkFileTree(Paths.get(rootDir), new RemoveAllVisitorExceptOneSession(sessionId.toString))
   }
 
-  val notificationFilename = "notification.xml"
-  val snapshotFilename = "snapshot.xml"
-  val deltaFilename = "delta.xml"
-
   private val fileAttributes = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-r--r--"))
 
   def writeNewState(rootDir: String, serverState: ServerState, newNotification: Notification, snapshot: Snapshot): Try[Option[FileTime]] =
@@ -42,12 +37,12 @@ class RrdpRepositoryWriter extends Logging {
   def writeSnapshot(rootDir: String, serverState: ServerState, snapshot: Snapshot) = {
     val ServerState(sessionId, serial) = serverState
     val stateDir = getStateDir(rootDir, sessionId.toString, serial)
-    writeFile(snapshot.bytes, stateDir.resolve(snapshotFilename))
+    writeFile(snapshot.bytes, stateDir.resolve(Rrdp.snapshotFilename))
   }
 
   def writeDelta(rootDir: String, delta: Delta) = {
     val stateDir = getStateDir(rootDir, delta.sessionId.toString, delta.serial)
-    writeFile(delta.bytes, stateDir.resolve(deltaFilename))
+    writeFile(delta.bytes, stateDir.resolve(Rrdp.deltaFilename))
   }
 
   def writeNotification(rootDir: String, notification: Notification): Option[FileTime] = {
@@ -56,7 +51,7 @@ class RrdpRepositoryWriter extends Logging {
     val tmpFile = Files.createTempFile(root, "notification.", ".xml", fileAttributes)
     try {
       writeFile(notification.serialize, tmpFile)
-      val target = root.resolve(notificationFilename)
+      val target = root.resolve(Rrdp.notificationFilename)
       val previousNotificationTimestamp = Try(Files.getLastModifiedTime(target)).toOption
       Files.move(tmpFile, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
       previousNotificationTimestamp
@@ -83,19 +78,19 @@ class RrdpRepositoryWriter extends Logging {
   }
 
   def deleteSnapshotsOlderThan(rootDir: String, timestamp: FileTime, latestSerial: Long): Unit = {
-    Files.walkFileTree(Paths.get(rootDir), new RemovingFileVisitor(timestamp, Paths.get(snapshotFilename), latestSerial))
+    Files.walkFileTree(Paths.get(rootDir), new RemovingFileVisitor(timestamp, Paths.get(Rrdp.snapshotFilename), latestSerial))
   }
 
   def deleteDeltaOlderThan(rootDir: String, timestamp: FileTime, latestSerial: Long): Unit = {
-    Files.walkFileTree(Paths.get(rootDir), new RemovingFileVisitor(timestamp, Paths.get(deltaFilename), latestSerial))
+    Files.walkFileTree(Paths.get(rootDir), new RemovingFileVisitor(timestamp, Paths.get(Rrdp.deltaFilename), latestSerial))
   }
 
-  def deleteSnapshot(rootDir: String, serverState: ServerState) = deleteSessionFile(rootDir, serverState, snapshotFilename)
+  def deleteSnapshot(rootDir: String, serverState: ServerState) = deleteSessionFile(rootDir, serverState, Rrdp.snapshotFilename)
 
-  def deleteDelta(rootDir: String, serverState: ServerState) = deleteSessionFile(rootDir, serverState, deltaFilename)
+  def deleteDelta(rootDir: String, serverState: ServerState) = deleteSessionFile(rootDir, serverState, Rrdp.deltaFilename)
 
   def deleteNotification(rootDir: String) =
-    Files.deleteIfExists(Paths.get(rootDir, notificationFilename))
+    Files.deleteIfExists(Paths.get(rootDir, Rrdp.notificationFilename))
 
   def deleteDeltas(rootDir: String, deltas: Iterable[Delta]) =
     deltas.foreach { d =>

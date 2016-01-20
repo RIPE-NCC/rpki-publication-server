@@ -36,7 +36,7 @@ class RemovingFileVisitor(timestamp: FileTime, filenameToDelete: Path, latestSer
 
 class RemoveAllVisitorExceptOneSession(sessionId: String) extends SimpleFileVisitor[Path] with Logging {
   override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
-    if (file.toString.contains(sessionId))
+    if (file.toString.contains(sessionId) || file.toString.endsWith(Rrdp.notificationFilename))
       FileVisitResult.SKIP_SUBTREE
     else {
       Files.deleteIfExists(file)
