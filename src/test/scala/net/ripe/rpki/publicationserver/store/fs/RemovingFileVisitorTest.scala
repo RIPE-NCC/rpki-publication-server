@@ -15,27 +15,25 @@ class RemovingFileVisitorTest extends PublicationServerBaseTest {
     val file = tempFile
     val subject = new RemovingFileVisitor(timestampAfter(file), file.getFileName, 0)
 
-    subject.isCreatedBefore(file) should be(true)
+    FSUtil.isCreatedBefore(file, timestampAfter(file)) should be(true)
   }
 
   test("isCreatedBefore should return false for file yonger than timestamp") {
     val file = tempFile
     val subject = new RemovingFileVisitor(timestampBefore(file), file.getFileName, 0)
 
-    subject.isCreatedBefore(file) should be(false)
+    FSUtil.isCreatedBefore(file, timestampBefore(file)) should be(false)
   }
 
   test("isEmptyDir should return true for empty dir") {
     val dir = tempDirectory
-    val subject = new RemovingFileVisitor(someTimestamp, someFilename, 0)
-    subject.isEmptyDir(dir) should be(true)
+    FSUtil.isEmptyDir(dir) should be(true)
   }
 
   test("isEmptyDir should return false for non-empty dir") {
     val dir = tempDirectory
     Files.createFile(dir.resolve("filler")).toFile.deleteOnExit()
-    val subject = new RemovingFileVisitor(someTimestamp, someFilename, 0)
-    subject.isEmptyDir(dir) should be(false)
+    FSUtil.isEmptyDir(dir) should be(false)
   }
 
   test("should not remove other old files") {

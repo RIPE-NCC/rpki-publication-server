@@ -18,11 +18,11 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.util.{Failure, Success, Try}
 
-object FSFlusher {
-  def props(conf: AppConfig) = Props(new FSFlusher(conf))
+object RrdpFlusher {
+  def props(conf: AppConfig) = Props(new RrdpFlusher(conf))
 }
 
-class FSFlusher(conf: AppConfig) extends Actor with Logging {
+class RrdpFlusher(conf: AppConfig) extends Actor with Logging {
 
   import context._
 

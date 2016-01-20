@@ -3,7 +3,7 @@ package net.ripe.rpki.publicationserver
 import java.net.URI
 
 import akka.actor.{Status, Actor, ActorRef, Props}
-import net.ripe.rpki.publicationserver.messaging.{FSFlusher, Accumulator}
+import net.ripe.rpki.publicationserver.messaging.{RrdpFlusher, Accumulator}
 import net.ripe.rpki.publicationserver.messaging.Messages.{InitRepo, BatchMessage, RawMessage, ValidatedMessage}
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store.ObjectStore

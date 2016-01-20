@@ -6,7 +6,7 @@ import java.nio.file.{Files, Paths}
 import java.util.{Date, UUID}
 
 import akka.testkit.TestActorRef
-import net.ripe.rpki.publicationserver.messaging.FSFlusher
+import net.ripe.rpki.publicationserver.messaging.RrdpFlusher
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store._
 import net.ripe.rpki.publicationserver.store.fs._
@@ -40,7 +40,7 @@ object MassiveDeltaRemovalTest {
     override lazy val rrdpRepositoryPath = rootDirName
   }
 
-  class TestFSFSFlusher extends FSFlusher(conf) with MockitoSugar {
+  class TestFSFSFlusher extends RrdpFlusher(conf) with MockitoSugar {
     override def afterRetainPeriod = deadlineDate
     override val sessionId = theSessionId
   }
