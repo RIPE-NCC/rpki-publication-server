@@ -57,9 +57,7 @@ class PublicationServiceActor(conf: AppConfig) extends HttpServiceActor {
       case HttpEntity.Empty => Source.fromInputStream(new ByteArrayInputStream(Array[Byte]()))
     }
 
-  // we need to process all queries sequentially
-  // so make this SingleThread EC for all Futures that handle queries
-  implicit private val singleThreadEC = ExecutionContext.fromExecutorService(Executors.newSingleThreadExecutor())
+  import ExecutionContext.Implicits._
 
   val publicationRoutes =
     path("") {
@@ -74,7 +72,7 @@ class PublicationServiceActor(conf: AppConfig) extends HttpServiceActor {
               entity(as[BufferedSource]) { xmlMessage =>
                 onComplete {
                   Future(msgParser.parse(xmlMessage)).flatMap(
-                    parsedMessage => processRequest(ClientId(clientId), parsedMessage))(executor = singleThreadEC)
+                    parsedMessage => processRequest(ClientId(clientId), parsedMessage))
                 } {
                   case Success(result) =>
                     complete(result.serialize)
