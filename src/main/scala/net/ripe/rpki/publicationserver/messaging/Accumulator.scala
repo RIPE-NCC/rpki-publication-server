@@ -46,7 +46,8 @@ class Accumulator(conf: AppConfig) extends Actor with Logging {
     if (!scheduled) {
       system.scheduler.scheduleOnce(conf.snapshotSyncDelay, new Runnable() {
         override def run() = {
-          rrdpFlusher ! BatchMessage(messages.toSeq, latestState)
+          rrdpFlusher ! BatchMessage(messages.toList, latestState)
+          messages.clear()
           logger.debug("BatchMessage has been sent")
           scheduled = false
         }
