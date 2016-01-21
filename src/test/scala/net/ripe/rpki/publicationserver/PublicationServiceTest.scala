@@ -5,24 +5,26 @@ import java.net.URI
 import akka.testkit.TestActorRef
 import net.ripe.rpki.publicationserver.store.ObjectStore
 import net.ripe.rpki.publicationserver.store.fs.RsyncRepositoryWriter
-import org.mockito.Matchers._
-import org.mockito.Mockito._
 
-class PublicationServiceTest extends PublicationServerBaseTest {
+object Store {
+  val objectStore = ObjectStore.get
+}
+
+class PublicationServiceTest extends PublicationServerBaseTest with Hashing {
 
   val theRsyncWriter = mock[RsyncRepositoryWriter]
 
-  lazy val publicationService = TestActorRef(new PublicationServiceActor(new AppConfig)).underlyingActor
+  def publicationService = TestActorRef(new PublicationServiceActor(new AppConfig)).underlyingActor
 
-  val objectStore = new ObjectStore
+  val objectStore = Store.objectStore
 
   before {
     objectStore.clear()
-    when(theRsyncWriter.updateRepo(any[QueryMessage])).thenReturn({})
   }
 
   test("should return a response with content-type application/rpki-publication") {
     POST("/?clientId=1234", getFile("/publish.xml").mkString) ~> publicationService.publicationRoutes ~> check {
+      val response = responseAs[String]
       contentType.toString() should include("application/rpki-publication")
     }
   }
@@ -50,10 +52,11 @@ class PublicationServiceTest extends PublicationServerBaseTest {
   test("should return an ok response for a valid withdraw request") {
     val service = publicationService
 
-    val pdus = Seq(PublishQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), None, None, Base64("bla")))
+    val base64 = Base64("DEADBEEF")
+    val pdus = Seq(PublishQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), None, None, base64))
     updateState(service, pdus)
 
-    val withdrawXml = getFile("/withdraw.xml")
+    val withdrawXml = xml(WithdrawQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), tag = None, hash(base64).hash))
     val withdrawXmlResponse = getFile("/withdrawResponse.xml")
 
     POST("/?clientId=1234", withdrawXml.mkString) ~> service.publicationRoutes ~> check {
@@ -65,10 +68,11 @@ class PublicationServiceTest extends PublicationServerBaseTest {
   test("should return the tag in the response if it was present in the withdraw request") {
     val service = publicationService
 
-    val pdus = Seq(PublishQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), None, None, Base64("bla")))
+    val base64 = Base64("DEADBEEF")
+    val pdus = Seq(PublishQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), None, None, base64))
     updateState(service, pdus)
 
-    val withdrawXml = getFile("/withdrawWithTag.xml")
+    val withdrawXml = xml(WithdrawQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), tag = Some("123"), hash(base64).hash))
     val withdrawXmlResponse = getFile("/withdrawWithTagResponse.xml")
 
     POST("/?clientId=1234", withdrawXml.mkString) ~> publicationService.publicationRoutes ~> check {

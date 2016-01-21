@@ -17,7 +17,7 @@ class PublicationServerStressTest extends PublicationServerBaseTest with Scalate
 
   lazy val publicationService = TestActorRef(new PublicationServiceActor(new AppConfig)).underlyingActor
 
-  val objectStore = new ObjectStore
+  val objectStore = ObjectStore.get
 
   val listXml = getFile("/list.xml").mkString
 

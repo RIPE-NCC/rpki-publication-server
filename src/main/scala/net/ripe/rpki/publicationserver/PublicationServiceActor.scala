@@ -31,7 +31,7 @@ class PublicationServiceActor(conf: AppConfig) extends HttpServiceActor {
 
   def receive = runRoute(publicationRoutes)
 
-  var stateActor: ActorRef = context.system.actorOf(StateActor.props(conf))
+  val stateActor: ActorRef = context.system.actorOf(StateActor.props(conf))
 
   override val supervisorStrategy = OneForOneStrategy(maxNrOfRetries = 1) {
     case _: Exception =>

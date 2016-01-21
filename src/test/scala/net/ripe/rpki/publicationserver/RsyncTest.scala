@@ -22,7 +22,11 @@ class RsyncTest extends PublicationServerBaseTest with ScalatestRouteTest {
 
   def actorRefFactory = system
 
-  def publicationService = TestActorRef(new PublicationServiceActor(config)).underlyingActor
+  val theStateActor = TestActorRef(new StateActor(config))
+  def publicationService = TestActorRef(new PublicationServiceActor(config) {
+    override val stateActor = theStateActor
+  }).underlyingActor
+
 
   before {
     val tmpDir = new File(rsyncDir)
@@ -47,11 +51,11 @@ class RsyncTest extends PublicationServerBaseTest with ScalatestRouteTest {
   test("should write the snapshot and delta's from the db to the filesystem on init") {
     val sessionId = UUID.randomUUID()
     val newServerState = ServerState(sessionId, 123L)
+    // trigger InitRepo message sent to Accumulator and RsyncFlusher
+    theStateActor.underlyingActor.preStart()
 
     // The tmp/a directory is removed in the 'before' method, but the database still contains the object published by the previous test.
-    // So initFSContent should find the object in the database and write it to rsync
-
-    Files.exists(FileSystems.getDefault.getPath(s"$rsyncDir/online/Alice/blCrcCp9ltyPDNzYKPfxc.cer")) should be(true)
+    checkFileExists(FileSystems.getDefault.getPath(s"$rsyncDir/online/Alice/blCrcCp9ltyPDNzYKPfxc.cer"))
   }
 
   test("should fail writing rsync and clean up for itself on init") {

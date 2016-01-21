@@ -11,10 +11,9 @@ import scala.concurrent.duration._
 class ObjectStoreTest extends PublicationServerBaseTest with Hashing {
 
   DBConfig.useMemoryDatabase = true
-  val objectStore = new ObjectStore
+  val objectStore = ObjectStore.get
 
   before {
-    Migrations.initServerState()
     objectStore.clear()
   }
 

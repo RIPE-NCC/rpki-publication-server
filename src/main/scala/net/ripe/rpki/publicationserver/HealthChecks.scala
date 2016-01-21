@@ -2,7 +2,7 @@ package net.ripe.rpki.publicationserver
 
 import java.net.InetAddress
 
-import net.ripe.rpki.publicationserver.store.ServerStateStore
+import net.ripe.rpki.publicationserver.store.ObjectStore
 import spray.json._
 
 import scala.util.Try
@@ -24,7 +24,7 @@ class HealthChecks {
     implicit val healthFormat = jsonFormat2(Health.apply)
   }
 
-  lazy val serverStateStore = new ServerStateStore
+  val objectStore = ObjectStore.get
 
   import HealthChecksJsonProtocol._
 
@@ -42,7 +42,7 @@ class HealthChecks {
   }
 
   def checkDatabaseStatus: String = {
-    val result = Try(serverStateStore.get)
+    val result = Try(objectStore.check())
     if (result.isFailure) throw result.failed.get else "OK"
   }
 

@@ -28,7 +28,7 @@ class RrdpFlusher(conf: AppConfig) extends Actor with Logging {
 
   protected lazy val rrdpWriter = wire[RrdpRepositoryWriter]
 
-  private var deltas = mutable.Queue[(Long, Hash, Int, Instant)]()
+  private val deltas = mutable.Queue[(Long, Hash, Int, Instant)]()
   private var deltasTotalSize = 0L
 
   val sessionId = UUID.randomUUID()
@@ -149,7 +149,7 @@ class Cleaner(conf: AppConfig) extends Actor with Logging {
       logger.info(s"Removing deltas with serials: $serials")
       rrdpWriter.deleteDeltas(conf.rrdpRepositoryPath, sessionId, serials)
     case CleanUpRepo(sessionId) =>
-      logger.info(s"Removing all the content in RRDP repository except for the session $sessionId")
+      logger.info(s"Removing all the sessions in RRDP repository except for $sessionId")
       rrdpWriter.cleanRepositoryExceptOneSession(conf.rrdpRepositoryPath, sessionId)
   }
 

@@ -1,15 +1,15 @@
 package net.ripe.rpki.publicationserver
 
-import net.ripe.rpki.publicationserver.store.ServerStateStore
+import net.ripe.rpki.publicationserver.store.ObjectStore
 import org.mockito.Mockito._
 import spray.json._
 
 class HealthChecksTest extends PublicationServerBaseTest {
 
-  val serverStateDb = mock[ServerStateStore](RETURNS_SMART_NULLS)
+  val theObjectStore = mock[ObjectStore](RETURNS_SMART_NULLS)
 
-  val healthChecks = new HealthChecks(){
-    override lazy val serverStateStore = serverStateDb
+  val healthChecks = new HealthChecks() {
+    override val objectStore = theObjectStore
   }
 
   test("should return build info and database connectivity in json format") {
@@ -21,7 +21,7 @@ class HealthChecksTest extends PublicationServerBaseTest {
   }
 
   test("should throw exception with error message for database connectivity") {
-    when(serverStateDb.get).thenThrow(new RuntimeException("Cannot connect!"))
+    when(theObjectStore.check).thenThrow(new RuntimeException("Cannot connect!"))
 
     val thrown = intercept[RuntimeException] {
       healthChecks.healthString

@@ -16,7 +16,7 @@ object StateActor {
 
 class StateActor(conf: AppConfig) extends Actor with Hashing with Logging {
 
-  lazy val objectStore = new ObjectStore
+  lazy val objectStore = ObjectStore.get
 
   var state: ObjectStore.State = _
 
@@ -64,10 +64,7 @@ class StateActor(conf: AppConfig) extends Actor with Hashing with Logging {
 
   private def applyMessages(queryMessage: QueryMessage, clientId: ClientId): Either[ReportError, State] = {
     queryMessage.pdus.foldLeft(Right(state): Either[ReportError, State]) { (stateOrError, pdu) =>
-      stateOrError match {
-        case Right(s) => applyPdu(s, pdu, clientId)
-        case e => e
-      }
+      stateOrError.right.flatMap(state => applyPdu(state, pdu, clientId))
     }
   }
 
@@ -95,8 +92,7 @@ class StateActor(conf: AppConfig) extends Actor with Hashing with Logging {
     }
   }
 
-  private def applyReplace(state: State, clientId: ClientId, uri: URI, strHash: String, base64: Base64):
-      Either[ReportError, State] = {
+  private def applyReplace(state: State, clientId: ClientId, uri: URI, strHash: String, base64: Base64): Either[ReportError, State] = {
     state.get(uri) match {
       case Some((_, Hash(h), _)) =>
         if (h == strHash)

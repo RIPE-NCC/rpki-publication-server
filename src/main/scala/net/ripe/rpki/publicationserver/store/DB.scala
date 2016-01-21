@@ -39,17 +39,6 @@ object DB {
     def idxClientId = index("IDX_CLID", clientId)
   }
 
-  class ServerStates(tag: Tag) extends Table[ServerState](tag, "SERVER_STATES") {
-    def sessionId = column[String]("SESSION_ID", O.PrimaryKey)
-    def serialNumber = column[Long]("SERIAL_NUMBER")
-
-    def * = (sessionId, serialNumber) <> (mapRow, unMapRow )
-
-    private def mapRow(tuple: (String, Long)) = ServerState(UUID.fromString(tuple._1), tuple._2)
-
-    private def unMapRow(s: ServerState) = Some((s.sessionId.toString, s.serialNumber))
-  }
-
   class Attributes(tag: Tag) extends Table[(String, String)](tag, "ATTRIBUTES") {
     def name = column[String]("NAME", O.PrimaryKey)
     def value = column[String]("VALUE")
@@ -69,8 +58,6 @@ object DB {
   }
 
   val objects = TableQuery[RepoObject]
-
-  val serverStates = TableQuery[ServerStates]
 
   val deltas = TableQuery[DeltaPdu]
 

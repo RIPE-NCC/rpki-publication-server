@@ -25,7 +25,6 @@ object Migrations {
   private val migrations = Map (
     1 -> DBIO.seq(objects.schema.create),
     2 -> DBIO.seq(deltas.schema.create),
-    3 -> DBIO.seq(serverStates.schema.create),
     // TODO Change migration to Slick instead of native SQL
     4 -> DBIO.seq(sqlu"CREATE INDEX IDX_CLIENT_ID ON #${objects.baseTableRow.tableName}(CLIENT_ID)")
   )
@@ -45,8 +44,6 @@ object Migrations {
       }
       Await.result(applyMigration, conf.defaultTimeout)
     }
-
-    initServerState()
   }
 
   private def createTableIfNotExists(table: TableQuery[_ <: Table[_]]): Future[Unit] = {
@@ -65,17 +62,4 @@ object Migrations {
   }
 
   private lazy val migrationsTable = TableQuery[Migration]
-
-  def initServerState() = {
-    val insert = { serverStates += ServerState(UUID.randomUUID(), 1L) }
-    val nothing = DBIO.seq()
-
-    val insertIfEmtpy = for {
-       states <- serverStates.result
-       _ <- if (states.isEmpty) insert else nothing
-    } yield ()
-
-    val f = db.run(insertIfEmtpy.transactionally)
-    Await.result(f, conf.defaultTimeout)
-  }
 }

@@ -31,31 +31,25 @@ object MassiveDeltaRemovalTest {
   val theSessionId = UUID.randomUUID()
 
   lazy val conf = new AppConfig {
-    override lazy val unpublishedFileRetainPeriod = Duration.Zero
+    override lazy val unpublishedFileRetainPeriod = 1.millisecond
+    override lazy val snapshotSyncDelay = 1.millisecond
     override lazy val rrdpRepositoryPath = rootDirName
   }
 
-  class TestFSFSFlusher extends RrdpFlusher(conf) with MockitoSugar {
-    override def afterRetainPeriod = deadlineDate
-    override val sessionId = theSessionId
-  }
 }
 
 
 class MassiveDeltaRemovalTest extends PublicationServerBaseTest with Hashing with BeforeAndAfterAll with Logging {
   import MassiveDeltaRemovalTest._
 
-  private var sessionDir: String = _
-
   override val waitTime = timeToRunTheTest
 
   def publicationService = TestActorRef(new PublicationServiceActor(conf)).underlyingActor
 
+  private def sessionDir = findSessionDir(rootDir).toString
+
   before {
     cleanDir(rootDir.toFile)
-    Migrations.initServerState()
-    sessionDir = rootDir.resolve(theSessionId.toString).toString
-    when(MassiveDeltaRemovalTest.theRsyncWriter.updateRepo(any[QueryMessage])).thenReturn({})
   }
 
   override def afterAll() = {
@@ -72,8 +66,8 @@ class MassiveDeltaRemovalTest extends PublicationServerBaseTest with Hashing wit
     val service = publicationService
 
     val clientId: ClientId = ClientId("test")
-    val publishQuery: Seq[QueryPdu] = Seq(PublishQ(URI.create(uri), None, None, data))
-    val withdrawQuery: Seq[QueryPdu] = Seq(WithdrawQ(URI.create(uri), None, hash(data).hash))
+    val publishQuery = Seq(PublishQ(URI.create(uri), None, None, data))
+    val withdrawQuery = Seq(WithdrawQ(URI.create(uri), None, hash(data).hash))
 
     var expectedSerial: Int = 1
     checkFileExists(Paths.get(sessionDir, String.valueOf(expectedSerial), "snapshot.xml"))
@@ -85,18 +79,18 @@ class MassiveDeltaRemovalTest extends PublicationServerBaseTest with Hashing wit
     }
     logger.info("Expected serial: {}", expectedSerial)
 
-    checkFileExists(Paths.get(sessionDir, String.valueOf(1), "delta.xml"))
-    checkFileExists(Paths.get(sessionDir, String.valueOf(1), "snapshot.xml"))
+    checkFileExists(Paths.get(sessionDir, "1", "delta.xml"))
+    checkFileExists(Paths.get(sessionDir, "1", "snapshot.xml"))
 
     // this update should trigger removal of all deltas scheduled for deadlineDate
     updateState(service, publishQuery, clientId)
 
-    checkFileExists(Paths.get(sessionDir, String.valueOf(1), "delta.xml"))
-    checkFileExists(Paths.get(sessionDir, String.valueOf(1), "snapshot.xml"))
+    checkFileExists(Paths.get(sessionDir, "1", "delta.xml"))
+    checkFileExists(Paths.get(sessionDir, "1", "snapshot.xml"))
 
     // check cleanup job
     checkFileAbsent(Paths.get(sessionDir, String.valueOf(expectedSerial), "snapshot.xml"))
-    (1 to expectedSerial-1) foreach { serial =>
+    1 until expectedSerial foreach { serial =>
       checkFileAbsent(Paths.get(sessionDir, String.valueOf(serial), "snapshot.xml"))
     }
 

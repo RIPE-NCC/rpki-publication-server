@@ -59,7 +59,7 @@ class ObjectStore extends Hashing {
   }
 
   def applyChanges(changeSet: QueryMessage, clientId: ClientId): Future[Unit] = {
-    val actions: Seq[FixedSqlAction[Int, NoStream, Write]] = changeSet.pdus.map {
+    val actions = changeSet.pdus.map {
       case WithdrawQ(uri, tag, hash) =>
         deleteAction(clientId, Hash(hash))
       case PublishQ(uri, tag, None, base64) =>
@@ -70,6 +70,7 @@ class ObjectStore extends Hashing {
     db.run(DBIO.seq(actions: _*).transactionally)
   }
 
+  def check() = Await.result(db.run(DBIO.seq(objects.take(1).result)), conf.defaultTimeout)
 }
 
 object ObjectStore {
