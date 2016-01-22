@@ -26,7 +26,7 @@ class RrdpFlusher(conf: AppConfig) extends Actor with Logging {
 
   import context._
 
-  protected lazy val rrdpWriter = wire[RrdpRepositoryWriter]
+  protected lazy val rrdpWriter = new RrdpRepositoryWriter
 
   private val deltas = mutable.Queue[(Long, Hash, Int, Instant)]()
   private var deltasTotalSize = 0L
@@ -35,11 +35,7 @@ class RrdpFlusher(conf: AppConfig) extends Actor with Logging {
 
   private var serial = 1L
 
-  private var dataCleaner: ActorRef = _
-
-  override def preStart() = {
-    dataCleaner = context.actorOf(Cleaner.props(conf))
-  }
+  private lazy val dataCleaner = actorOf(RrdpCleaner.props(conf))
 
   def throwFatalException = {
     logger.error("Error in repository init, bailing out")
@@ -137,9 +133,9 @@ class RrdpFlusher(conf: AppConfig) extends Actor with Logging {
 }
 
 
-class Cleaner(conf: AppConfig) extends Actor with Logging {
+class RrdpCleaner(conf: AppConfig) extends Actor with Logging {
 
-  private lazy val rrdpWriter = wire[RrdpRepositoryWriter]
+  private val rrdpWriter = new RrdpRepositoryWriter
 
   override def receive = {
     case CleanUpSnapshot(timestamp, serial) =>
@@ -155,6 +151,6 @@ class Cleaner(conf: AppConfig) extends Actor with Logging {
 
 }
 
-object Cleaner {
-  def props(conf: AppConfig) = Props(new Cleaner(conf))
+object RrdpCleaner {
+  def props(conf: AppConfig) = Props(new RrdpCleaner(conf))
 }

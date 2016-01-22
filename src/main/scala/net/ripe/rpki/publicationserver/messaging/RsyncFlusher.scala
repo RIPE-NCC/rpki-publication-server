@@ -1,7 +1,6 @@
 package net.ripe.rpki.publicationserver.messaging
 
 import akka.actor.{Actor, Props}
-import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver.messaging.Messages.{InitRepo, ValidatedMessage}
 import net.ripe.rpki.publicationserver.store.ObjectStore._
 import net.ripe.rpki.publicationserver.store.fs.RsyncRepositoryWriter
@@ -15,7 +14,7 @@ object RsyncFlusher {
 
 class RsyncFlusher(conf: AppConfig) extends Actor with Logging {
 
-  protected lazy val rsyncWriter = new RsyncRepositoryWriter(conf)
+  protected val rsyncWriter = new RsyncRepositoryWriter(conf)
 
   override def receive = {
     case ValidatedMessage(m, state) =>
