@@ -35,7 +35,7 @@ class RrdpFlusher(conf: AppConfig) extends Actor with Logging {
 
   private var serial = 1L
 
-  private lazy val dataCleaner = actorOf(RrdpCleaner.props(conf))
+  private val rrdpCleaner = actorOf(RrdpCleaner.props(conf))
 
   def throwFatalException = {
     logger.error("Error in repository init, bailing out")
@@ -62,7 +62,7 @@ class RrdpFlusher(conf: AppConfig) extends Actor with Logging {
   def scheduleDeltaCleanups(deltasToDeleteFromFS: Seq[Long]) = scheduleCleanup(CleanUpDeltas(sessionId, deltasToDeleteFromFS))
 
   def scheduleCleanup(message: => Any) =
-    system.scheduler.scheduleOnce(conf.unpublishedFileRetainPeriod, dataCleaner, message)
+    system.scheduler.scheduleOnce(conf.unpublishedFileRetainPeriod, rrdpCleaner, message)
 
 
   def initFS(state: ObjectStore.State) = {
@@ -78,6 +78,7 @@ class RrdpFlusher(conf: AppConfig) extends Actor with Logging {
     rrdpWriter.writeNewState(conf.rrdpRepositoryPath, serverState, notification, snapshot)
       .recover {
         case e: Exception =>
+          e.printStackTrace()
           logger.error(s"Could not write snapshot to rrdp repo: ", e)
           throwFatalException
       }
@@ -130,6 +131,8 @@ class RrdpFlusher(conf: AppConfig) extends Actor with Logging {
     }
     deltasToDelete
   }
+
+  def currentSerial = serial
 }
 
 

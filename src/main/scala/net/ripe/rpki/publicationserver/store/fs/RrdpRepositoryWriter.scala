@@ -87,7 +87,18 @@ class RrdpRepositoryWriter extends Logging {
 
   def deleteSnapshot(rootDir: String, serverState: ServerState) = deleteSessionFile(rootDir, serverState, Rrdp.snapshotFilename)
 
-  def deleteDelta(rootDir: String, serverState: ServerState) = deleteSessionFile(rootDir, serverState, Rrdp.deltaFilename)
+  def cleanUpEmptyDir(rootDir: String, serverState: ServerState) = {
+    val ServerState(sessionId, serial) = serverState
+    val dir = Paths.get(rootDir, sessionId.toString, serial.toString)
+    if (FSUtil.isEmptyDir(dir)) {
+      Files.deleteIfExists(dir)
+    }
+  }
+
+  def deleteDelta(rootDir: String, serverState: ServerState) = {
+    deleteSessionFile(rootDir, serverState, Rrdp.deltaFilename)
+    cleanUpEmptyDir(rootDir, serverState)
+  }
 
   def deleteNotification(rootDir: String) =
     Files.deleteIfExists(Paths.get(rootDir, Rrdp.notificationFilename))

@@ -10,7 +10,6 @@ import net.ripe.rpki.publicationserver.store.{DBConfig, Migrations}
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfter, FunSuite, Matchers}
 import spray.http.HttpHeaders.RawHeader
-import spray.http.StatusCodes.Success
 import spray.http._
 import spray.testkit.ScalatestRouteTest
 
@@ -90,11 +89,7 @@ abstract class PublicationServerBaseTest extends FunSuite with BeforeAndAfter wi
   def findSessionDir(path: Path): File = {
     val maybeFiles = Option(path.toFile.listFiles)
 
-    println("path = " + path)
-    println("maybeFiles = " + maybeFiles.get)
-
     awaitCond(maybeFiles.exists(_.exists { f =>
-      println("f.getName = " + f.getName)
       Try(UUID.fromString(f.getName)).isSuccess
     }), max = waitTime)
 

@@ -45,12 +45,16 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
   // TODO Remove (of tune) it after debugging
   implicit val customTimeout = RouteTestTimeout(6000.seconds)
 
-  def publicationService = TestActorRef(new PublicationServiceActor(conf)).underlyingActor
+  val theStateActor = TestActorRef(new StateActor(conf))
+  def publicationService = TestActorRef(new PublicationServiceActor(conf) {
+    override lazy val stateActor = theStateActor
+  }).underlyingActor
 
   before {
     cleanDir(rootDir.toFile)
     serial = 1L
     theObjectStore.clear()
+    theStateActor.underlyingActor.preStart()
   }
 
   override def afterAll() = {

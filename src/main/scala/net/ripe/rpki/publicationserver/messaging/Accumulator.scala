@@ -15,8 +15,8 @@ class Accumulator(conf: AppConfig) extends Actor with Logging {
 
   import context._
 
-  private lazy val rrdpFlusher = actorOf(RrdpFlusher.props(conf))
-  private lazy val rsyncFlusher = actorOf(RsyncFlusher.props(conf))
+  lazy val rrdpFlusher = actorOf(RrdpFlusher.props(conf))
+  lazy val rsyncFlusher = actorOf(RsyncFlusher.props(conf))
 
   private val messages: ListBuffer[QueryMessage] = ListBuffer()
   private var latestState: ObjectStore.State = _

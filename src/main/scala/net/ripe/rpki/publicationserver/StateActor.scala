@@ -20,11 +20,10 @@ class StateActor(conf: AppConfig) extends Actor with Hashing with Logging {
 
   var state: ObjectStore.State = _
 
-  val accActor: ActorRef = context.actorOf(Accumulator.props(conf), "accumulator")
+  val accActor = context.actorOf(Accumulator.props(conf), "accumulator")
 
   @throws[Exception](classOf[Exception])
-  override def preStart(): Unit = {
-    super.preStart()
+  override def preStart() = {
     state = objectStore.getState
     accActor ! InitRepo(state)
   }
