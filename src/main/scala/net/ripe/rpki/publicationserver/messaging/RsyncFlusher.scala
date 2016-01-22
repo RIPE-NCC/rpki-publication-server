@@ -5,17 +5,17 @@ import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver.messaging.Messages.{InitRepo, ValidatedMessage}
 import net.ripe.rpki.publicationserver.store.ObjectStore._
 import net.ripe.rpki.publicationserver.store.fs.RsyncRepositoryWriter
-import net.ripe.rpki.publicationserver.{Logging, QueryMessage}
+import net.ripe.rpki.publicationserver.{AppConfig, Logging, QueryMessage}
 
 import scala.util.Try
 
 object RsyncFlusher {
-  def props() = Props(new RsyncFlusher())
+  def props(conf: AppConfig) = Props(new RsyncFlusher(conf))
 }
 
-class RsyncFlusher extends Actor with Logging {
+class RsyncFlusher(conf: AppConfig) extends Actor with Logging {
 
-  protected lazy val rsyncWriter = wire[RsyncRepositoryWriter]
+  protected lazy val rsyncWriter = new RsyncRepositoryWriter(conf)
 
   override def receive = {
     case ValidatedMessage(m, state) =>

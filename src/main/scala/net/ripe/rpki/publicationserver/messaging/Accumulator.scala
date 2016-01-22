@@ -1,6 +1,6 @@
 package net.ripe.rpki.publicationserver.messaging
 
-import akka.actor.{Actor, ActorRef, Props}
+import akka.actor.{Actor, Props}
 import com.softwaremill.macwire.MacwireMacros.wire
 import net.ripe.rpki.publicationserver.messaging.Messages._
 import net.ripe.rpki.publicationserver.store.ObjectStore
@@ -19,17 +19,12 @@ class Accumulator(conf: AppConfig) extends Actor with Logging {
 
   protected lazy val rsyncWriter = wire[RsyncRepositoryWriter]
 
-  private var rrdpFlusher: ActorRef = _
-  private var rsyncFlusher: ActorRef = _
+  private val rrdpFlusher = context.actorOf(RrdpFlusher.props(conf))
+  private val rsyncFlusher = context.actorOf(RsyncFlusher.props(conf))
 
   private val messages: ListBuffer[QueryMessage] = ListBuffer()
   private var scheduled: Boolean = false
   private var latestState: ObjectStore.State = _
-
-  override def preStart() = {
-    rrdpFlusher = context.actorOf(RrdpFlusher.props(conf))
-    rsyncFlusher = context.actorOf(RsyncFlusher.props())
-  }
 
   override def receive: Receive = {
     case vm@ValidatedMessage(m, state) =>

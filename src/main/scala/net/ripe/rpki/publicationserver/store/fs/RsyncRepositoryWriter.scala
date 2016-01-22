@@ -15,8 +15,7 @@ import scala.util.Try
 
 case class RsyncFsLocation(base: Path, relative: Path)
 
-class RsyncRepositoryWriter extends Logging {
-  lazy val conf = wire[AppConfig]
+class RsyncRepositoryWriter(conf: AppConfig) extends Logging {
 
   val directoryPermissions = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString(conf.rsyncDirectoryPermissions))
   val filePermissions = PosixFilePermissions.fromString(conf.rsyncFilePermissions)
