@@ -78,7 +78,6 @@ class RrdpFlusher(conf: AppConfig) extends Actor with Logging {
     rrdpWriter.writeNewState(conf.rrdpRepositoryPath, serverState, notification, snapshot)
       .recover {
         case e: Exception =>
-          e.printStackTrace()
           logger.error(s"Could not write snapshot to rrdp repo: ", e)
           throwFatalException
       }

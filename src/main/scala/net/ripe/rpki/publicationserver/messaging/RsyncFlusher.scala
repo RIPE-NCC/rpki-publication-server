@@ -27,7 +27,6 @@ class RsyncFlusher(conf: AppConfig) extends Actor with Logging {
     rsyncWriter.writeSnapshot(state)
   } recover {
     case e: Exception =>
-      e.printStackTrace()
       logger.error(s"Could not write to rsync repo, bailing out: ", e)
       // ThreadDeath is one of the few exceptions that Akka considers fatal, i.e. which can trigger jvm termination
       throw new ThreadDeath
