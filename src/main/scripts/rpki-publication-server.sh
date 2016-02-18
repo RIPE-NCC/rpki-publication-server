@@ -84,7 +84,7 @@ fi
 
 # Determine config file location
 getopts ":c:" OPT_NAME
-CONFIG_FILE=${OPTARG:-conf/rpki-publication-server.conf}
+CONFIG_FILE=${OPTARG:-conf/rpki-publication-server.default.conf}
 
 function check_config_location {
     if [[ ! $CONFIG_FILE =~ .*conf$ ]]; then
@@ -98,7 +98,7 @@ function check_config_location {
 
 function parse_config_line {
     local CONFIG_KEY=$1
-    local VALUE=`grep "^$CONFIG_KEY" "$CONFIG_FILE" | sed 's/#.*//g' | awk -F "=" '{ print $2 }'`
+    local VALUE=`grep "^$CONFIG_KEY" "$CONFIG_FILE" | sed 's/#.*//g' | sed 's/^.*=[[:space:]]*\(.*\)/\1/g'`
 
     if [ -z $VALUE ]; then
         error_exit "Cannot find value for: $CONFIG_KEY in config-file: $CONFIG_FILE"
