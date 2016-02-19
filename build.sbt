@@ -10,7 +10,7 @@ name := "rpki-publication-server"
 
 version := "1.1-SNAPSHOT"
 
-scalaVersion := "2.11.6"
+scalaVersion := "2.11.7"
 
 scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8")
 
@@ -93,7 +93,7 @@ credentials += Credentials("Sonatype Nexus Repository Manager",
   s"$nexusPassword")
 
 publishTo := {
-  if (buildNumber == "DEV")
+  if (sys.props.isDefinedAt("build.number"))
     Some(Resolver.file("",  new File(Path.userHome.absolutePath+"/.m2/repository")))
   else
     Some("ripe-snapshots" at "http://nexus.ripe.net/nexus/content/repositories/snapshots")
@@ -106,5 +106,13 @@ crossPaths := false
 mappings in Universal += file("src/main/scripts/rpki-publication-server.sh") -> "bin/rpki-publication-server.sh"
 
 mappings in Universal += file("src/main/resources/reference.conf") -> "conf/rpki-publication-server.default.conf"
+
+// Only change the version is there's is explicitly set build.number
+version in Universal := {
+  if (sys.props.isDefinedAt("build.number"))
+    buildNumber
+  else
+    version.value
+}
 
 
