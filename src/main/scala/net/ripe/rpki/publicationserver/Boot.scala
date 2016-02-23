@@ -33,7 +33,7 @@ object Boot extends App {
 
   implicit val timeout = Timeout(5.seconds)
 
-  val sslContext: SSLContext = {
+  implicit val sslContext: SSLContext = {
     val sslContext = SSLContext.getInstance("TLS")
     sslContext.init(getKeyManagers, getTrustManagers, null)
     sslContext
