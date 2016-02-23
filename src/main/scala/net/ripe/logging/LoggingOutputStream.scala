@@ -45,8 +45,8 @@ class LoggingOutputStream(category: Category, priority: Priority) extends Output
   }
 
   private def isBlankLine = (count == LINE_SEPARATOR.length) &&
-    ((buffer(0).toChar == LINE_SEPARATOR.charAt(0) && count == 1)
-      || (buffer(1).toChar == LINE_SEPARATOR.charAt(1)) && count == 2)
+    (count == 1 && (buffer(0).toChar == LINE_SEPARATOR.charAt(0)) ||
+      count == 2 && (buffer(1).toChar == LINE_SEPARATOR.charAt(1)))
 
   private def reset() {
     count = 0
