@@ -13,7 +13,7 @@ import net.ripe.rpki.publicationserver.store._
 import net.ripe.rpki.publicationserver.store.fs._
 import org.mockito.Matchers._
 import org.mockito.Mockito._
-import org.scalatest.BeforeAndAfterAll
+import org.scalatest.{Ignore, BeforeAndAfterAll}
 import org.scalatest.mock.MockitoSugar
 
 import scala.concurrent.duration._
@@ -38,7 +38,7 @@ object MassiveDeltaRemovalTest {
 
 }
 
-
+@Ignore("Tempoary ignore it to deploy to the pilot system")
 class MassiveDeltaRemovalTest extends PublicationServerBaseTest with Hashing with BeforeAndAfterAll with Logging {
   import MassiveDeltaRemovalTest._
 
