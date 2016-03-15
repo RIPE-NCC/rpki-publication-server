@@ -38,7 +38,7 @@ object MassiveDeltaRemovalTest {
 
 }
 
-@Ignore("Tempoary ignore it to deploy to the pilot system")
+@Ignore
 class MassiveDeltaRemovalTest extends PublicationServerBaseTest with Hashing with BeforeAndAfterAll with Logging {
   import MassiveDeltaRemovalTest._
 
