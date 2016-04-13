@@ -136,7 +136,7 @@ case ${FIRST_ARG} in
 
         # in the beginning of the script we do "cd <path>/bin",
         # so "lib" will always be next to it
-        CLASSPATH=:"../lib/*"
+        CLASSPATH=:"../lib:../lib/*"
         MEM_OPTIONS="-Xms$JVM_XMS -Xmx$JVM_XMX -XX:+HeapDumpOnOutOfMemoryError"
         GC_LOG_OPTIONS="-XX:+PrintGCDetails -XX:+PrintGCDateStamps -verbose:gc -Xloggc:../../log/gc.log -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=2"
 
