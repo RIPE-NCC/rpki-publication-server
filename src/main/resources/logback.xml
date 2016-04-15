@@ -3,7 +3,7 @@
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOG_FILE}</file>
         <encoder>
-            <pattern>%date %level [%thread] %logger{10} %msg%n</pattern>
+            <pattern>%date %level [%thread] %logger{0} %msg%n</pattern>
         </encoder>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
             <!-- daily rollover -->
@@ -16,7 +16,7 @@
 
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%date %level [%thread] %logger{10} %msg%n</pattern>
+            <pattern>%date %level [%thread] %logger{0} %msg%n</pattern>
         </encoder>
     </appender>
 
