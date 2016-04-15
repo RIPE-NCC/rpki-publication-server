@@ -2,9 +2,9 @@ package net.ripe.rpki.publicationserver
 
 import java.net.URI
 
-import akka.actor.{Status, Actor, ActorRef, Props}
-import net.ripe.rpki.publicationserver.messaging.{RrdpFlusher, Accumulator}
-import net.ripe.rpki.publicationserver.messaging.Messages.{InitRepo, BatchMessage, RawMessage, ValidatedMessage}
+import akka.actor.{Actor, Props, Status}
+import net.ripe.rpki.publicationserver.messaging.Accumulator
+import net.ripe.rpki.publicationserver.messaging.Messages.{InitRepo, RawMessage, ValidatedMessage}
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store.ObjectStore
 import net.ripe.rpki.publicationserver.store.ObjectStore.State
@@ -57,7 +57,8 @@ class StateActor(conf: AppConfig) extends Actor with Hashing with Logging {
     replyStatus match {
       case _: ReplyMsg =>
         accActor ! ValidatedMessage(queryMessage, state)
-      case _ =>
+      case e: ErrorMsg =>
+        logger.warn(s"Error processing query from $clientId: ${e.error.message}")
     }
   }
 
