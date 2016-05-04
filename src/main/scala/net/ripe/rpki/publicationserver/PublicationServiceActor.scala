@@ -1,7 +1,6 @@
 package net.ripe.rpki.publicationserver
 
 import java.io.ByteArrayInputStream
-import java.util.concurrent.Executors
 import javax.xml.stream.XMLStreamException
 
 import akka.actor._
@@ -11,7 +10,6 @@ import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver.messaging.Messages.RawMessage
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.parsing.PublicationMessageParser
-import net.ripe.rpki.publicationserver.store.Migrations
 import org.slf4j.LoggerFactory
 import spray.http.HttpHeaders.`Content-Type`
 import spray.http._
@@ -45,10 +43,6 @@ class PublicationServiceActor(conf: AppConfig) extends HttpServiceActor {
   val serviceLogger = LoggerFactory.getLogger("PublicationService")
 
   val msgParser = wire[PublicationMessageParser]
-
-  override def preStart() = {
-    Migrations.migrate()
-  }
 
   implicit val BufferedSourceUnmarshaller =
     Unmarshaller[BufferedSource](spray.http.ContentTypeRange.*) {
