@@ -25,7 +25,7 @@ object Boot extends App {
   logger.info("Starting up the publication server ...")
   Migrations.migrate()
 
-  implicit val system = ActorSystem("publication-rrdp-server")
+  implicit val system = ActorSystem("0")
 
   val publicationService = system.actorOf(PublicationServiceActor.props(conf), "publication-service")
   val rrdpService = system.actorOf(RRDPServiceActor.props(), "rrdp-service")
