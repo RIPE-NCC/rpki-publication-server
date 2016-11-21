@@ -61,17 +61,16 @@ object StaxEvent {
           val value = reader.getAttributeValue(i)
           attrName -> value
         }).toMap
-        new ElementStart(label, attrs)
+        ElementStart(label, attrs)
 
       case XMLStreamConstants.END_ELEMENT =>
-        val label = reader.getLocalName
-        new ElementEnd(label)
+        ElementEnd(reader.getLocalName)
 
       case XMLStreamConstants.CHARACTERS =>
-        val text = reader.getText()
-        new ElementText(text)
+        ElementText(reader.getText)
 
-      case whatever => new UnknownEvent(whatever)
+      case whatever =>
+        UnknownEvent(whatever)
     }
   }
 }
