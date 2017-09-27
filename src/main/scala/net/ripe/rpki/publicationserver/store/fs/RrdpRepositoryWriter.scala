@@ -17,7 +17,7 @@ class RrdpRepositoryWriter extends Logging {
     getStateDir(rootDir, sessionId.toString, serial)
   }
 
-  def cleanRepositoryExceptOneSession(rootDir: String, sessionId: UUID) = {
+  def cleanRepositoryExceptOneSession(rootDir: String, sessionId: UUID): Path = {
     Files.walkFileTree(Paths.get(rootDir), new RemoveAllVisitorExceptOneSession(sessionId.toString))
   }
 
@@ -34,20 +34,19 @@ class RrdpRepositoryWriter extends Logging {
     }
 
 
-  def writeSnapshot(rootDir: String, serverState: ServerState, snapshot: Snapshot) = {
+  def writeSnapshot(rootDir: String, serverState: ServerState, snapshot: Snapshot): Path = {
     val ServerState(sessionId, serial) = serverState
     val stateDir = getStateDir(rootDir, sessionId.toString, serial)
     writeFile(snapshot.bytes, stateDir.resolve(Rrdp.snapshotFilename))
   }
 
-  def writeDelta(rootDir: String, delta: Delta) = {
+  def writeDelta(rootDir: String, delta: Delta): Path = {
     val stateDir = getStateDir(rootDir, delta.sessionId.toString, delta.serial)
     writeFile(delta.bytes, stateDir.resolve(Rrdp.deltaFilename))
   }
 
   def writeNotification(rootDir: String, notification: Notification): Option[FileTime] = {
     val root = getRootFolder(rootDir)
-
     val tmpFile = Files.createTempFile(root, "notification.", ".xml", fileAttributes)
     try {
       writeFile(notification.serialize, tmpFile)
@@ -63,7 +62,7 @@ class RrdpRepositoryWriter extends Logging {
   private def writeFile(content: Array[Byte], path: Path) =
     Files.write(path, content)
 
-  private def writeFile(content: Node, path: Path) =
+  private def writeFile(content: Node, path: Path): Unit =
     XML.save(path.toString, content, "UTF-8")
 
   private def getRootFolder(rootDir: String): Path =
@@ -72,7 +71,7 @@ class RrdpRepositoryWriter extends Logging {
   private def getStateDir(rootDir: String, sessionId: String, serial: Long): Path =
     Files.createDirectories(Paths.get(rootDir, sessionId, String.valueOf(serial)))
 
-  def deleteSessionFile(rootDir: String, serverState: ServerState, name: String) = {
+  def deleteSessionFile(rootDir: String, serverState: ServerState, name: String): Boolean = {
     val ServerState(sessionId, serial) = serverState
     Files.deleteIfExists(Paths.get(rootDir, sessionId.toString, serial.toString, name))
   }
@@ -85,9 +84,10 @@ class RrdpRepositoryWriter extends Logging {
     Files.walkFileTree(Paths.get(rootDir), new RemovingFileVisitor(timestamp, Paths.get(Rrdp.deltaFilename), latestSerial))
   }
 
-  def deleteSnapshot(rootDir: String, serverState: ServerState) = deleteSessionFile(rootDir, serverState, Rrdp.snapshotFilename)
+  def deleteSnapshot(rootDir: String, serverState: ServerState): Boolean =
+    deleteSessionFile(rootDir, serverState, Rrdp.snapshotFilename)
 
-  def cleanUpEmptyDir(rootDir: String, serverState: ServerState) = {
+  def cleanUpEmptyDir(rootDir: String, serverState: ServerState): AnyVal = {
     val ServerState(sessionId, serial) = serverState
     val dir = Paths.get(rootDir, sessionId.toString, serial.toString)
     if (FSUtil.isEmptyDir(dir)) {
@@ -95,19 +95,19 @@ class RrdpRepositoryWriter extends Logging {
     }
   }
 
-  def deleteDelta(rootDir: String, serverState: ServerState) = {
+  def deleteDelta(rootDir: String, serverState: ServerState): AnyVal = {
     deleteSessionFile(rootDir, serverState, Rrdp.deltaFilename)
     cleanUpEmptyDir(rootDir, serverState)
   }
 
-  def deleteNotification(rootDir: String) =
+  def deleteNotification(rootDir: String): Boolean =
     Files.deleteIfExists(Paths.get(rootDir, Rrdp.notificationFilename))
 
-  def deleteDeltas(rootDir: String, deltas: Iterable[Delta]) =
+  def deleteDeltas(rootDir: String, deltas: Iterable[Delta]): Unit =
     deltas.foreach { d =>
       deleteDelta(rootDir, ServerState(d.sessionId, d.serial))
     }
 
-  def deleteDeltas(rootDir: String, sessionId: UUID, serials: Iterable[Long]) =
+  def deleteDeltas(rootDir: String, sessionId: UUID, serials: Iterable[Long]): Unit =
     serials.par.foreach(s => deleteDelta(rootDir, ServerState(sessionId, s)))
 }

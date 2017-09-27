@@ -83,17 +83,14 @@ class RrdpFlusher(conf: AppConfig) extends Actor with Logging {
       }
   }
 
-  def updateFS(messages: Seq[QueryMessage], state: ObjectStore.State) = {
+  def updateFS(messages: Seq[QueryMessage], state: ObjectStore.State): Any = {
     val pdus = messages.flatMap(_.pdus)
     val delta = Delta(sessionId, serial, pdus)
     deltas.enqueue((serial, delta.contentHash, delta.binarySize, Instant.now()))
     deltasTotalSize += delta.binarySize
 
     val serverState = ServerState(sessionId, serial)
-    val snapshotPdus = state.map { e =>
-      val (uri, (base64, _, _)) = e
-      (base64, uri)
-    }.toSeq
+    val snapshotPdus = state.map { case (uri, (base64, _, _)) => (base64, uri) }.toSeq
 
     val snapshot = Snapshot(serverState, snapshotPdus)
     val deltasToDeleteFromFS = deleteExtraDeltas(snapshot.binarySize)
@@ -131,7 +128,7 @@ class RrdpFlusher(conf: AppConfig) extends Actor with Logging {
     deltasToDelete
   }
 
-  def currentSerial = serial
+  def currentSerial: Long = serial
 }
 
 

@@ -17,7 +17,7 @@ class RsyncFlusher(conf: AppConfig) extends Actor with Logging {
   protected val rsyncWriter = new RsyncRepositoryWriter(conf)
 
   override def receive = {
-    case ValidatedMessage(m, state) =>
+    case ValidatedMessage(m, _) =>
       updateRsyncRepo(m)
     case InitRepo(state) =>
       initRsyncRepo(state)
