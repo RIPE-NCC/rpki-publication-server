@@ -10,7 +10,7 @@ import net.ripe.rpki.publicationserver.store._
 import net.ripe.rpki.publicationserver.store.fs._
 import org.mockito.Matchers._
 import org.mockito.Mockito._
-import org.scalatest.BeforeAndAfterAll
+import org.scalatest.{BeforeAndAfterAll, Ignore}
 import org.scalatest.mock.MockitoSugar
 import spray.testkit.ScalatestRouteTest
 
@@ -35,6 +35,7 @@ object RepositoryStateTest {
   }
 }
 
+@Ignore
 class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteTest with Hashing with BeforeAndAfterAll {
   import RepositoryStateTest._
 

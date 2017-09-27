@@ -32,7 +32,7 @@ class RsyncFlusher(conf: AppConfig) extends Actor with Logging {
       throw new ThreadDeath
   }
 
-  private def updateRsyncRepo(message: QueryMessage) = {
+  private def updateRsyncRepo(message: QueryMessage): Unit = {
     logger.debug(s"Writing message to rsync repo:\n$message")
     rsyncWriter.updateRepo(message)
   }

@@ -31,13 +31,13 @@ class RrdpFlusher(conf: AppConfig) extends Actor with Logging {
   private val deltas = mutable.Queue[(Long, Hash, Int, Instant)]()
   private var deltasTotalSize = 0L
 
-  val sessionId = UUID.randomUUID()
+  val sessionId: UUID = UUID.randomUUID()
 
   private var serial = 1L
 
   private val rrdpCleaner = actorOf(RrdpCleaner.props(conf))
 
-  def throwFatalException = {
+  def throwFatalException: Nothing = {
     logger.error("Error in repository init, bailing out")
     // ThreadDeath is one of the few exceptions that Akka considers fatal, i.e. which can trigger jvm termination
     throw new ThreadDeath
@@ -45,8 +45,9 @@ class RrdpFlusher(conf: AppConfig) extends Actor with Logging {
 
   override def receive: Receive = {
     case BatchMessage(messages, state) =>
-      updateFS(messages, state)
-      serial += 1
+//    TODO Put it back after the migration is over
+//      updateFS(messages, state)
+//      serial += 1
     case InitRepo(state) =>
       serial = 1L
       scheduleRrdpRepositoryCleanup()
