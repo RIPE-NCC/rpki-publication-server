@@ -6,7 +6,7 @@ import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver.AppConfig
 import net.ripe.rpki.publicationserver.model.ServerState
 import slick.dbio.DBIO
-import slick.driver.DerbyDriver.api._
+import slick.jdbc.DerbyProfile.api._
 
 import scala.concurrent.{Future, Await}
 import scala.concurrent.duration._

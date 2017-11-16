@@ -5,9 +5,8 @@ import java.net.URI
 import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.model.ClientId
-import slick.dbio.Effect.Write
-import slick.driver.DerbyDriver.api._
-import slick.profile.FixedSqlAction
+import slick.jdbc.DerbyProfile.api._
+import slick.lifted.Query
 
 import scala.concurrent.{Await, Future}
 

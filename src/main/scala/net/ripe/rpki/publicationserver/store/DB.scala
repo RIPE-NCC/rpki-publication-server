@@ -1,10 +1,9 @@
 package net.ripe.rpki.publicationserver.store
 
 import java.net.URI
-import java.util.UUID
 import java.util.concurrent.Executors
 
-import net.ripe.rpki.publicationserver.model.{ClientId, ServerState}
+import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.{Base64, Hash}
 import slick.jdbc.meta.MTable
 
@@ -17,7 +16,7 @@ object DBConfig {
 
 object DB {
 
-  import slick.driver.DerbyDriver.api._
+  import slick.jdbc.DerbyProfile.api._
 
   // define dedicated unbounded EC for slick,
   // to prevent it being stuck when the default EC is exhausted

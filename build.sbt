@@ -50,17 +50,20 @@ libraryDependencies ++= {
     "com.typesafe.akka"        %% "akka-actor"        % akkaV,
     "com.typesafe.akka"        %% "akka-testkit"      % akkaV     % "test",
     "com.typesafe.akka"        %% "akka-slf4j"        % akkaV,
-    "org.scalatest"            %% "scalatest"         % "2.2.4"   % "test",
-    "org.mockito"               % "mockito-all"       % "1.9.5"   % "test",
+    "org.scalatest"            %% "scalatest"         % "3.0.4"   % "test",
+    "org.mockito"               % "mockito-all"       % "1.10.19" % "test",
     "org.codehaus.woodstox"     % "woodstox-core-asl" % "4.4.1",
     "com.sun.xml.bind"          % "jaxb1-impl"        % "2.2.5.1",
-    "ch.qos.logback"            % "logback-classic"   % "1.1.3",
-    "com.softwaremill.macwire" %% "macros"            % "1.0.1",
-    "com.softwaremill.macwire" %% "runtime"           % "1.0.1",
-    "io.spray"                 %% "spray-json"        % "1.3.2", // There's no spray-json 1.3.3 ...
+    "ch.qos.logback"            % "logback-classic"   % "1.2.3",
+    "com.softwaremill.macwire" %% "macros"            % "1.0.7",
+    "com.softwaremill.macwire" %% "runtime"           % "1.0.7",
+    "io.spray"                 %% "spray-json"        % "1.3.3",
     "com.google.guava"         %  "guava"             % "18.0",
-    "com.google.code.findbugs" %  "jsr305"            % "1.3.9",
-    "com.typesafe.slick"       %% "slick"             % "3.0.0",
+    "com.google.code.findbugs" %  "jsr305"            % "3.0.2",
+    "com.typesafe.slick"       %% "slick"             % "3.2.1",
+    
+    // TODO Update Derby and add
+    // TODO permission org.apache.derby.security.SystemPermission "engine", "usederbyinternals";
     "org.apache.derby"          % "derby"             % "10.11.1.1",
     "org.apache.commons"        % "commons-io"        % "1.3.2"
   )
