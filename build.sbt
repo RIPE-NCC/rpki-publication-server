@@ -10,7 +10,7 @@ name := "rpki-publication-server"
 
 version := "1.1-SNAPSHOT"
 
-scalaVersion := "2.11.7"
+scalaVersion := "2.11.11"
 
 scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8")
 
@@ -41,8 +41,8 @@ resolvers += "Codehaus Maven2 Repository" at "http://repository.codehaus.org/"
 resolvers += "JCenter" at "http://jcenter.bintray.com/"
 
 libraryDependencies ++= {
-  val akkaV = "2.3.11"
-  val sprayV = "1.3.3"
+  val akkaV = "2.4.17"
+  val sprayV = "1.3.4"
   Seq(
     "io.spray"                 %% "spray-can"         % sprayV,
     "io.spray"                 %% "spray-routing"     % sprayV,
