@@ -9,8 +9,8 @@ class StaxParserTest extends PublicationServerBaseTest {
   // To convert the rnc from the publication server draft to rng, download a trang.jar from http://www.thaiopensource.com/relaxng/trang.html
   // and execute it like this:
   // java -jar trang.jar -I rnc -O rng schema.rnc schema.rng
-  var publicationSchema: String = getFile("/rpki-publication-schema.rng").mkString
-  var rrdpSchema: String = getFile("/rrdp-schema.rng").mkString
+  val publicationSchema: String = getFile("/rpki-publication-schema.rng").mkString
+  val rrdpSchema: String = getFile("/rrdp-schema.rng").mkString
 
   test("should parse and validate my publish xml file") {
     val publishXml = getFile("/publish.xml")

@@ -35,11 +35,11 @@ class PublicationMessageParser extends MessageParser[Message] {
 
               case "publish" =>
                 val trimmedText = trim(lastText)
-                val pdu = new PublishQ(uri = new URI(lastAttributes("uri")), tag = lastAttributes.get("tag"), hash = lastAttributes.get("hash"), base64 = Base64(trimmedText))
+                val pdu = PublishQ(uri = new URI(lastAttributes("uri")), tag = lastAttributes.get("tag"), hash = lastAttributes.get("hash"), base64 = Base64(trimmedText))
                 Right(pdu)
 
               case "withdraw" =>
-                val pdu = new WithdrawQ(uri = new URI(lastAttributes("uri")), tag = lastAttributes.get("tag"), hash = lastAttributes("hash"))
+                val pdu = WithdrawQ(uri = new URI(lastAttributes("uri")), tag = lastAttributes.get("tag"), hash = lastAttributes("hash"))
                 Right(pdu)
 
               case "list" =>    // TODO ??? implement tags for list query

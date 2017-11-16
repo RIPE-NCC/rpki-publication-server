@@ -7,7 +7,7 @@ import java.util.UUID
 import akka.testkit.TestKit.awaitCond
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store.{DBConfig, Migrations}
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfter, FunSuite, Matchers}
 import spray.http.HttpHeaders.RawHeader
 import spray.http._

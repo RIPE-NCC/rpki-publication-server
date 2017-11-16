@@ -17,7 +17,7 @@ class HealthChecksTest extends PublicationServerBaseTest {
 
     buildInfo.fields.keySet should contain("buildInformation")
     buildInfo.fields.keySet should contain("databaseConnectivity")
-    buildInfo.fields.get("databaseConnectivity").get should equal(JsString("OK"))
+    buildInfo.fields("databaseConnectivity") should equal(JsString("OK"))
   }
 
   test("should throw exception with error message for database connectivity") {

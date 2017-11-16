@@ -9,8 +9,8 @@ class PublicationMsgParserTest extends PublicationServerBaseTest {
   val msgParser = new PublicationMessageParser
 
   def dummyRepo(q: QueryPdu): ReplyPdu = q match {
-    case PublishQ(uri, tag, _, txt) => new PublishR(uri, tag)
-    case WithdrawQ(uri, tag, _) => new WithdrawR(uri, tag)
+    case PublishQ(uri, tag, _, _) => PublishR(uri, tag)
+    case WithdrawQ(uri, tag, _) => WithdrawR(uri, tag)
   }
 
   test("should parse publish message") {

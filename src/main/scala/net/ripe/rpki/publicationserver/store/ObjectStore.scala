@@ -12,7 +12,7 @@ import scala.concurrent.{Await, Future}
 
 class ObjectStore extends Hashing {
 
-  lazy val conf = wire[AppConfig]
+  lazy val conf: AppConfig = wire[AppConfig]
 
   import DB._
 

@@ -1,22 +1,17 @@
 package net.ripe.rpki.publicationserver
 
 import java.io.File
-import java.nio.file.{Files, Path, Paths}
-import java.util.UUID
+import java.nio.file.{Files, Paths}
 
 import akka.testkit.TestActorRef
-import akka.testkit.TestKit._
 import net.ripe.rpki.publicationserver.store._
 import net.ripe.rpki.publicationserver.store.fs._
-import org.mockito.Matchers._
-import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import spray.testkit.ScalatestRouteTest
 
 import scala.concurrent.duration._
 import scala.language.postfixOps
-import scala.util.Try
 
 object RepositoryStateTest {
   val rootDir = Files.createTempDirectory(Paths.get("/tmp"),"test_pub_server_")
