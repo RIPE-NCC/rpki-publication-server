@@ -24,7 +24,7 @@ class HealthChecks {
     implicit val healthFormat = jsonFormat2(Health.apply)
   }
 
-  val objectStore = ObjectStore.get
+  val objectStore: ObjectStore = ObjectStore.get
 
   import HealthChecksJsonProtocol._
 
@@ -46,10 +46,10 @@ class HealthChecks {
     if (result.isFailure) throw result.failed.get else "OK"
   }
 
-  def mb(b: Long) = (b/(1024*1024)) + "mb"
-
-  def memoryStat = {
+  def memoryStat: Memory = {
+    def mb(b: Long) = (b/(1024*1024)) + "mb"
     val r = Runtime.getRuntime
     Memory(free = mb(r.freeMemory), total = mb(r.totalMemory), max = mb(r.maxMemory))
   }
+
 }

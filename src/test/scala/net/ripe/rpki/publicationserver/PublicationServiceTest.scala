@@ -56,7 +56,7 @@ class PublicationServiceTest extends PublicationServerBaseTest with Hashing {
     val pdus = Seq(PublishQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), None, None, base64))
     updateState(service, pdus)
 
-    val withdrawXml = xml(WithdrawQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), tag = None, hash(base64).hash))
+    val withdrawXml = Util.xml(WithdrawQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), tag = None, hash(base64).hash))
     val withdrawXmlResponse = getFile("/withdrawResponse.xml")
 
     POST("/?clientId=1234", withdrawXml.mkString) ~> service.publicationRoutes ~> check {
@@ -72,7 +72,7 @@ class PublicationServiceTest extends PublicationServerBaseTest with Hashing {
     val pdus = Seq(PublishQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), None, None, base64))
     updateState(service, pdus)
 
-    val withdrawXml = xml(WithdrawQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), tag = Some("123"), hash(base64).hash))
+    val withdrawXml = Util.xml(WithdrawQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), tag = Some("123"), hash(base64).hash))
     val withdrawXmlResponse = getFile("/withdrawWithTagResponse.xml")
 
     POST("/?clientId=1234", withdrawXml.mkString) ~> publicationService.publicationRoutes ~> check {
