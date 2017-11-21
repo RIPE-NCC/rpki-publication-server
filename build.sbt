@@ -45,6 +45,7 @@ libraryDependencies ++= {
   val sprayV = "1.3.4"
   Seq(
     "io.spray"                 %% "spray-can"         % sprayV,
+    "io.spray"                 %% "spray-client"      % sprayV,
     "io.spray"                 %% "spray-routing"     % sprayV,
     "io.spray"                 %% "spray-testkit"     % sprayV    % "test",
     "com.typesafe.akka"        %% "akka-actor"        % akkaV,
@@ -74,7 +75,7 @@ import java.util.Date
 import java.text.SimpleDateFormat
 
 sourceGenerators in Compile += Def.task {
-  val generatedFile = (sourceManaged in Compile).value / "net.ripe.rpki.publicationserver" /"GeneratedBuildInformation.scala"
+  val generatedFile = (sourceManaged in Compile).value / "net.ripe.rpki.publicationserver" / "GeneratedBuildInformation.scala"
   val now = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date())
   val rev = "git rev-parse HEAD".!!.trim()
   val code = s"""package net.ripe.rpki.publicationserver
