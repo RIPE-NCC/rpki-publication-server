@@ -9,6 +9,9 @@ import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store.ObjectStore
 import net.ripe.rpki.publicationserver.store.ObjectStore.State
 
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
+
 object StateActor {
   def props(conf: AppConfig): Props = Props(new StateActor(conf))
 }
@@ -37,19 +40,23 @@ class StateActor(conf: AppConfig) extends Actor with Hashing with Logging {
   }
 
   private def processQueryMessage(queryMessage: QueryMessage, clientId: ClientId): Unit = {
-    val replyStatus = try {
-      applyMessages(queryMessage, clientId) match {
-        case Right(s) =>
-          objectStore.applyChanges(queryMessage, clientId)
-          state = s
-          convertToReply(queryMessage)
-        case Left(err) =>
-          ErrorMsg(BaseError(err.code, err.message.getOrElse("Unspecified error")))
-      }
-    } catch {
+    def try_[T](f: => T) = try f catch {
       case e: Exception =>
         logger.error("Error processing query", e)
         Status.Failure(e)
+    }
+
+    val replyStatus = try_ {
+      applyMessages(queryMessage, clientId) match {
+        case Right(s) =>
+          try_ {
+            Await.result(objectStore.applyChanges(queryMessage, clientId), Duration.Inf)
+            state = s
+            convertToReply(queryMessage)
+          }
+        case Left(err) =>
+          ErrorMsg(BaseError(err.code, err.message.getOrElse("Unspecified error")))
+      }
     }
 
     sender() ! replyStatus
