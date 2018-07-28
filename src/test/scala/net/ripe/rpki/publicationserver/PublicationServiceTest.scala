@@ -65,6 +65,56 @@ class PublicationServiceTest extends PublicationServerBaseTest with Hashing {
     }
   }
 
+  test("should return an ok response for a valid withdraw request (hash casing problem)") {
+    val service = publicationService
+
+    val base64 = Base64("DEADBEEF")
+    val pdus = Seq(PublishQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), None, None, base64))
+    updateState(service, pdus)
+
+    val withdrawXml = xml(WithdrawQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), tag = None, hash(base64).hash.toLowerCase))
+    val withdrawXmlResponse = getFile("/withdrawResponse.xml")
+
+    POST("/?clientId=1234", withdrawXml.mkString) ~> service.publicationRoutes ~> check {
+      val response = responseAs[String]
+      trim(response) should be(trim(withdrawXmlResponse.mkString))
+    }
+  }
+
+  test("should return an ok response for a valid replace request") {
+    val service = publicationService
+
+    val uri = new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer")
+    val base64 = Base64("DEADBEEF")
+    val pdus = Seq(PublishQ(uri, None, None, base64))
+    updateState(service, pdus)
+
+    val publishWithHashXml = xml(PublishQ(uri, None, Some(hash(base64).hash), base64))
+    val publishWithHashXmlResponse = getFile("/publishWithHashXmlResponse.xml")
+
+    POST("/?clientId=1234", publishWithHashXml.mkString) ~> service.publicationRoutes ~> check {
+      val response = responseAs[String]
+      trim(response) should be(trim(publishWithHashXmlResponse.mkString))
+    }
+  }
+
+  test("should return an ok response for a valid replace request (hash casing problem)") {
+    val service = publicationService
+
+    val uri = new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer")
+    val base64 = Base64("DEADBEEF")
+    val pdus = Seq(PublishQ(uri, None, None, base64))
+    updateState(service, pdus)
+
+    val publishWithHashXml = xml(PublishQ(uri, None, Some(hash(base64).hash.toLowerCase), base64))
+    val publishWithHashXmlResponse = getFile("/publishWithHashXmlResponse.xml")
+
+    POST("/?clientId=1234", publishWithHashXml.mkString) ~> service.publicationRoutes ~> check {
+      val response = responseAs[String]
+      trim(response) should be(trim(publishWithHashXmlResponse.mkString))
+    }
+  }
+
   test("should return the tag in the response if it was present in the withdraw request") {
     val service = publicationService
 
