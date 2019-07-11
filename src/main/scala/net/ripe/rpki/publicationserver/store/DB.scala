@@ -38,12 +38,6 @@ object DB {
     def idxClientId = index("IDX_CLID", clientId)
   }
 
-  class Attributes(tag: Tag) extends Table[(String, String)](tag, "ATTRIBUTES") {
-    def name = column[String]("NAME", O.PrimaryKey)
-    def value = column[String]("VALUE")
-    def * = (name, value)
-  }
-
   class DeltaPdu(tag: Tag) extends Table[(String, Option[String], Option[String], String, Long, Char)](tag, "DELTAS") {
     def uri = column[String]("URI")
     def hash = column[Option[String]]("HASH")
@@ -59,8 +53,6 @@ object DB {
   val objects = TableQuery[RepoObject]
 
   val deltas = TableQuery[DeltaPdu]
-
-  val attributes = TableQuery[Attributes]
 
   def tableExists(db: Database, name: String) = {
     Await.result(db.run(MTable.getTables), 1.seconds).exists(_.name.name == name)

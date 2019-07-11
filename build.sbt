@@ -62,6 +62,7 @@ libraryDependencies ++= {
     "com.google.guava"         %  "guava"             % "18.0",
     "com.google.code.findbugs" %  "jsr305"            % "3.0.2",
     "com.typesafe.slick"       %% "slick"             % "3.2.1",
+    "org.jetbrains.xodus"      % "xodus-tools"        % "1.0.5",
     
     // TODO Update Derby and add
     // TODO permission org.apache.derby.security.SystemPermission "engine", "usederbyinternals";

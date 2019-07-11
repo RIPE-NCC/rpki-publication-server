@@ -2,15 +2,15 @@ package net.ripe.rpki.publicationserver
 
 import java.io.FileInputStream
 import java.security.KeyStore
-import javax.net.ssl.{KeyManager, KeyManagerFactory, SSLContext, TrustManager, TrustManagerFactory}
 
+import javax.net.ssl.{KeyManager, KeyManagerFactory, SSLContext, TrustManager, TrustManagerFactory}
 import akka.actor.ActorSystem
 import akka.io.IO
 import akka.pattern.ask
 import akka.util.Timeout
 import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.logging.SysStreamsLogger
-import net.ripe.rpki.publicationserver.store.Migrations
+import net.ripe.rpki.publicationserver.store.{Migrations, XodusDB}
 import org.slf4j.LoggerFactory
 import spray.can.Http
 import spray.io.ServerSSLEngineProvider
@@ -20,6 +20,8 @@ import scala.concurrent.duration._
 object Boot extends App {
 
   lazy val conf = wire[AppConfig]
+
+  XodusDB.init()
 
   val logger = setupLogging()
   logger.info("Starting up the publication server ...")
