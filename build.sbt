@@ -10,7 +10,7 @@ name := "rpki-publication-server"
 
 version := "1.1-SNAPSHOT"
 
-scalaVersion := "2.11.11"
+scalaVersion := "2.11.12"
 
 scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8")
 
@@ -61,12 +61,7 @@ libraryDependencies ++= {
     "io.spray"                 %% "spray-json"        % "1.3.3",
     "com.google.guava"         %  "guava"             % "18.0",
     "com.google.code.findbugs" %  "jsr305"            % "3.0.2",
-    "com.typesafe.slick"       %% "slick"             % "3.2.1",
     "org.jetbrains.xodus"      % "xodus-tools"        % "1.0.5",
-    
-    // TODO Update Derby and add
-    // TODO permission org.apache.derby.security.SystemPermission "engine", "usederbyinternals";
-    "org.apache.derby"          % "derby"             % "10.11.1.1",
     "org.apache.commons"        % "commons-io"        % "1.3.2"
   )
 }

@@ -6,7 +6,7 @@ import java.util.UUID
 
 import akka.testkit.TestKit.awaitCond
 import net.ripe.rpki.publicationserver.model.ClientId
-import net.ripe.rpki.publicationserver.store.{DBConfig, Migrations}
+import net.ripe.rpki.publicationserver.store.XodusDB
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfter, FunSuite, Matchers}
 import spray.http.HttpHeaders.RawHeader
@@ -22,8 +22,16 @@ abstract class PublicationServerBaseTest extends FunSuite with BeforeAndAfter wi
 
   protected def waitTime: FiniteDuration = 30.seconds
 
-  DBConfig.useMemoryDatabase = true
-  Migrations.migrate()
+  var tempXodusDir: File = _
+  def initStore() = {
+    tempXodusDir = Files.createTempDirectory("rpki-pub-server-test").toFile
+    XodusDB.init(tempXodusDir.getAbsolutePath)
+  }
+
+  def cleanStore() = {
+    // TODO Make it less ugly
+    Runtime.getRuntime.exec("rm -Rf \"" + tempXodusDir.getAbsolutePath + "\"")
+  }
 
   def getFile(fileName: String) = Source.fromURL(getClass.getResource(fileName))
 

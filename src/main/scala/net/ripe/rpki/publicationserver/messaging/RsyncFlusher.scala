@@ -2,7 +2,7 @@ package net.ripe.rpki.publicationserver.messaging
 
 import akka.actor.{Actor, Props}
 import net.ripe.rpki.publicationserver.messaging.Messages.{InitRepo, ValidatedMessage}
-import net.ripe.rpki.publicationserver.store.ObjectStore._
+import net.ripe.rpki.publicationserver.store.XodusObjectStore._
 import net.ripe.rpki.publicationserver.store.fs.RsyncRepositoryWriter
 import net.ripe.rpki.publicationserver.{AppConfig, Logging, QueryMessage}
 

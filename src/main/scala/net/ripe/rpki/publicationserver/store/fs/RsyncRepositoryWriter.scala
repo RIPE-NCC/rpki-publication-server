@@ -5,10 +5,9 @@ import java.net.URI
 import java.nio.file.attribute.PosixFilePermissions
 import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 
-import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver
-import net.ripe.rpki.publicationserver.store.ObjectStore
-import net.ripe.rpki.publicationserver.{AppConfig, Base64, Logging, PublishQ, QueryMessage, WithdrawQ}
+import net.ripe.rpki.publicationserver.store.XodusObjectStore
+import net.ripe.rpki.publicationserver._
 import org.apache.commons.io.FileUtils
 
 import scala.util.Try
@@ -22,7 +21,7 @@ class RsyncRepositoryWriter(conf: AppConfig) extends Logging {
 
   logger.info(s"Using following URL mapping:\n${conf.rsyncRepositoryMapping}")
 
-  def writeSnapshot(state: ObjectStore.State) = {
+  def writeSnapshot(state: XodusObjectStore.State) = {
     val objectsPerBaseDir = groupByBaseDir(state)
     for (baseDir <- objectsPerBaseDir.keys) {
       val tempRepoDir = createTempRepoDir(baseDir)
@@ -49,7 +48,7 @@ class RsyncRepositoryWriter(conf: AppConfig) extends Logging {
     }
   }
 
-  private def groupByBaseDir(state: ObjectStore.State): Map[Path, Seq[(publicationserver.Base64, RsyncFsLocation)]] = {
+  private def groupByBaseDir(state: XodusObjectStore.State): Map[Path, Seq[(publicationserver.Base64, RsyncFsLocation)]] = {
     state.toSeq.map {
       case (uri, (base64, _, _)) => (base64, resolvePath(uri))
     }.groupBy(_._2.base)

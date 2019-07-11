@@ -6,8 +6,8 @@ import akka.actor.{Actor, Props, Status}
 import net.ripe.rpki.publicationserver.messaging.Accumulator
 import net.ripe.rpki.publicationserver.messaging.Messages.{InitRepo, RawMessage, ValidatedMessage}
 import net.ripe.rpki.publicationserver.model.ClientId
-import net.ripe.rpki.publicationserver.store.ObjectStore
-import net.ripe.rpki.publicationserver.store.ObjectStore.State
+import net.ripe.rpki.publicationserver.store.XodusObjectStore
+import net.ripe.rpki.publicationserver.store.XodusObjectStore.State
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
@@ -19,9 +19,9 @@ object StateActor {
 
 class StateActor(conf: AppConfig) extends Actor with Hashing with Logging {
 
-  lazy val objectStore = ObjectStore.get
+  lazy val objectStore = XodusObjectStore.get
 
-  var state: ObjectStore.State = _
+  var state: XodusObjectStore.State = _
 
   val accActor = context.actorOf(Accumulator.props(conf), "accumulator")
 
@@ -36,7 +36,7 @@ class StateActor(conf: AppConfig) extends Actor with Hashing with Logging {
     case RawMessage(queryMessage@QueryMessage(_), clientId) =>
       processQueryMessage(queryMessage, clientId)
     case RawMessage(ListMessage(), clientId) =>
-      processListMessage(clientId, None)  // TODO ??? implement tags for list query
+      processListMessage(clientId, None) // TODO ??? implement tags for list query
   }
 
   private def processQueryMessage(queryMessage: QueryMessage, clientId: ClientId): Unit = {
@@ -103,7 +103,7 @@ class StateActor(conf: AppConfig) extends Actor with Hashing with Logging {
     state.get(uri) match {
       case Some((_, Hash(h), _)) =>
         if (h == strHash)
-          Right(state + (uri ->(base64, hash(base64), clientId)))
+          Right(state + (uri -> (base64, hash(base64), clientId)))
         else
           Left(ReportError(BaseError.NonMatchingHash, Some(s"Cannot republish the object [$uri], hash doesn't match")))
       case None =>
@@ -115,7 +115,7 @@ class StateActor(conf: AppConfig) extends Actor with Hashing with Logging {
     if (state.contains(uri)) {
       Left(ReportError(BaseError.HashForInsert, Some(s"Tried to insert existing object [$uri].")))
     } else {
-      Right(state + (uri ->(base64, hash(base64), clientId)))
+      Right(state + (uri -> (base64, hash(base64), clientId)))
     }
   }
 
@@ -135,8 +135,8 @@ class StateActor(conf: AppConfig) extends Actor with Hashing with Logging {
   private def convertToReply(queryMessage: QueryMessage) = {
     ReplyMsg(
       queryMessage.pdus.map {
-        case  PublishQ(uri, tag, _, _) =>  PublishR(uri, tag)
-        case WithdrawQ(uri, tag, _)    => WithdrawR(uri, tag)
+        case PublishQ(uri, tag, _, _) => PublishR(uri, tag)
+        case WithdrawQ(uri, tag, _) => WithdrawR(uri, tag)
       })
   }
 }

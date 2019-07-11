@@ -20,7 +20,7 @@ object RepositoryStateTest {
 
   var retainPeriodOverride: Int = 1
 
-  val theObjectStore = ObjectStore.get
+  val theObjectStore = XodusObjectStore.get
   val theRsyncWriter = MockitoSugar.mock[RsyncRepositoryWriter]
 
   lazy val conf = new AppConfig {

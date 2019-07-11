@@ -6,7 +6,6 @@ import com.softwaremill.macwire.MacwireMacros._
 import jetbrains.exodus.entitystore.{Entity, StoreTransaction, StoreTransactionalComputable, StoreTransactionalExecutable}
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.model.ClientId
-import net.ripe.rpki.publicationserver.store.DB.RRDPObject
 
 import scala.collection.JavaConversions._
 import scala.concurrent.Future
@@ -18,6 +17,8 @@ class XodusObjectStore extends Hashing {
   import XodusDB._
 
   private val OBJECT_ENTITY_NAME = "object"
+
+  type RRDPObject = (Base64, Hash, URI, ClientId)
 
   private def inTx(f: StoreTransaction => Unit): Unit = {
     entityStore.executeInTransaction(new StoreTransactionalExecutable() {
@@ -61,7 +62,7 @@ class XodusObjectStore extends Hashing {
     txn.getAll(OBJECT_ENTITY_NAME).foreach(e => e.delete())
   }
 
-  def getState: ObjectStore.State = withReadTx { txn =>
+  def getState: XodusObjectStore.State = withReadTx { txn =>
     txn.getAll(OBJECT_ENTITY_NAME).map { e =>
       val base64 = Base64(e.getProperty("base64").toString)
       val hash = Hash(e.getProperty("hash").toString)

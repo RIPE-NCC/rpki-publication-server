@@ -1,11 +1,9 @@
 package net.ripe.rpki.publicationserver.store
 
-import java.io.File
 import java.net.URI
-import java.nio.file.Files
 
-import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver._
+import net.ripe.rpki.publicationserver.model.ClientId
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -14,16 +12,8 @@ class XodusObjectStoreTest extends PublicationServerBaseTest with Hashing {
 
   val objectStore: XodusObjectStore = XodusObjectStore.get
 
-  var tempDir: File = _
   before {
-    tempDir = Files.createTempDirectory("rpki-pub-server-test").toFile
-    XodusDB.init(tempDir.getAbsolutePath)
     objectStore.clear()
-  }
-
-  after {
-    // TODO Make it less ugly
-    Runtime.getRuntime.exec("rm -Rf \"" + tempDir.getAbsolutePath + "\"")
   }
 
   private val uri: URI = new URI("rsync://host.com/path")

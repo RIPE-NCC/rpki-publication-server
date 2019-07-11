@@ -5,28 +5,32 @@ import java.util.UUID
 
 import akka.testkit.TestActorRef
 import net.ripe.rpki.publicationserver.model.ClientId
-import net.ripe.rpki.publicationserver.store.ObjectStore
+import net.ripe.rpki.publicationserver.store.XodusObjectStore
 import org.apache.commons.io.FileUtils
 import spray.testkit.ScalatestRouteTest
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future, Promise}
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 class PublicationServerStressTest extends PublicationServerBaseTest with ScalatestRouteTest with Hashing {
 
   lazy val publicationService = TestActorRef(new PublicationServiceActor(new AppConfig)).underlyingActor
 
-  val objectStore = ObjectStore.get
+  val objectStore = XodusObjectStore.get
 
   val listXml = getFile("/list.xml").mkString
 
   before {
-    objectStore.clear()
+    initStore()
     val tmpDir = new File("tmp/b")  // The rsync basedir where the uri rsync://localcert.ripe.net/ is mapped to in reference.conf
     if (tmpDir.exists()) {
       FileUtils.deleteDirectory(tmpDir)
     }
+  }
+
+  after {
+    cleanStore()
   }
 
   def publishAndRetrieve(clientId: ClientId, promise: Promise[Unit]) = {
