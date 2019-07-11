@@ -89,7 +89,7 @@ class StateActor(conf: AppConfig) extends Actor with Hashing with Logging {
   private def applyDelete(state: State, uri: URI, strHash: String): Either[ReportError, State] = {
     state.get(uri) match {
       case Some((base64, Hash(h), _)) =>
-        if (h == strHash)
+        if (h.toUpperCase == strHash.toUpperCase)
           Right(state - uri)
         else {
           Left(ReportError(BaseError.NonMatchingHash, Some(s"Cannot withdraw the object [$uri], hash doesn't match.")))
@@ -102,7 +102,7 @@ class StateActor(conf: AppConfig) extends Actor with Hashing with Logging {
   private def applyReplace(state: State, clientId: ClientId, uri: URI, strHash: String, base64: Base64): Either[ReportError, State] = {
     state.get(uri) match {
       case Some((_, Hash(h), _)) =>
-        if (h == strHash)
+        if (h.toUpperCase == strHash.toUpperCase)
           Right(state + (uri -> (base64, hash(base64), clientId)))
         else
           Left(ReportError(BaseError.NonMatchingHash, Some(s"Cannot republish the object [$uri], hash doesn't match")))
