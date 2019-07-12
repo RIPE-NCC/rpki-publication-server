@@ -50,7 +50,7 @@ class StateActor(conf: AppConfig) extends Actor with Hashing with Logging {
       applyMessages(queryMessage, clientId) match {
         case Right(s) =>
           try_ {
-            Await.result(objectStore.applyChanges(queryMessage, clientId), Duration.Inf)
+            objectStore.applyChanges(queryMessage, clientId)
             state = s
             convertToReply(queryMessage)
           }

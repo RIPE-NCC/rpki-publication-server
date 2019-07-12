@@ -72,8 +72,7 @@ class XodusObjectStore extends Hashing {
     }.toMap
   }
 
-  def applyChanges(changeSet: QueryMessage, clientId: ClientId): Future[Unit] =
-    Future.successful {
+  def applyChanges(changeSet: QueryMessage, clientId: ClientId): Unit =
       inTx { txn =>
         changeSet.pdus.foreach {
           case WithdrawQ(uri, tag, hash) =>
@@ -84,7 +83,6 @@ class XodusObjectStore extends Hashing {
             updateAction(txn, (base64, hash(base64), uri, clientId))
         }
       }
-    }
 
   def check() = ()
 

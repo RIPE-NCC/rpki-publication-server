@@ -7,6 +7,7 @@ import net.ripe.rpki.publicationserver.model.ClientId
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
+import scala.util.{Failure, Success, Try}
 
 class XodusObjectStoreTest extends PublicationServerBaseTest with Hashing {
 
@@ -22,8 +23,9 @@ class XodusObjectStoreTest extends PublicationServerBaseTest with Hashing {
     val clientId = ClientId("client1")
     val changeSet = QueryMessage(Seq(PublishQ(uri, Some("tag"), hash = None, Base64("AAAA=="))))
 
-    objectStore.applyChanges(changeSet, clientId).onFailure {
-      case e => println(e)
+    Try(objectStore.applyChanges(changeSet, clientId)) match {
+      case Failure(e) => println(e)
+      case Success(_) => ()
     }
 
     val obj = objectStore.getState.get(uri)
@@ -35,10 +37,10 @@ class XodusObjectStoreTest extends PublicationServerBaseTest with Hashing {
     val clientId = ClientId("client1")
 
     val changeSet = QueryMessage(Seq(PublishQ(uri, tag=None, hash=None, Base64("AAAA=="))))
-    Await.result(objectStore.applyChanges(changeSet, clientId), 1.minute)
+    objectStore.applyChanges(changeSet, clientId)
 
     val replaceSet = QueryMessage(Seq(PublishQ(uri, tag=None, Some(hash(Base64("AAAA==")).hash), Base64("BBBB=="))))
-    Await.result(objectStore.applyChanges(replaceSet, clientId), 1.minute)
+    objectStore.applyChanges(replaceSet, clientId)
 
     val obj = objectStore.getState.get(uri)
     obj should be(defined)
@@ -52,7 +54,7 @@ class XodusObjectStoreTest extends PublicationServerBaseTest with Hashing {
       PublishQ(uri, tag=None, hash=None, Base64("AAAA==")),
       PublishQ(uri, tag=None, Some(hash(Base64("AAAA==")).hash), Base64("BBBB=="))
     ))
-    Await.result(objectStore.applyChanges(changeSet, clientId), 1.minute)
+    objectStore.applyChanges(changeSet, clientId)
 
     val obj = objectStore.getState.get(uri)
     obj should be(defined)
@@ -63,10 +65,10 @@ class XodusObjectStoreTest extends PublicationServerBaseTest with Hashing {
     val clientId = ClientId("client1")
 
     val changeSet = QueryMessage(Seq(PublishQ(uri, tag=None, hash=None, Base64("AAAA=="))))
-    Await.result(objectStore.applyChanges(changeSet, clientId), 1.minute)
+    objectStore.applyChanges(changeSet, clientId)
 
     val withdrawSet = QueryMessage(Seq(WithdrawQ(uri, tag=None, hash(Base64("AAAA==")).hash)))
-    Await.result(objectStore.applyChanges(withdrawSet, clientId), 1.minute)
+    objectStore.applyChanges(withdrawSet, clientId)
 
     val obj = objectStore.getState.get(uri)
     obj should not be defined
@@ -75,12 +77,11 @@ class XodusObjectStoreTest extends PublicationServerBaseTest with Hashing {
   test("should store and withdraw object in the same message") {
     val clientId = ClientId("client1")
 
-    Await.result(
-      objectStore.applyChanges(
-        QueryMessage(Seq(
-          PublishQ(uri, tag=None, hash=None, Base64("AAAA==")),
-          WithdrawQ(uri, tag=None, hash(Base64("AAAA==")).hash)
-        )), clientId), 1.minute)
+    objectStore.applyChanges(
+      QueryMessage(Seq(
+        PublishQ(uri, tag = None, hash = None, Base64("AAAA==")),
+        WithdrawQ(uri, tag = None, hash(Base64("AAAA==")).hash)
+      )), clientId)
 
     val obj = objectStore.getState.get(uri)
     obj should not be defined
