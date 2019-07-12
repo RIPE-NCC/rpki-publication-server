@@ -14,6 +14,7 @@ class XodusObjectStoreTest extends PublicationServerBaseTest with Hashing {
   val objectStore: XodusObjectStore = XodusObjectStore.get
 
   before {
+    initStore()
     objectStore.clear()
   }
 

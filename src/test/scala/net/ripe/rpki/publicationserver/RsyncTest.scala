@@ -28,6 +28,7 @@ class RsyncTest extends PublicationServerBaseTest with ScalatestRouteTest with H
 
 
   before {
+    initStore()
     XodusObjectStore.get.clear()
     val tmpDir = new File(rsyncDir)
     if (tmpDir.exists()) {
