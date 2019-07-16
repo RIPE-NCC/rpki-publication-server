@@ -45,6 +45,7 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
   }).underlyingActor
 
   before {
+    initStore()
     cleanDir(rootDir.toFile)
     serial = 1L
     theObjectStore.clear()

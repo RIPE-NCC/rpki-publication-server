@@ -14,6 +14,7 @@ class ObjectStoreTest extends PublicationServerBaseTest with Hashing {
   val objectStore: ObjectStore = ObjectStore.get
 
   before {
+    initStore()
     objectStore.clear()
   }
 
