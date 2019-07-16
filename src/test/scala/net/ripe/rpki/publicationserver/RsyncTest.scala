@@ -6,7 +6,7 @@ import java.nio.file.FileSystems
 
 import akka.testkit.TestActorRef
 import net.ripe.rpki.publicationserver.model.ClientId
-import net.ripe.rpki.publicationserver.store.XodusObjectStore
+import net.ripe.rpki.publicationserver.store.ObjectStore
 import org.apache.commons.io.FileUtils
 import spray.testkit.ScalatestRouteTest
 
@@ -28,7 +28,7 @@ class RsyncTest extends PublicationServerBaseTest with ScalatestRouteTest with H
 
 
   before {
-    XodusObjectStore.get.clear()
+    ObjectStore.get.clear()
     val tmpDir = new File(rsyncDir)
     if (tmpDir.exists()) {
       FileUtils.deleteDirectory(tmpDir)

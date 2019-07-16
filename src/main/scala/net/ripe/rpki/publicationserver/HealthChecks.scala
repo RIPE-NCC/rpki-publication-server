@@ -2,7 +2,7 @@ package net.ripe.rpki.publicationserver
 
 import java.net.InetAddress
 
-import net.ripe.rpki.publicationserver.store.XodusObjectStore
+import net.ripe.rpki.publicationserver.store.ObjectStore
 import spray.json._
 
 import scala.util.Try
@@ -24,7 +24,7 @@ class HealthChecks {
     implicit val healthFormat = jsonFormat2(Health.apply)
   }
 
-  val objectStore = XodusObjectStore.get
+  val objectStore = ObjectStore.get
 
   import HealthChecksJsonProtocol._
 

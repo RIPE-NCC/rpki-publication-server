@@ -2,7 +2,7 @@ package net.ripe.rpki.publicationserver.messaging
 
 import akka.actor.{Actor, Props}
 import net.ripe.rpki.publicationserver.messaging.Messages._
-import net.ripe.rpki.publicationserver.store.XodusObjectStore
+import net.ripe.rpki.publicationserver.store.ObjectStore
 import net.ripe.rpki.publicationserver.{AppConfig, Logging, QueryMessage}
 
 import scala.collection.mutable.ListBuffer
@@ -19,7 +19,7 @@ class Accumulator(conf: AppConfig) extends Actor with Logging {
   lazy val rsyncFlusher = actorOf(RsyncFlusher.props(conf))
 
   private val messages: ListBuffer[QueryMessage] = ListBuffer()
-  private var latestState: XodusObjectStore.State = _
+  private var latestState: ObjectStore.State = _
 
   override def receive: Receive = {
     case vm@ValidatedMessage(m, state) =>

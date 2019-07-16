@@ -5,7 +5,7 @@ import java.util.UUID
 
 import akka.testkit.TestActorRef
 import net.ripe.rpki.publicationserver.model.ClientId
-import net.ripe.rpki.publicationserver.store.XodusObjectStore
+import net.ripe.rpki.publicationserver.store.ObjectStore
 import org.apache.commons.io.FileUtils
 import spray.testkit.ScalatestRouteTest
 
@@ -17,7 +17,7 @@ class PublicationServerStressTest extends PublicationServerBaseTest with Scalate
 
   lazy val publicationService = TestActorRef(new PublicationServiceActor(new AppConfig)).underlyingActor
 
-  val objectStore = XodusObjectStore.get
+  val objectStore = ObjectStore.get
 
   val listXml = getFile("/list.xml").mkString
 

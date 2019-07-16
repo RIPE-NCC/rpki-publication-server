@@ -9,9 +9,9 @@ import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
 
-class XodusObjectStoreTest extends PublicationServerBaseTest with Hashing {
+class ObjectStoreTest extends PublicationServerBaseTest with Hashing {
 
-  val objectStore: XodusObjectStore = XodusObjectStore.get
+  val objectStore: ObjectStore = ObjectStore.get
 
   before {
     objectStore.clear()

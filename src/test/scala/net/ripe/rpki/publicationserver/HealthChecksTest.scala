@@ -1,12 +1,12 @@
 package net.ripe.rpki.publicationserver
 
-import net.ripe.rpki.publicationserver.store.XodusObjectStore
+import net.ripe.rpki.publicationserver.store.ObjectStore
 import org.mockito.Mockito._
 import spray.json._
 
 class HealthChecksTest extends PublicationServerBaseTest {
 
-  val theObjectStore = mock[XodusObjectStore](RETURNS_SMART_NULLS)
+  val theObjectStore = mock[ObjectStore](RETURNS_SMART_NULLS)
 
   val healthChecks = new HealthChecks() {
     override val objectStore = theObjectStore

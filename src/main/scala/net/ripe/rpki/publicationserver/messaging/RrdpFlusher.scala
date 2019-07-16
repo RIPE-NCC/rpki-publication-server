@@ -8,7 +8,7 @@ import akka.actor.{Actor, Props}
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.messaging.Messages._
 import net.ripe.rpki.publicationserver.model.{Delta, Notification, ServerState, Snapshot}
-import net.ripe.rpki.publicationserver.store.XodusObjectStore
+import net.ripe.rpki.publicationserver.store.ObjectStore
 import net.ripe.rpki.publicationserver.store.fs.RrdpRepositoryWriter
 
 import scala.collection.mutable
@@ -64,7 +64,7 @@ class RrdpFlusher(conf: AppConfig) extends Actor with Logging {
     system.scheduler.scheduleOnce(conf.unpublishedFileRetainPeriod, rrdpCleaner, message)
 
 
-  def initFS(state: XodusObjectStore.State) = {
+  def initFS(state: ObjectStore.State) = {
     val serverState = ServerState(sessionId, serial)
     val snapshotPdus = state.map { e =>
       val (uri, (base64, _, _)) = e
@@ -82,7 +82,7 @@ class RrdpFlusher(conf: AppConfig) extends Actor with Logging {
       }
   }
 
-  def updateFS(messages: Seq[QueryMessage], state: XodusObjectStore.State): Any = {
+  def updateFS(messages: Seq[QueryMessage], state: ObjectStore.State): Any = {
     val pdus = messages.flatMap(_.pdus)
     val delta = Delta(sessionId, serial, pdus)
     deltas.enqueue((serial, delta.contentHash, delta.binarySize, Instant.now()))

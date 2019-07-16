@@ -10,7 +10,7 @@ import net.ripe.rpki.publicationserver.model.ClientId
 import scala.collection.JavaConversions._
 import scala.concurrent.Future
 
-class XodusObjectStore extends Hashing {
+class ObjectStore extends Hashing {
 
   lazy val conf: AppConfig = wire[AppConfig]
 
@@ -62,7 +62,7 @@ class XodusObjectStore extends Hashing {
     txn.getAll(OBJECT_ENTITY_NAME).foreach(e => e.delete())
   }
 
-  def getState: XodusObjectStore.State = withReadTx { txn =>
+  def getState: ObjectStore.State = withReadTx { txn =>
     txn.getAll(OBJECT_ENTITY_NAME).map { e =>
       val base64 = Base64(e.getProperty("base64").toString)
       val hash = Hash(e.getProperty("hash").toString)
@@ -89,10 +89,10 @@ class XodusObjectStore extends Hashing {
   // Await.result(db.run(DBIO.seq(objects.take(1).result)), conf.defaultTimeout)
 }
 
-object XodusObjectStore {
+object ObjectStore {
   type State = Map[URI, (Base64, Hash, ClientId)]
   // it's stateless, so we can return new instance every time
-  def get = new XodusObjectStore
+  def get = new ObjectStore
 }
 
 

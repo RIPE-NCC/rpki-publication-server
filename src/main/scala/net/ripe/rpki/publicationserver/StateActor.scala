@@ -6,11 +6,8 @@ import akka.actor.{Actor, Props, Status}
 import net.ripe.rpki.publicationserver.messaging.Accumulator
 import net.ripe.rpki.publicationserver.messaging.Messages.{InitRepo, RawMessage, ValidatedMessage}
 import net.ripe.rpki.publicationserver.model.ClientId
-import net.ripe.rpki.publicationserver.store.XodusObjectStore
-import net.ripe.rpki.publicationserver.store.XodusObjectStore.State
-
-import scala.concurrent.Await
-import scala.concurrent.duration.Duration
+import net.ripe.rpki.publicationserver.store.ObjectStore
+import net.ripe.rpki.publicationserver.store.ObjectStore.State
 
 object StateActor {
   def props(conf: AppConfig): Props = Props(new StateActor(conf))
@@ -19,9 +16,9 @@ object StateActor {
 
 class StateActor(conf: AppConfig) extends Actor with Hashing with Logging {
 
-  lazy val objectStore = XodusObjectStore.get
+  lazy val objectStore = ObjectStore.get
 
-  var state: XodusObjectStore.State = _
+  var state: ObjectStore.State = _
 
   val accActor = context.actorOf(Accumulator.props(conf), "accumulator")
 

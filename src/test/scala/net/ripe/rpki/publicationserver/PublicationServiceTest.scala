@@ -3,11 +3,11 @@ package net.ripe.rpki.publicationserver
 import java.net.URI
 
 import akka.testkit.TestActorRef
-import net.ripe.rpki.publicationserver.store.XodusObjectStore
+import net.ripe.rpki.publicationserver.store.ObjectStore
 import net.ripe.rpki.publicationserver.store.fs.RsyncRepositoryWriter
 
 object Store {
-  val objectStore = XodusObjectStore.get
+  val objectStore = ObjectStore.get
 }
 
 class PublicationServiceTest extends PublicationServerBaseTest with Hashing {
