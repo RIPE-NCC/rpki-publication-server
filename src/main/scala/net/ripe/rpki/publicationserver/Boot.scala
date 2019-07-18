@@ -20,10 +20,10 @@ import scala.concurrent.duration._
 object Boot extends App {
 
   lazy val conf = wire[AppConfig]
+  val logger = setupLogging()
 
   XodusDB.init()
 
-  val logger = setupLogging()
   logger.info("Starting up the publication server ...")
 
   implicit val system = ActorSystem("0")
