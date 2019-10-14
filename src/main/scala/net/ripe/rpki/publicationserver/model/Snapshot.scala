@@ -11,10 +11,6 @@ case class Snapshot(serverState: ServerState, pdus: Seq[(Base64, URI)]) extends 
   lazy val contentHash = hash(bytes)
   lazy val binarySize = bytes.length
 
-  def streamChars(s: String, stream: ByteArrayOutputStream): Unit = {
-    s.toCharArray.foreach(c => stream.write(c))
-  }
-
   private[model] def serialize = {
     val ServerState(sessionId, serial) = serverState
     val stream = new ByteArrayOutputStream()
