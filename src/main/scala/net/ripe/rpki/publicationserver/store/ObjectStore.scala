@@ -8,7 +8,6 @@ import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.model.ClientId
 
 import scala.collection.JavaConversions._
-import scala.concurrent.Future
 
 class ObjectStore extends Hashing {
 
@@ -47,18 +46,18 @@ class ObjectStore extends Hashing {
     e.setProperty("clientId", clientId.value)
   }
 
-  private def update(txn: StoreTransaction, obj: RRDPObject) = {
+  private def update(txn: StoreTransaction, obj: RRDPObject): Unit = {
     val (base64, hash, uri, clientId) = obj
     txn.find(OBJECT_ENTITY_NAME, "uri", uri.toString).
       foreach(e => fillEntity(base64, hash, uri, clientId, e))
   }
 
-  private def delete(txn: StoreTransaction, hash: Hash) = {
+  private def delete(txn: StoreTransaction, hash: Hash): Unit = {
     txn.find(OBJECT_ENTITY_NAME, "hash", hash.hash).
       foreach(e => e.delete())
   }
 
-  def clear() = inTx { txn =>
+  def clear(): Unit = inTx { txn =>
     txn.getAll(OBJECT_ENTITY_NAME).foreach(e => e.delete())
   }
 
@@ -73,24 +72,23 @@ class ObjectStore extends Hashing {
   }
 
   def applyChanges(changeSet: QueryMessage, clientId: ClientId): Unit =
-      inTx { txn =>
-        changeSet.pdus.foreach {
-          case WithdrawQ(uri, tag, hash) =>
-            deleteAction(txn, Hash(hash))
-          case PublishQ(uri, tag, None, base64) =>
-            insertAction(txn, (base64, hash(base64), uri, clientId))
-          case PublishQ(uri, tag, Some(h), base64) =>
-            updateAction(txn, (base64, hash(base64), uri, clientId))
-        }
+    inTx { txn =>
+      changeSet.pdus.foreach {
+        case WithdrawQ(uri, tag, hash) =>
+          delete(txn, Hash(hash))
+        case PublishQ(uri, tag, None, base64) =>
+          insert(txn, (base64, hash(base64), uri, clientId))
+        case PublishQ(uri, tag, Some(h), base64) =>
+          update(txn, (base64, hash(base64), uri, clientId))
       }
+    }
 
   def check() = ()
-
-  // Await.result(db.run(DBIO.seq(objects.take(1).result)), conf.defaultTimeout)
 }
 
 object ObjectStore {
   type State = Map[URI, (Base64, Hash, ClientId)]
+
   // it's stateless, so we can return new instance every time
   def get = new ObjectStore
 }
