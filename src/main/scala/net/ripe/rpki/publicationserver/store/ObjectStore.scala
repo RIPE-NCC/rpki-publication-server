@@ -72,16 +72,16 @@ class ObjectStore extends Hashing {
   }
 
   def applyChanges(changeSet: QueryMessage, clientId: ClientId): Unit =
-    inTx { txn =>
-      changeSet.pdus.foreach {
-        case WithdrawQ(uri, tag, hash) =>
-          delete(txn, Hash(hash))
-        case PublishQ(uri, tag, None, base64) =>
-          insert(txn, (base64, hash(base64), uri, clientId))
-        case PublishQ(uri, tag, Some(h), base64) =>
-          update(txn, (base64, hash(base64), uri, clientId))
+      inTx { txn =>
+        changeSet.pdus.foreach {
+          case WithdrawQ(uri, tag, hash) =>
+            delete(txn, Hash(hash))
+          case PublishQ(uri, tag, None, base64) =>
+            insert(txn, (base64, hash(base64), uri, clientId))
+          case PublishQ(uri, tag, Some(h), base64) =>
+            update(txn, (base64, hash(base64), uri, clientId))
+        }
       }
-    }
 
   def check() = ()
 }
