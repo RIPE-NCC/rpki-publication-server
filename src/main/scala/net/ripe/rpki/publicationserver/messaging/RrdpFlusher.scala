@@ -4,8 +4,7 @@ import java.nio.file.attribute.FileTime
 import java.time.Instant
 import java.util.{Date, UUID}
 
-import akka.actor.{Actor, ActorRef, Props}
-import com.softwaremill.macwire.MacwireMacros._
+import akka.actor.{Actor, Props}
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.messaging.Messages._
 import net.ripe.rpki.publicationserver.model.{Delta, Notification, ServerState, Snapshot}

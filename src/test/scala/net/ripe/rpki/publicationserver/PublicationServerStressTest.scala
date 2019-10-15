@@ -11,7 +11,7 @@ import spray.testkit.ScalatestRouteTest
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future, Promise}
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 class PublicationServerStressTest extends PublicationServerBaseTest with ScalatestRouteTest with Hashing {
 
@@ -22,11 +22,15 @@ class PublicationServerStressTest extends PublicationServerBaseTest with Scalate
   val listXml = getFile("/list.xml").mkString
 
   before {
-    objectStore.clear()
+    initStore()
     val tmpDir = new File("tmp/b")  // The rsync basedir where the uri rsync://localcert.ripe.net/ is mapped to in reference.conf
     if (tmpDir.exists()) {
       FileUtils.deleteDirectory(tmpDir)
     }
+  }
+
+  after {
+    cleanStore()
   }
 
   def publishAndRetrieve(clientId: ClientId, promise: Promise[Unit]) = {

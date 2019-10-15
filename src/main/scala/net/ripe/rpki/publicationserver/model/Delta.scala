@@ -1,36 +1,34 @@
 package net.ripe.rpki.publicationserver.model
 
+import java.io.ByteArrayOutputStream
 import java.util.{Date, UUID}
 
-import net.ripe.rpki.publicationserver.{WithdrawQ, PublishQ, Hashing, QueryPdu}
+import net.ripe.rpki.publicationserver.{Hashing, PublishQ, QueryPdu, WithdrawQ}
 
-import scala.xml.{Elem, Node}
+case class Delta(sessionId: UUID, serial: Long, pdus: Seq[QueryPdu], whenToDelete: Option[Date] = None) extends Hashing {
 
-case class Delta(sessionId: UUID, serial: Long, pdus: Seq[QueryPdu], whenToDelete : Option[Date] = None) extends Hashing {
-
-  lazy val bytes = serialize.mkString.getBytes("UTF-8")
+  lazy val bytes = serialize
   lazy val contentHash = hash(bytes)
   lazy val binarySize = bytes.length
 
   def markForDeletion(d: Date) = copy(whenToDelete = Some(d))
 
-  private def serialize = deltaXml(
-    sessionId.toString,
-    serial,
-    pdus.map {
-      case PublishQ(uri, _, None, base64) => <publish uri={uri.toString}>
-        {base64.value}
-      </publish>
-      case PublishQ(uri, _, Some(hash), base64) => <publish uri={uri.toString} hash={hash}>
-        {base64.value}
-      </publish>
-      case WithdrawQ(uri, _, hash) => <withdraw uri={uri.toString} hash={hash}/>
+  private def serialize = {
+    val stream = new ByteArrayOutputStream()
+    Dump.streamChars(s"""<delta version="1" session_id="$sessionId" serial="$serial" xmlns="http://www.ripe.net/rpki/rrdp">""", stream)
+    pdus.foreach {
+      case PublishQ(uri, _, None, base64) =>
+        Dump.streamChars(s"""<publish uri="$uri">""", stream)
+        Dump.streamChars(base64.value, stream)
+        Dump.streamChars("</publish>", stream)
+      case PublishQ(uri, _, Some(hash), base64) =>
+        Dump.streamChars(s"""<publish uri="$uri" hash="$hash">""", stream)
+        Dump.streamChars(base64.value, stream)
+        Dump.streamChars("</publish>", stream)
+      case WithdrawQ(uri, _, hash) =>
+        Dump.streamChars(s"""<withdraw uri="$uri" hash="$hash="/>""", stream)
     }
-  )
-
-  private def deltaXml(sessionId: String, serial: BigInt, pdus: => Iterable[Node]): Elem =
-    <delta xmlns="http://www.ripe.net/rpki/rrdp" version="1" session_id={sessionId} serial={serial.toString()}>
-      {pdus}
-    </delta>
-
+    Dump.streamChars("</delta>", stream)
+    stream.toByteArray
+  }
 }

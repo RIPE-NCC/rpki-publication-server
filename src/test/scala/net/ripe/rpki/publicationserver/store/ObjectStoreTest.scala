@@ -2,18 +2,19 @@ package net.ripe.rpki.publicationserver.store
 
 import java.net.URI
 
+import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.model.ClientId
-import net.ripe.rpki.publicationserver.{Base64, Hashing, PublicationServerBaseTest, PublishQ, QueryMessage, WithdrawQ}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
+import scala.util.{Failure, Success, Try}
 
 class ObjectStoreTest extends PublicationServerBaseTest with Hashing {
 
-  DBConfig.useMemoryDatabase = true
-  val objectStore = ObjectStore.get
+  val objectStore: ObjectStore = ObjectStore.get
 
   before {
+    initStore()
     objectStore.clear()
   }
 
@@ -23,8 +24,9 @@ class ObjectStoreTest extends PublicationServerBaseTest with Hashing {
     val clientId = ClientId("client1")
     val changeSet = QueryMessage(Seq(PublishQ(uri, Some("tag"), hash = None, Base64("AAAA=="))))
 
-    objectStore.applyChanges(changeSet, clientId).onFailure {
-      case e => println(e)
+    Try(objectStore.applyChanges(changeSet, clientId)) match {
+      case Failure(e) => println(e)
+      case Success(_) => ()
     }
 
     val obj = objectStore.getState.get(uri)
@@ -36,10 +38,10 @@ class ObjectStoreTest extends PublicationServerBaseTest with Hashing {
     val clientId = ClientId("client1")
 
     val changeSet = QueryMessage(Seq(PublishQ(uri, tag=None, hash=None, Base64("AAAA=="))))
-    Await.result(objectStore.applyChanges(changeSet, clientId), 1.minute)
+    objectStore.applyChanges(changeSet, clientId)
 
     val replaceSet = QueryMessage(Seq(PublishQ(uri, tag=None, Some(hash(Base64("AAAA==")).hash), Base64("BBBB=="))))
-    Await.result(objectStore.applyChanges(replaceSet, clientId), 1.minute)
+    objectStore.applyChanges(replaceSet, clientId)
 
     val obj = objectStore.getState.get(uri)
     obj should be(defined)
@@ -53,7 +55,7 @@ class ObjectStoreTest extends PublicationServerBaseTest with Hashing {
       PublishQ(uri, tag=None, hash=None, Base64("AAAA==")),
       PublishQ(uri, tag=None, Some(hash(Base64("AAAA==")).hash), Base64("BBBB=="))
     ))
-    Await.result(objectStore.applyChanges(changeSet, clientId), 1.minute)
+    objectStore.applyChanges(changeSet, clientId)
 
     val obj = objectStore.getState.get(uri)
     obj should be(defined)
@@ -64,10 +66,10 @@ class ObjectStoreTest extends PublicationServerBaseTest with Hashing {
     val clientId = ClientId("client1")
 
     val changeSet = QueryMessage(Seq(PublishQ(uri, tag=None, hash=None, Base64("AAAA=="))))
-    Await.result(objectStore.applyChanges(changeSet, clientId), 1.minute)
+    objectStore.applyChanges(changeSet, clientId)
 
     val withdrawSet = QueryMessage(Seq(WithdrawQ(uri, tag=None, hash(Base64("AAAA==")).hash)))
-    Await.result(objectStore.applyChanges(withdrawSet, clientId), 1.minute)
+    objectStore.applyChanges(withdrawSet, clientId)
 
     val obj = objectStore.getState.get(uri)
     obj should not be defined
@@ -76,12 +78,11 @@ class ObjectStoreTest extends PublicationServerBaseTest with Hashing {
   test("should store and withdraw object in the same message") {
     val clientId = ClientId("client1")
 
-    Await.result(
-      objectStore.applyChanges(
-        QueryMessage(Seq(
-          PublishQ(uri, tag=None, hash=None, Base64("AAAA==")),
-          WithdrawQ(uri, tag=None, hash(Base64("AAAA==")).hash)
-        )), clientId), 1.minute)
+    objectStore.applyChanges(
+      QueryMessage(Seq(
+        PublishQ(uri, tag = None, hash = None, Base64("AAAA==")),
+        WithdrawQ(uri, tag = None, hash(Base64("AAAA==")).hash)
+      )), clientId)
 
     val obj = objectStore.getState.get(uri)
     obj should not be defined

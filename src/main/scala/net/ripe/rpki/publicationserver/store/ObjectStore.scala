@@ -3,77 +3,94 @@ package net.ripe.rpki.publicationserver.store
 import java.net.URI
 
 import com.softwaremill.macwire.MacwireMacros._
+import jetbrains.exodus.entitystore.{Entity, StoreTransaction, StoreTransactionalComputable, StoreTransactionalExecutable}
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.model.ClientId
-import slick.jdbc.DerbyProfile.api._
-import slick.lifted.Query
 
-import scala.concurrent.{Await, Future}
+import scala.collection.JavaConversions._
 
 class ObjectStore extends Hashing {
 
   lazy val conf: AppConfig = wire[AppConfig]
 
-  import DB._
+  import XodusDB._
 
-  val db = DB.db
+  private val OBJECT_ENTITY_NAME = "object"
+
+  type RRDPObject = (Base64, Hash, URI, ClientId)
+
+  private def inTx(f: StoreTransaction => Unit): Unit = {
+    entityStore.executeInTransaction(new StoreTransactionalExecutable() {
+      override def execute(txn: StoreTransaction): Unit = f(txn)
+    })
+  }
+
+  private def withReadTx[T](f: StoreTransaction => T): T = {
+    entityStore.computeInReadonlyTransaction(new StoreTransactionalComputable[T]() {
+      override def compute(txn: StoreTransaction): T = f(txn)
+    })
+  }
 
   private type StoredTuple = (String, String, String, String)
 
-  private def listAll: Seq[RRDPObject] = getSeq(objects)
-
-  private def insertAction(obj: RRDPObject) = {
+  private def insert(txn: StoreTransaction, obj: RRDPObject): Unit = {
     val (base64, hash, uri, clientId) = obj
-    objects += (base64.value, hash.hash, uri.toString, clientId.value)
+    val e = txn.newEntity("object")
+    fillEntity(base64, hash, uri, clientId, e)
   }
 
-  private def updateAction(obj: RRDPObject) = {
+  private def fillEntity(base64: Base64, hash: Hash, uri: URI, clientId: ClientId, e: Entity) = {
+    e.setProperty("base64", base64.value)
+    e.setProperty("hash", hash.hash)
+    e.setProperty("uri", uri.toString)
+    e.setProperty("clientId", clientId.value)
+  }
+
+  private def update(txn: StoreTransaction, obj: RRDPObject): Unit = {
     val (base64, hash, uri, clientId) = obj
-    objects.filter(_.uri === uri.toString).update {
-      (base64.value, hash.hash, uri.toString, clientId.value)
-    }
+    txn.find(OBJECT_ENTITY_NAME, "uri", uri.toString).
+      foreach(e => fillEntity(base64, hash, uri, clientId, e))
   }
 
-  private def deleteAction(clientId: ClientId, hash: Hash) =
-    objects.filter(_.hash === hash.hash).delete
-
-  def clear() = Await.result(db.run(objects.delete), conf.defaultTimeout)
-
-  private def mapQ(q: Query[RepoObject, StoredTuple, Seq]) = q.result.map {
-    _.map { o =>
-      val (b64, h, u, clientId) = o
-      (Base64(b64), Hash(h), new URI(u), ClientId(clientId))
-    }
+  private def delete(txn: StoreTransaction, hash: Hash): Unit = {
+    txn.find(OBJECT_ENTITY_NAME, "hash", hash.hash).
+      foreach(e => e.delete())
   }
 
-  private def getSeq(q: Query[RepoObject, StoredTuple, Seq]): Seq[RRDPObject] =
-    Await.result(db.run(mapQ(q)), conf.defaultTimeout)
+  def clear(): Unit = inTx { txn =>
+    txn.getAll(OBJECT_ENTITY_NAME).foreach(e => e.delete())
+  }
 
-
-  def getState : ObjectStore.State = {
-    listAll.map { o =>
-      val (base64, hash, uri, clientId) = o
+  def getState: ObjectStore.State = withReadTx { txn =>
+    txn.getAll(OBJECT_ENTITY_NAME).map { e =>
+      val base64 = Base64(e.getProperty("base64").toString)
+      val hash = Hash(e.getProperty("hash").toString)
+      val uri = URI.create(e.getProperty("uri").toString)
+      val clientId = ClientId(e.getProperty("clientId").toString)
       uri -> (base64, hash, clientId)
     }.toMap
   }
 
-  def applyChanges(changeSet: QueryMessage, clientId: ClientId): Future[Unit] = {
-    val actions = changeSet.pdus.map {
-      case WithdrawQ(uri, tag, hash) =>
-        deleteAction(clientId, Hash(hash))
-      case PublishQ(uri, tag, None, base64) =>
-        insertAction((base64, hash(base64), uri, clientId))
-      case PublishQ(uri, tag, Some(h), base64) =>
-        updateAction((base64, hash(base64), uri, clientId))
-    }
-    db.run(DBIO.seq(actions: _*).transactionally)
-  }
+  def applyChanges(changeSet: QueryMessage, clientId: ClientId): Unit =
+      inTx { txn =>
+        changeSet.pdus.foreach {
+          case WithdrawQ(uri, tag, hash) =>
+            delete(txn, Hash(hash))
+          case PublishQ(uri, tag, None, base64) =>
+            insert(txn, (base64, hash(base64), uri, clientId))
+          case PublishQ(uri, tag, Some(h), base64) =>
+            update(txn, (base64, hash(base64), uri, clientId))
+        }
+      }
 
-  def check() = Await.result(db.run(DBIO.seq(objects.take(1).result)), conf.defaultTimeout)
+  def check() = ()
 }
 
 object ObjectStore {
   type State = Map[URI, (Base64, Hash, ClientId)]
+
   // it's stateless, so we can return new instance every time
   def get = new ObjectStore
 }
+
+

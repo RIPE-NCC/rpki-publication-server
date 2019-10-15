@@ -10,7 +10,6 @@ case class SnapshotLocator(uri: String, hash: Hash)
 
 case class DeltaLocator(serial: BigInt, uri: String, hash: Hash)
 
-// TODO Merge it with ChangeSet
 case class Notification(sessionId: UUID, serial: BigInt, snapshot: SnapshotLocator, deltas: Iterable[DeltaLocator]) {
 
   def serialize = notificationXml (

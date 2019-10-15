@@ -2,14 +2,12 @@ package net.ripe.rpki.publicationserver
 
 import java.io.File
 import java.net.URI
-import java.nio.file.{FileSystems, Files}
-import java.util.UUID
+import java.nio.file.FileSystems
 
 import akka.testkit.TestActorRef
-import net.ripe.rpki.publicationserver.model.{ClientId, ServerState}
+import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store.ObjectStore
 import org.apache.commons.io.FileUtils
-import org.scalatest.Ignore
 import spray.testkit.ScalatestRouteTest
 
 import scala.concurrent.duration._

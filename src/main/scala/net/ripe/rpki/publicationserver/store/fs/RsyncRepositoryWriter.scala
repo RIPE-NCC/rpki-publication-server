@@ -5,10 +5,9 @@ import java.net.URI
 import java.nio.file.attribute.PosixFilePermissions
 import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 
-import com.softwaremill.macwire.MacwireMacros._
 import net.ripe.rpki.publicationserver
 import net.ripe.rpki.publicationserver.store.ObjectStore
-import net.ripe.rpki.publicationserver.{AppConfig, Base64, Logging, PublishQ, QueryMessage, WithdrawQ}
+import net.ripe.rpki.publicationserver._
 import org.apache.commons.io.FileUtils
 
 import scala.util.Try

@@ -37,7 +37,6 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
 
   private def sessionDir = findSessionDir(rootDir).toString
 
-  // TODO Remove (of tune) it after debugging
   implicit val customTimeout = RouteTestTimeout(6000.seconds)
 
   val theStateActor = TestActorRef(new StateActor(conf))
@@ -46,6 +45,7 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
   }).underlyingActor
 
   before {
+    initStore()
     cleanDir(rootDir.toFile)
     serial = 1L
     theObjectStore.clear()
