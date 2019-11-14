@@ -54,7 +54,10 @@ class RrdpFlusher(conf: AppConfig) extends Actor with Logging {
   }
 
 
-  def scheduleRrdpRepositoryCleanup() = scheduleCleanup(CleanUpRepo(sessionId))
+  def scheduleRrdpRepositoryCleanup() = {
+    rrdpCleaner ! CleanUpRepoOldOnesNow(FileTime.from(Instant.now()), sessionId)
+    scheduleCleanup(CleanUpRepo(sessionId))
+  }
 
   def scheduleSnapshotCleanup(currentSerial: Long)(timestamp: FileTime) = scheduleCleanup(CleanUpSnapshot(timestamp, currentSerial))
 
@@ -145,6 +148,9 @@ class RrdpCleaner(conf: AppConfig) extends Actor with Logging {
     case CleanUpRepo(sessionId) =>
       logger.info(s"Removing all the sessions in RRDP repository except for $sessionId")
       rrdpWriter.cleanRepositoryExceptOneSession(conf.rrdpRepositoryPath, sessionId)
+    case CleanUpRepoOldOnesNow(timestamp, sessionId) =>
+      logger.info(s"Removing all the older sessions in RRDP repository except for $sessionId")
+      rrdpWriter.cleanRepositoryExceptOneSessionOlderThan(conf.rrdpRepositoryPath, timestamp, sessionId)
   }
 
 }
