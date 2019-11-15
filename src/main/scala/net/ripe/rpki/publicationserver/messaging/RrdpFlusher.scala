@@ -2,6 +2,7 @@ package net.ripe.rpki.publicationserver.messaging
 
 import java.nio.file.attribute.FileTime
 import java.time.Instant
+import java.time.temporal.{ChronoUnit, TemporalUnit}
 import java.util.{Date, UUID}
 
 import akka.actor.{Actor, Props}
@@ -55,7 +56,8 @@ class RrdpFlusher(conf: AppConfig) extends Actor with Logging {
 
 
   def scheduleRrdpRepositoryCleanup() = {
-    rrdpCleaner ! CleanUpRepoOldOnesNow(FileTime.from(Instant.now()), sessionId)
+    val oldEnough = FileTime.from(Instant.now().minus(conf.unpublishedFileRetainPeriod.toSeconds, ChronoUnit.SECONDS))
+    rrdpCleaner ! CleanUpRepoOldOnesNow(oldEnough, sessionId)
     scheduleCleanup(CleanUpRepo(sessionId))
   }
 
