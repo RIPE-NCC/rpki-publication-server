@@ -47,6 +47,7 @@ class RemoveAllVisitorExceptOneSession(sessionId: String, timestamp: Option[File
       FileVisitResult.SKIP_SUBTREE
     else {
       if (deleteIt(file)) {
+        logger.info(s"Removing file $file")
         Files.deleteIfExists(file)
       }
       FileVisitResult.CONTINUE
@@ -58,6 +59,7 @@ class RemoveAllVisitorExceptOneSession(sessionId: String, timestamp: Option[File
       FileVisitResult.SKIP_SUBTREE
     else {
       if (FSUtil.isEmptyDir(dir)) {
+        logger.info(s"Removing directory $dir")
         Files.deleteIfExists(dir)
       }
       FileVisitResult.CONTINUE
