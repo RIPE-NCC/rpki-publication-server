@@ -17,12 +17,8 @@ class RrdpRepositoryWriter extends Logging {
     getStateDir(rootDir, sessionId.toString, serial)
   }
 
-  def cleanRepositoryExceptOneSession(rootDir: String, sessionId: UUID): Path = {
-    Files.walkFileTree(Paths.get(rootDir), new RemoveAllVisitorExceptOneSession(sessionId.toString, None))
-  }
-
   def cleanRepositoryExceptOneSessionOlderThan(rootDir: String, timestamp: FileTime, sessionId: UUID): Path = {
-    Files.walkFileTree(Paths.get(rootDir), new RemoveAllVisitorExceptOneSession(sessionId.toString, Some(timestamp)))
+    Files.walkFileTree(Paths.get(rootDir), new RemoveAllVisitorExceptOneSession(sessionId.toString, timestamp))
   }
 
   private val fileAttributes = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-r--r--"))

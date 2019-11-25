@@ -149,7 +149,7 @@ class RrdpCleaner(conf: AppConfig) extends Actor with Logging {
       rrdpWriter.deleteDeltas(conf.rrdpRepositoryPath, sessionId, serials)
     case CleanUpRepo(sessionId) =>
       logger.info(s"Removing all the sessions in RRDP repository except for $sessionId")
-      rrdpWriter.cleanRepositoryExceptOneSession(conf.rrdpRepositoryPath, sessionId)
+      rrdpWriter.cleanRepositoryExceptOneSessionOlderThan(conf.rrdpRepositoryPath, FileTime.from(Instant.now()), sessionId)
     case CleanUpRepoOldOnesNow(timestamp, sessionId) =>
       logger.info(s"Removing all the older sessions in RRDP repository except for $sessionId")
       rrdpWriter.cleanRepositoryExceptOneSessionOlderThan(conf.rrdpRepositoryPath, timestamp, sessionId)

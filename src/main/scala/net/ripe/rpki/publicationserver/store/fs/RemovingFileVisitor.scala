@@ -34,13 +34,8 @@ class RemovingFileVisitor(timestamp: FileTime, filenameToDelete: Path, latestSer
 
 }
 
-class RemoveAllVisitorExceptOneSession(sessionId: String, timestamp: Option[FileTime]) extends SimpleFileVisitor[Path] with Logging {
-  def deleteIt(path: Path): Boolean = {
-    timestamp match {
-      case None => true
-      case Some(t) => FSUtil.isModifiedBefore(path, t)
-    }
-  }
+class RemoveAllVisitorExceptOneSession(sessionId: String, timestamp: FileTime) extends SimpleFileVisitor[Path] with Logging {
+  def deleteIt(path: Path): Boolean = FSUtil.isModifiedBefore(path, timestamp)
 
   override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
     if (file.toString.contains(sessionId) || file.toString.endsWith(Rrdp.notificationFilename))
