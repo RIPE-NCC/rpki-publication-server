@@ -22,5 +22,7 @@ object Messages {
   case class CleanUpDeltas(sessionId: UUID, serials: Iterable[Long])
 
   case class CleanUpRepo(sessionId: UUID)
+
+  case class CleanUpRepoOldOnesNow(timestamp: FileTime, sessionId: UUID)
 }
 
