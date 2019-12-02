@@ -89,7 +89,8 @@ class StateActor(conf: AppConfig) extends Actor with Hashing with Logging {
         if (h.toUpperCase == strHash.toUpperCase)
           Right(state - uri)
         else {
-          Left(ReportError(BaseError.NonMatchingHash, Some(s"Cannot withdraw the object [$uri], hash doesn't match.")))
+          Left(ReportError(BaseError.NonMatchingHash,
+            Some(s"Cannot withdraw the object [$uri], hash doesn't match, passed ${h.toUpperCase}, but local one is ${strHash.toUpperCase}.")))
         }
       case None =>
         Left(ReportError(BaseError.NoObjectForWithdraw, Some(s"No object [$uri] found.")))
@@ -102,7 +103,8 @@ class StateActor(conf: AppConfig) extends Actor with Hashing with Logging {
         if (h.toUpperCase == strHash.toUpperCase)
           Right(state + (uri -> (base64, hash(base64), clientId)))
         else
-          Left(ReportError(BaseError.NonMatchingHash, Some(s"Cannot republish the object [$uri], hash doesn't match")))
+          Left(ReportError(BaseError.NonMatchingHash,
+            Some(s"Cannot republish the object [$uri], hash doesn't match, passed ${h.toUpperCase}, but local one is ${strHash.toUpperCase}.")))
       case None =>
         Left(ReportError(BaseError.NoObjectToUpdate, Some(s"No object [$uri] has been found.")))
     }
