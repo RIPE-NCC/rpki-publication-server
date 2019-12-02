@@ -83,28 +83,28 @@ class StateActor(conf: AppConfig) extends Actor with Hashing with Logging {
     }
   }
 
-  private def applyDelete(state: State, uri: URI, strHash: String): Either[ReportError, State] = {
+  private def applyDelete(state: State, uri: URI, hashToReplace: String): Either[ReportError, State] = {
     state.get(uri) match {
-      case Some((base64, Hash(h), _)) =>
-        if (h.toUpperCase == strHash.toUpperCase)
+      case Some((_, Hash(foundHash), _)) =>
+        if (foundHash.toUpperCase == hashToReplace.toUpperCase)
           Right(state - uri)
         else {
           Left(ReportError(BaseError.NonMatchingHash,
-            Some(s"Cannot withdraw the object [$uri], hash doesn't match, passed ${h.toUpperCase}, but local one is ${strHash.toUpperCase}.")))
+            Some(s"Cannot withdraw the object [$uri], hash doesn't match, passed ${hashToReplace.toUpperCase}, but existing one is ${foundHash.toUpperCase}.")))
         }
       case None =>
         Left(ReportError(BaseError.NoObjectForWithdraw, Some(s"No object [$uri] found.")))
     }
   }
 
-  private def applyReplace(state: State, clientId: ClientId, uri: URI, strHash: String, base64: Base64): Either[ReportError, State] = {
+  private def applyReplace(state: State, clientId: ClientId, uri: URI, hashToReplace: String, base64: Base64): Either[ReportError, State] = {
     state.get(uri) match {
-      case Some((_, Hash(h), _)) =>
-        if (h.toUpperCase == strHash.toUpperCase)
+      case Some((_, Hash(foundHash), _)) =>
+        if (foundHash.toUpperCase == hashToReplace.toUpperCase)
           Right(state + (uri -> (base64, hash(base64), clientId)))
         else
           Left(ReportError(BaseError.NonMatchingHash,
-            Some(s"Cannot republish the object [$uri], hash doesn't match, passed ${h.toUpperCase}, but local one is ${strHash.toUpperCase}.")))
+            Some(s"Cannot republish the object [$uri], hash doesn't match, passed ${hashToReplace.toUpperCase}, but existing one is ${foundHash.toUpperCase}.")))
       case None =>
         Left(ReportError(BaseError.NoObjectToUpdate, Some(s"No object [$uri] has been found.")))
     }
