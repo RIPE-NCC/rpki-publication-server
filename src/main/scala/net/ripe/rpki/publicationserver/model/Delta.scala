@@ -26,7 +26,7 @@ case class Delta(sessionId: UUID, serial: Long, pdus: Seq[QueryPdu], whenToDelet
         Dump.streamChars(base64.value, stream)
         Dump.streamChars("</publish>", stream)
       case WithdrawQ(uri, _, hash) =>
-        Dump.streamChars(s"""<withdraw uri="$uri" hash="$hash="/>""", stream)
+        Dump.streamChars(s"""<withdraw uri="$uri" hash="$hash"/>""", stream)
     }
     Dump.streamChars("</delta>", stream)
     stream.toByteArray
