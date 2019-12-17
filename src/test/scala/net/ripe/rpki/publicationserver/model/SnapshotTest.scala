@@ -11,7 +11,7 @@ class SnapshotTest extends PublicationServerBaseTest {
     val state = Snapshot(ServerState(sessionId, 123L), Seq((Base64("321"), new URI("rsync://bla"))))
 
     state.bytes should be(toBytes(
-      s"""<snapshot version="1" session_id="$sessionId" serial="123" xmlns="http://www.ripe.net/rpki/rrdp"><publish uri="rsync://bla">321</publish></snapshot>"""))
+      s"""<snapshot version="1" session_id="$sessionId" serial="123" xmlns="http://www.ripe.net/rpki/rrdp">\n<publish uri="rsync://bla">321</publish>\n</snapshot>"""))
   }
 
   private def toBytes(s: String) = {

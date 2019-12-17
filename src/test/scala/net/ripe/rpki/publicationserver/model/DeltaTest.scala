@@ -14,10 +14,10 @@ class DeltaTest extends PublicationServerBaseTest {
     val withdrawQ = WithdrawQ(new URI("rsync://bla.delete"), None, "AABB")
     val state = Delta(sessionId, 123L, Seq(publishQ1, withdrawQ, publishQ2), None)
 
-    val xml = "<delta version=\"1\" session_id=\"" + sessionId + "\" serial=\"123\" xmlns=\"http://www.ripe.net/rpki/rrdp\">" +
-      "<publish uri=\"rsync://bla.replace\" hash=\"AABBCCEE\">321</publish>" +
-      "<withdraw uri=\"rsync://bla.delete\" hash=\"AABB=\"/>" +
-      "<publish uri=\"rsync://bla.add\">765432319</publish>" +
+    val xml = "<delta version=\"1\" session_id=\"" + sessionId + "\" serial=\"123\" xmlns=\"http://www.ripe.net/rpki/rrdp\">\n" +
+      "<publish uri=\"rsync://bla.replace\" hash=\"AABBCCEE\">321</publish>\n" +
+      "<withdraw uri=\"rsync://bla.delete\" hash=\"AABB\"/>\n" +
+      "<publish uri=\"rsync://bla.add\">765432319</publish>\n" +
       "</delta>"
     state.bytes should be(toBytes(xml))
   }
