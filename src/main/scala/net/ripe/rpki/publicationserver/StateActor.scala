@@ -3,6 +3,7 @@ package net.ripe.rpki.publicationserver
 import java.net.URI
 
 import akka.actor.{Actor, Props, Status}
+import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver.messaging.Accumulator
 import net.ripe.rpki.publicationserver.messaging.Messages.{InitRepo, RawMessage, ValidatedMessage}
 import net.ripe.rpki.publicationserver.model.ClientId
@@ -97,11 +98,11 @@ class StateActor(conf: AppConfig) extends Actor with Hashing with Logging {
     }
   }
 
-  private def applyReplace(state: State, clientId: ClientId, uri: URI, hashToReplace: String, base64: Base64): Either[ReportError, State] = {
+  private def applyReplace(state: State, clientId: ClientId, uri: URI, hashToReplace: String, binary: Bytes): Either[ReportError, State] = {
     state.get(uri) match {
       case Some((_, Hash(foundHash), _)) =>
         if (foundHash.toUpperCase == hashToReplace.toUpperCase)
-          Right(state + (uri -> (base64, hash(base64), clientId)))
+          Right(state + (uri -> (binary, hash(binary), clientId)))
         else
           Left(ReportError(BaseError.NonMatchingHash,
             Some(s"Cannot republish the object [$uri], hash doesn't match, passed ${hashToReplace.toUpperCase}, but existing one is ${foundHash.toUpperCase}.")))
@@ -110,11 +111,11 @@ class StateActor(conf: AppConfig) extends Actor with Hashing with Logging {
     }
   }
 
-  def applyCreate(state: State, clientId: ClientId, uri: URI, base64: Base64): Either[ReportError, State] = {
+  def applyCreate(state: State, clientId: ClientId, uri: URI, binary: Bytes): Either[ReportError, State] = {
     if (state.contains(uri)) {
       Left(ReportError(BaseError.HashForInsert, Some(s"Tried to insert existing object [$uri].")))
     } else {
-      Right(state + (uri -> (base64, hash(base64), clientId)))
+      Right(state + (uri -> (binary, hash(binary), clientId)))
     }
   }
 

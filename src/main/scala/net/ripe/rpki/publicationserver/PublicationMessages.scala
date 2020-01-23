@@ -2,6 +2,8 @@ package net.ripe.rpki.publicationserver
 
 import java.net.URI
 
+import net.ripe.rpki.publicationserver.Binaries.Bytes
+
 object BaseError extends Enumeration {
   type Code = Value
   val NoMsgElement = Value
@@ -12,6 +14,7 @@ object BaseError extends Enumeration {
   val NoObjectForWithdraw = Value
   val NonMatchingHash = Value
   val CouldNotPersist = Value
+  val InvalidBase64 = Value
 }
 
 case class BaseError(code: BaseError.Code, message: String)
@@ -23,10 +26,12 @@ case class QueryMessage(pdus: Seq[QueryPdu]) extends Message
 
 case class ListMessage() extends Message
 
+case class ErrorMessage(baseError: BaseError) extends Message
+
 
 sealed trait QueryPdu
 
-case class PublishQ(uri: URI, tag: Option[String], hash: Option[String], base64: Base64) extends QueryPdu
+case class PublishQ(uri: URI, tag: Option[String], hash: Option[String], bytes: Bytes) extends QueryPdu
 
 case class WithdrawQ(uri: URI, tag: Option[String], hash: String) extends QueryPdu
 

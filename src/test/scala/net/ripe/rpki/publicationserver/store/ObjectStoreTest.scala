@@ -2,11 +2,10 @@ package net.ripe.rpki.publicationserver.store
 
 import java.net.URI
 
+import net.ripe.rpki.publicationserver.Binaries.{Base64, Bytes}
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.model.ClientId
 
-import scala.concurrent.Await
-import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
 
 class ObjectStoreTest extends PublicationServerBaseTest with Hashing {
@@ -22,7 +21,8 @@ class ObjectStoreTest extends PublicationServerBaseTest with Hashing {
 
   test("should insert an object") {
     val clientId = ClientId("client1")
-    val changeSet = QueryMessage(Seq(PublishQ(uri, Some("tag"), hash = None, Base64("AAAA=="))))
+    val bytes = Bytes(Array(0x01, 0x02, 0x03))
+    val changeSet = QueryMessage(Seq(PublishQ(uri, Some("tag"), hash = None, bytes)))
 
     Try(objectStore.applyChanges(changeSet, clientId)) match {
       case Failure(e) => println(e)
@@ -31,41 +31,46 @@ class ObjectStoreTest extends PublicationServerBaseTest with Hashing {
 
     val obj = objectStore.getState.get(uri)
     obj should be(defined)
-    obj.get should be((Base64("AAAA=="), hash(Base64("AAAA==")), clientId))
+    obj.get should be((bytes, hash(bytes), clientId))
   }
 
   test("should replace an object") {
     val clientId = ClientId("client1")
 
-    val changeSet = QueryMessage(Seq(PublishQ(uri, tag=None, hash=None, Base64("AAAA=="))))
+    val bytesA = Bytes.fromBase64(Base64("AAAA=="))
+    val bytesB = Bytes.fromBase64(Base64("BBBB=="))
+    val changeSet = QueryMessage(Seq(PublishQ(uri, tag=None, hash=None, bytesA)))
     objectStore.applyChanges(changeSet, clientId)
 
-    val replaceSet = QueryMessage(Seq(PublishQ(uri, tag=None, Some(hash(Base64("AAAA==")).hash), Base64("BBBB=="))))
+    val replaceSet = QueryMessage(Seq(PublishQ(uri, tag=None, Some(hash(bytesA).hash), bytesB)))
     objectStore.applyChanges(replaceSet, clientId)
 
     val obj = objectStore.getState.get(uri)
     obj should be(defined)
-    obj.get should be((Base64("BBBB=="), hash(Base64("BBBB==")), clientId))
+    obj.get should be((bytesB, hash(bytesB), clientId))
   }
 
   test("should replace an object in the same message") {
     val clientId = ClientId("client1")
 
+    val bytesA = Bytes.fromBase64(Base64("AAAA=="))
+    val bytesB = Bytes.fromBase64(Base64("BBBB=="))
+
     val changeSet = QueryMessage(Seq(
-      PublishQ(uri, tag=None, hash=None, Base64("AAAA==")),
-      PublishQ(uri, tag=None, Some(hash(Base64("AAAA==")).hash), Base64("BBBB=="))
+      PublishQ(uri, tag=None, hash=None, bytesA),
+      PublishQ(uri, tag=None, Some(hash(bytesA).hash), bytesB)
     ))
     objectStore.applyChanges(changeSet, clientId)
 
     val obj = objectStore.getState.get(uri)
     obj should be(defined)
-    obj.get should be((Base64("BBBB=="), hash(Base64("BBBB==")), clientId))
+    obj.get should be((bytesB, hash(bytesB), clientId))
   }
 
   test("should store an object, withdraw it and make sure it's not there anymore") {
     val clientId = ClientId("client1")
 
-    val changeSet = QueryMessage(Seq(PublishQ(uri, tag=None, hash=None, Base64("AAAA=="))))
+    val changeSet = QueryMessage(Seq(PublishQ(uri, tag=None, hash=None, Bytes.fromBase64(Base64("AAAA==")))))
     objectStore.applyChanges(changeSet, clientId)
 
     val withdrawSet = QueryMessage(Seq(WithdrawQ(uri, tag=None, hash(Base64("AAAA==")).hash)))
@@ -80,7 +85,7 @@ class ObjectStoreTest extends PublicationServerBaseTest with Hashing {
 
     objectStore.applyChanges(
       QueryMessage(Seq(
-        PublishQ(uri, tag = None, hash = None, Base64("AAAA==")),
+        PublishQ(uri, tag = None, hash = None, Bytes.fromBase64(Base64("AAAA=="))),
         WithdrawQ(uri, tag = None, hash(Base64("AAAA==")).hash)
       )), clientId)
 

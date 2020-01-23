@@ -6,6 +6,7 @@ import java.nio.file.attribute.PosixFilePermissions
 import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 
 import net.ripe.rpki.publicationserver
+import net.ripe.rpki.publicationserver.Binaries.{Base64, Bytes}
 import net.ripe.rpki.publicationserver.store.ObjectStore
 import net.ripe.rpki.publicationserver._
 import org.apache.commons.io.FileUtils
@@ -48,16 +49,16 @@ class RsyncRepositoryWriter(conf: AppConfig) extends Logging {
     }
   }
 
-  private def groupByBaseDir(state: ObjectStore.State): Map[Path, Seq[(publicationserver.Base64, RsyncFsLocation)]] = {
+  private def groupByBaseDir(state: ObjectStore.State): Map[Path, Seq[(Bytes, RsyncFsLocation)]] = {
     state.toSeq.map {
       case (uri, (base64, _, _)) => (base64, resolvePath(uri))
     }.groupBy(_._2.base)
   }
 
-  private def writeObjectUnderDir(base64: Base64, baseDir: Path, relative: Path) = {
+  private def writeObjectUnderDir(binary: Bytes, baseDir: Path, relative: Path): Unit = {
     val file: Path = baseDir.resolve(relative)
     createParentDirectories(file)
-    writeBase64ToFile(base64, file)
+    writeToFile(binary, file)
   }
 
   private def promoteStagingToOnline(tempRepoDir: Path): Unit = {
@@ -77,13 +78,13 @@ class RsyncRepositoryWriter(conf: AppConfig) extends Logging {
     }
   }
 
-  private def writeFile(uri: URI, base64: Base64): Unit = {
+  private def writeFile(uri: URI, binary: Bytes): Unit = {
     val fsLocation = resolvePath(uri)
 
     val stagingDir: Path = stagingDirFor(fsLocation.base)
     Files.createDirectories(stagingDir)
     val tempFile: Path = Files.createTempFile(stagingDir, fsLocation.relative.getFileName.toString, ".tmp")
-    writeBase64ToFile(base64, tempFile)
+    writeToFile(binary, tempFile)
 
     val targetFile: Path = onlineFileFor(fsLocation)
     createParentDirectories(targetFile)
@@ -97,12 +98,8 @@ class RsyncRepositoryWriter(conf: AppConfig) extends Logging {
     else logger.warn(s"File to delete ($target) does not exist")
   }
 
-  private def decodedStreamFor(base64: Base64): InputStream = {
-    java.util.Base64.getDecoder.wrap(new ByteArrayInputStream(base64.value.getBytes("UTF-8")))
-  }
-
-  private def writeBase64ToFile(base64: Base64, tempFile: Path): Unit = {
-    Files.copy(decodedStreamFor(base64), tempFile, StandardCopyOption.REPLACE_EXISTING)
+  private def writeToFile(binary: Bytes, tempFile: Path): Unit = {
+    Files.copy(new ByteArrayInputStream(binary.value), tempFile, StandardCopyOption.REPLACE_EXISTING)
     Files.setPosixFilePermissions(tempFile, filePermissions)
   }
 
