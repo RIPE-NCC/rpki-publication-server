@@ -50,30 +50,30 @@ abstract class PublicationServerBaseTest extends FunSuite with BeforeAndAfter wi
     <msg type="query" version="3" xmlns="http://www.hactrn.net/uris/rpki/publication-spec/">
       {pdus.map {
       case PublishQ(uri, None, None, b) =>
-        <publish uri={uri.toString}>
+        <publish uri={uri.toASCIIString}>
           {Bytes.toBase64(b).value}
         </publish>
 
       case PublishQ(uri, None, Some(hash), b) =>
-        <publish uri={uri.toString} hash={hash}>
+        <publish uri={uri.toASCIIString} hash={hash}>
           {Bytes.toBase64(b).value}
         </publish>
 
       case PublishQ(uri, Some(tag), None, b) =>
-        <publish uri={uri.toString} tag={tag}>
+        <publish uri={uri.toASCIIString} tag={tag}>
           {Bytes.toBase64(b).value}
         </publish>
 
       case PublishQ(uri, Some(tag), Some(hash), b) =>
-        <publish uri={uri.toString} hash={hash} tag={tag}>
+        <publish uri={uri.toASCIIString} hash={hash} tag={tag}>
           {Bytes.toBase64(b).value}
         </publish>
 
       case WithdrawQ(uri, None, hash) =>
-          <withdraw uri={uri.toString} hash={hash}/>
+          <withdraw uri={uri.toASCIIString} hash={hash}/>
 
       case WithdrawQ(uri, Some(tag), hash) =>
-          <withdraw uri={uri.toString} hash={hash} tag={tag}/>
+          <withdraw uri={uri.toASCIIString} hash={hash} tag={tag}/>
 
       case ListQ(None) => <list/>
       case ListQ(Some(tag)) => <list tag={tag}/>
