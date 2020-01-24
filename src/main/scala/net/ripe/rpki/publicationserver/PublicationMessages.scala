@@ -2,8 +2,6 @@ package net.ripe.rpki.publicationserver
 
 import java.net.URI
 
-import scala.xml.{Elem, NodeSeq}
-
 object BaseError extends Enumeration {
   type Code = Value
   val NoMsgElement = Value
@@ -51,36 +49,41 @@ object MsgType extends Enumeration {
 }
 
 abstract class Msg {
-  def serialize: Elem
+  def serialize: String
 
-  protected def reply(pdus: => NodeSeq): Elem =
-    <msg type="reply" version="3" xmlns="http://www.hactrn.net/uris/rpki/publication-spec/">
-      {pdus}
-    </msg>
+  protected def reply(pdus: => String): String =
+    s"""<msg type="reply" version="3" xmlns="http://www.hactrn.net/uris/rpki/publication-spec/">
+      $pdus
+    </msg>"""
 }
 
 case class ErrorMsg(error: BaseError) extends Msg {
-  def serialize: Elem = reply {
-    <report_error error_code={error.code.toString}>
-      {error.message}
-    </report_error>
+  def serialize: String = reply {
+    s"""<report_error error_code="${error.code}">
+      ${error.message}
+    </report_error>"""
   }
 }
 
 case class ReplyMsg(pdus: Seq[ReplyPdu]) extends Msg {
 
-  def serialize: Elem = reply {
-    pdus.map {
-      case PublishR(uri, Some(tag)) => <publish tag={tag} uri={uri.toString}/>
-      case PublishR(uri, None) => <publish uri={uri.toString}/>
-      case WithdrawR(uri, Some(tag)) => <withdraw tag={tag} uri={uri.toString}/>
-      case WithdrawR(uri, None) => <withdraw uri={uri.toString}/>
-      case ListR(uri, hash, Some(tag)) => <list tag={tag} uri={uri.toString} hash={hash}/>
-      case ListR(uri, hash, None) => <list uri={uri.toString} hash={hash}/>
-      case ReportError(code, message) =>
-        <report_error error_code={code.toString}>
-          {message.getOrElse("Unspecified error")}
-        </report_error>
+  def serialize: String = reply {
+    val sb = new StringBuilder
+    pdus.foreach { pdu =>
+      val textual = pdu match {
+        case PublishR(uri, Some(tag)) => s"""<publish tag="$tag" uri="$uri"/>"""
+        case PublishR(uri, None) => s"""<publish uri="$uri"/>"""
+        case WithdrawR(uri, Some(tag)) => s"""<withdraw tag="$tag" uri="$uri"/>"""
+        case WithdrawR(uri, None) => s"""<withdraw uri="$uri"/>"""
+        case ListR(uri, hash, Some(tag)) => s"""<list tag="$tag" uri="$uri" hash="$hash"/>"""
+        case ListR(uri, hash, None) => s"""<list uri="$uri" hash="$hash"/>"""
+        case ReportError(code, message) =>
+          s"""<report_error error_code="$code">
+          ${message.getOrElse("Unspecified error")}
+        </report_error>"""
+      }
+      sb.append(textual).append("\n")
     }
+    sb.toString()
   }
 }

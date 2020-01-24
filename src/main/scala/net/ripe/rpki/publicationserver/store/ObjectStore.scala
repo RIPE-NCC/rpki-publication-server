@@ -3,13 +3,13 @@ package net.ripe.rpki.publicationserver.store
 import java.net.URI
 
 import com.softwaremill.macwire.MacwireMacros._
-import jetbrains.exodus.entitystore.{Entity, StoreTransaction, StoreTransactionalComputable, StoreTransactionalExecutable}
+import jetbrains.exodus.entitystore.{Entity, EntityIterable, StoreTransaction, StoreTransactionalComputable, StoreTransactionalExecutable}
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.model.ClientId
 
 import scala.collection.JavaConversions._
 
-class ObjectStore extends Hashing {
+class ObjectStore extends Hashing with Logging {
 
   lazy val conf: AppConfig = wire[AppConfig]
 
@@ -62,7 +62,8 @@ class ObjectStore extends Hashing {
   }
 
   def getState: ObjectStore.State = withReadTx { txn =>
-    txn.getAll(OBJECT_ENTITY_NAME).map { e =>
+    val iterable: EntityIterable = txn.getAll(OBJECT_ENTITY_NAME)
+    iterable.map { e =>
       val base64 = Base64(e.getProperty("base64").toString)
       val hash = Hash(e.getProperty("hash").toString)
       val uri = URI.create(e.getProperty("uri").toString)
@@ -74,16 +75,20 @@ class ObjectStore extends Hashing {
   def applyChanges(changeSet: QueryMessage, clientId: ClientId): Unit =
       inTx { txn =>
         changeSet.pdus.foreach {
-          case WithdrawQ(uri, tag, hash) =>
+          case WithdrawQ(uri, _, hash) =>
             delete(txn, Hash(hash))
-          case PublishQ(uri, tag, None, base64) =>
-            insert(txn, (base64, hash(base64), uri, clientId))
-          case PublishQ(uri, tag, Some(h), base64) =>
-            update(txn, (base64, hash(base64), uri, clientId))
+          case PublishQ(uri, _, None, base64) =>
+            val h = hash(base64)
+            insert(txn, (base64, h, uri, clientId))
+          case PublishQ(uri, _, Some(oldHash), base64) =>
+            val h = hash(base64)
+            update(txn, (base64, h, uri, clientId))
+            logger.debug(s"Replacing $uri with hash $oldHash -> $h")
         }
       }
 
-  def check() = ()
+  // TODO Implement
+  def check(): Unit = ()
 }
 
 object ObjectStore {
