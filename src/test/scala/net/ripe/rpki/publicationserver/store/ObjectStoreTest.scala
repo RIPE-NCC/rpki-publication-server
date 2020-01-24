@@ -37,8 +37,8 @@ class ObjectStoreTest extends PublicationServerBaseTest with Hashing {
   test("should replace an object") {
     val clientId = ClientId("client1")
 
-    val bytesA = Bytes.fromBase64(Base64("AAAA=="))
-    val bytesB = Bytes.fromBase64(Base64("BBBB=="))
+    val bytesA = Bytes.fromBase64(Base64("AABBCC=="))
+    val bytesB = Bytes.fromBase64(Base64("BBBBAA=="))
     val changeSet = QueryMessage(Seq(PublishQ(uri, tag=None, hash=None, bytesA)))
     objectStore.applyChanges(changeSet, clientId)
 
@@ -53,8 +53,8 @@ class ObjectStoreTest extends PublicationServerBaseTest with Hashing {
   test("should replace an object in the same message") {
     val clientId = ClientId("client1")
 
-    val bytesA = Bytes.fromBase64(Base64("AAAA=="))
-    val bytesB = Bytes.fromBase64(Base64("BBBB=="))
+    val bytesA = Bytes.fromBase64(Base64("AABBCC=="))
+    val bytesB = Bytes.fromBase64(Base64("BBBBAA=="))
 
     val changeSet = QueryMessage(Seq(
       PublishQ(uri, tag=None, hash=None, bytesA),
@@ -70,10 +70,10 @@ class ObjectStoreTest extends PublicationServerBaseTest with Hashing {
   test("should store an object, withdraw it and make sure it's not there anymore") {
     val clientId = ClientId("client1")
 
-    val changeSet = QueryMessage(Seq(PublishQ(uri, tag=None, hash=None, Bytes.fromBase64(Base64("AAAA==")))))
+    val changeSet = QueryMessage(Seq(PublishQ(uri, tag=None, hash=None, Bytes.fromBase64(Base64("AABBCC==")))))
     objectStore.applyChanges(changeSet, clientId)
 
-    val withdrawSet = QueryMessage(Seq(WithdrawQ(uri, tag=None, hash(Base64("AAAA==")).hash)))
+    val withdrawSet = QueryMessage(Seq(WithdrawQ(uri, tag=None, hash(Base64("AABBCC==")).hash)))
     objectStore.applyChanges(withdrawSet, clientId)
 
     val obj = objectStore.getState.get(uri)
@@ -85,8 +85,8 @@ class ObjectStoreTest extends PublicationServerBaseTest with Hashing {
 
     objectStore.applyChanges(
       QueryMessage(Seq(
-        PublishQ(uri, tag = None, hash = None, Bytes.fromBase64(Base64("AAAA=="))),
-        WithdrawQ(uri, tag = None, hash(Base64("AAAA==")).hash)
+        PublishQ(uri, tag = None, hash = None, Bytes.fromBase64(Base64("AABBCC=="))),
+        WithdrawQ(uri, tag = None, hash(Base64("AABBCC==")).hash)
       )), clientId)
 
     val obj = objectStore.getState.get(uri)

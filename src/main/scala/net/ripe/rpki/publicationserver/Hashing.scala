@@ -21,6 +21,6 @@ trait Hashing {
     Hash(stringify(digest.digest(bytes)))
   }
 
-  def hash(b64: Base64): Hash = hash(Binaries.base64.decode(b64.value))
+  def hash(b64: Base64): Hash = hash(Bytes.fromBase64(b64))
   def hash(binary: Bytes): Hash = hash(binary.value)
 }
