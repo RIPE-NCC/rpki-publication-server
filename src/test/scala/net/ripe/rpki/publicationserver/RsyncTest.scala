@@ -29,11 +29,16 @@ class RsyncTest extends PublicationServerBaseTest with ScalatestRouteTest with H
 
 
   before {
+    initStore()
     ObjectStore.get.clear()
     val tmpDir = new File(rsyncDir)
     if (tmpDir.exists()) {
       FileUtils.deleteDirectory(tmpDir)
     }
+  }
+
+  after {
+    cleanStore()
   }
 
   test("should publish the contents in the publication request to the correct rsync folder") {
