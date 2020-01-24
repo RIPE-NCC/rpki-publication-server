@@ -1,11 +1,12 @@
 package net.ripe.rpki.publicationserver
 
 import java.io.InputStream
-
-import com.google.common.io.BaseEncoding
+import java.util.{Base64 => B64}
 
 object Binaries {
-  val base64: BaseEncoding = BaseEncoding.base64()
+
+  private val base64decoder = B64.getDecoder
+  private val base64encoder = B64.getEncoder
 
   case class Base64(value: String)
 
@@ -27,9 +28,9 @@ object Binaries {
       Bytes(bytes)
     }
 
-    def fromBase64(b64: Base64): Bytes = Bytes(base64.decode(b64.value))
+    def fromBase64(b64: Base64): Bytes = Bytes(base64decoder.decode(b64.value))
 
-    def toBase64(bytes: Bytes): Base64 = Base64(base64.encode(bytes.value))
+    def toBase64(bytes: Bytes): Base64 = Base64(base64encoder.encodeToString(bytes.value))
   }
 
 }
