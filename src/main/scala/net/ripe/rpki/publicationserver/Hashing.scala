@@ -33,5 +33,5 @@ trait Hashing {
   }
 
   def hash(b64: Base64): Hash = hash(Bytes.fromBase64(b64))
-  def hash(binary: Bytes): Hash = hash(binary.value)
+  def hash(bytes: Bytes): Hash = hash(bytes.value)
 }

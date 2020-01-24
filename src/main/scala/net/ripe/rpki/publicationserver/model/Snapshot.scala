@@ -17,9 +17,9 @@ case class Snapshot(serverState: ServerState, pdus: Seq[(Bytes, URI)]) extends H
     val stream = new ByteArrayOutputStream()
     Dump.streamChars(s"""<snapshot version="1" session_id="$sessionId" serial="$serial" xmlns="http://www.ripe.net/rpki/rrdp">\n""", stream)
     pdus.foreach { pdu =>
-      val (binary, uri) = pdu
+      val (bytes, uri) = pdu
       Dump.streamChars(s"""<publish uri="${uri.toASCIIString}">""", stream)
-      Dump.streamChars(Bytes.toBase64(binary).value, stream)
+      Dump.streamChars(Bytes.toBase64(bytes).value, stream)
       Dump.streamChars("</publish>\n", stream)
     }
     Dump.streamChars("</snapshot>", stream)

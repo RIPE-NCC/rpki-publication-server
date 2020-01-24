@@ -79,13 +79,13 @@ class RsyncRepositoryWriter(conf: AppConfig) extends Logging {
     }
   }
 
-  private def writeFile(uri: URI, binary: Bytes): Unit = {
+  private def writeFile(uri: URI, bytes: Bytes): Unit = {
     val fsLocation = resolvePath(uri)
 
     val stagingDir: Path = stagingDirFor(fsLocation.base)
     Files.createDirectories(stagingDir)
     val tempFile: Path = Files.createTempFile(stagingDir, fsLocation.relative.getFileName.toString, ".tmp")
-    writeToFile(binary, tempFile)
+    writeToFile(bytes, tempFile)
 
     val targetFile: Path = onlineFileFor(fsLocation)
     createParentDirectories(targetFile)
@@ -99,8 +99,8 @@ class RsyncRepositoryWriter(conf: AppConfig) extends Logging {
     else logger.warn(s"File to delete ($target) does not exist")
   }
 
-  private def writeToFile(binary: Bytes, tempFile: Path): Unit = {
-    Files.copy(new ByteArrayInputStream(binary.value), tempFile, StandardCopyOption.REPLACE_EXISTING)
+  private def writeToFile(bytes: Bytes, tempFile: Path): Unit = {
+    Files.copy(new ByteArrayInputStream(bytes.value), tempFile, StandardCopyOption.REPLACE_EXISTING)
     Files.setPosixFilePermissions(tempFile, filePermissions)
   }
 

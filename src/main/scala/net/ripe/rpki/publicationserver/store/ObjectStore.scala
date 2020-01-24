@@ -71,11 +71,11 @@ class ObjectStore extends Hashing with Logging {
 
   def getState: ObjectStore.State = withReadTx { txn =>
     txn.getAll(OBJECT_ENTITY_NAME).map { e =>
-      val binary = Bytes.fromStream(e.getBlob(BYTES_FIELD_NAME))
+      val bytes = Bytes.fromStream(e.getBlob(BYTES_FIELD_NAME))
       val hash = Hash(e.getProperty(HASH_FIELD_NAME).toString)
       val uri = URI.create(e.getProperty(URI_FIELD_NAME).toString)
       val clientId = ClientId(e.getProperty(CLIENT_ID_FIELD_NAME).toString)
-      uri -> (binary, hash, clientId)
+      uri -> (bytes, hash, clientId)
     }.toMap
   }
 
@@ -84,12 +84,12 @@ class ObjectStore extends Hashing with Logging {
       changeSet.pdus.foreach {
         case WithdrawQ(uri, _, hash) =>
           delete(txn, Hash(hash))
-        case PublishQ(uri, _, None, binary) =>
-          val h = hash(binary)
-          insert(txn, (binary, h, uri, clientId))
-        case PublishQ(uri, _, Some(oldHash), binary) =>
-          val h = hash(binary)
-          update(txn, (binary, h, uri, clientId))
+        case PublishQ(uri, _, None, bytes) =>
+          val h = hash(bytes)
+          insert(txn, (bytes, h, uri, clientId))
+        case PublishQ(uri, _, Some(oldHash), bytes) =>
+          val h = hash(bytes)
+          update(txn, (bytes, h, uri, clientId))
           logger.debug(s"Replacing $uri with hash $oldHash -> $h")
       }
     }

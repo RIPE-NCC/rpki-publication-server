@@ -99,16 +99,16 @@ class StateActor(conf: AppConfig) extends Actor with Hashing with Logging {
     }
   }
 
-  private def applyReplace(state: State, clientId: ClientId, uri: URI, hashToReplace: String, binary: Bytes): Either[ReportError, State] = {
+  private def applyReplace(state: State, clientId: ClientId, uri: URI, hashToReplace: String, bytes: Bytes): Either[ReportError, State] = {
     state.get(uri) match {
       case Some((_, Hash(foundHash), _)) =>
         if (foundHash.toUpperCase == hashToReplace.toUpperCase)
-          Right(state + (uri -> (binary, hash(binary), clientId)))
+          Right(state + (uri -> (bytes, hash(bytes), clientId)))
         else
         if (foundHash.toUpperCase == hashToReplace.toUpperCase) {
-          val newHash = hash(base64)
+          val newHash = hash(bytes)
           logger.debug(s"Replacing $uri with hash $foundHash -> $newHash")
-          Right(state + (uri -> (base64, newHash, clientId)))
+          Right(state + (uri -> (bytes, newHash, clientId)))
         } else
           Left(ReportError(BaseError.NonMatchingHash,
             Some(s"Cannot republish the object [$uri], hash doesn't match, passed ${hashToReplace.toUpperCase}, but existing one is ${foundHash.toUpperCase}.")))
@@ -117,14 +117,14 @@ class StateActor(conf: AppConfig) extends Actor with Hashing with Logging {
     }
   }
 
-  def applyCreate(state: State, clientId: ClientId, uri: URI, binary: Bytes): Either[ReportError, State] = {
+  def applyCreate(state: State, clientId: ClientId, uri: URI, bytes: Bytes): Either[ReportError, State] = {
     if (state.contains(uri)) {
       Left(ReportError(BaseError.HashForInsert, Some(s"Tried to insert existing object [$uri].")))
     } else {
-      Right(state + (uri -> (binary, hash(binary), clientId)))
-      val newHash = hash(binary)
+      Right(state + (uri -> (bytes, hash(bytes), clientId)))
+      val newHash = hash(bytes)
       logger.debug(s"Adding $uri with hash $newHash")
-      Right(state + (uri -> (binary, newHash, clientId)))
+      Right(state + (uri -> (bytes, newHash, clientId)))
     }
   }
 
