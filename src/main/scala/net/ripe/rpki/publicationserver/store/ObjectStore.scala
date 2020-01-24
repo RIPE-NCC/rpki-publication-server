@@ -41,9 +41,9 @@ class ObjectStore extends Hashing {
   private type StoredTuple = (String, String, String, String)
 
   private def insert(txn: StoreTransaction, obj: RRDPObject): Unit = {
-    val (base64, hash, uri, clientId) = obj
+    val (bytes, hash, uri, clientId) = obj
     val e = txn.newEntity("object")
-    fillEntity(base64, hash, uri, clientId, e)
+    fillEntity(bytes, hash, uri, clientId, e)
   }
 
   private def fillEntity(bytes: Bytes, hash: Hash, uri: URI, clientId: ClientId, e: Entity) = {
@@ -54,9 +54,9 @@ class ObjectStore extends Hashing {
   }
 
   private def update(txn: StoreTransaction, obj: RRDPObject): Unit = {
-    val (base64, hash, uri, clientId) = obj
+    val (bytes, hash, uri, clientId) = obj
     txn.find(OBJECT_ENTITY_NAME, "uri", uri.toString).
-      foreach(e => fillEntity(base64, hash, uri, clientId, e))
+      foreach(e => fillEntity(bytes, hash, uri, clientId, e))
   }
 
   private def delete(txn: StoreTransaction, hash: Hash): Unit = {

@@ -75,10 +75,10 @@ class StateActor(conf: AppConfig) extends Actor with Hashing with Logging {
 
   private def applyPdu(state: State, pdu: QueryPdu, clientId: ClientId): Either[ReportError, State] = {
     pdu match {
-      case PublishQ(uri, tag, None, base64) =>
-        applyCreate(state, clientId, uri, base64)
-      case PublishQ(uri, tag, Some(strHash), base64) =>
-        applyReplace(state, clientId, uri, strHash, base64)
+      case PublishQ(uri, tag, None, bytes) =>
+        applyCreate(state, clientId, uri, bytes)
+      case PublishQ(uri, tag, Some(strHash), bytes) =>
+        applyReplace(state, clientId, uri, strHash, bytes)
       case WithdrawQ(uri, tag, strHash) =>
         applyDelete(state, uri, strHash)
     }

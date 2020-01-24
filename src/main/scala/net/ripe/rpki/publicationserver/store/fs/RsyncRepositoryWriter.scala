@@ -6,7 +6,7 @@ import java.nio.file.attribute.PosixFilePermissions
 import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 
 import net.ripe.rpki.publicationserver
-import net.ripe.rpki.publicationserver.Binaries.{Base64, Bytes}
+  import net.ripe.rpki.publicationserver.Binaries.{Base64, Bytes}
 import net.ripe.rpki.publicationserver.store.ObjectStore
 import net.ripe.rpki.publicationserver._
 import org.apache.commons.io.FileUtils
@@ -28,8 +28,8 @@ class RsyncRepositoryWriter(conf: AppConfig) extends Logging {
       val tempRepoDir = createTempRepoDir(baseDir)
       Try {
         for (obj <- objectsPerBaseDir(baseDir)) {
-          val (base64, rsyncFsLocation) = obj
-          writeObjectUnderDir(base64, tempRepoDir, rsyncFsLocation.relative)
+          val (bytes, rsyncFsLocation) = obj
+          writeObjectUnderDir(bytes, tempRepoDir, rsyncFsLocation.relative)
         }
         promoteStagingToOnline(tempRepoDir)
       }.recover { case e =>
@@ -40,8 +40,8 @@ class RsyncRepositoryWriter(conf: AppConfig) extends Logging {
 
   def updateRepo(message: QueryMessage) = {
     message.pdus.foreach {
-      case PublishQ(uri, tag, hash, base64) =>
-        writeFile(uri, base64)
+      case PublishQ(uri, tag, hash, bytes) =>
+        writeFile(uri, bytes)
       case WithdrawQ(uri, tag, hash) =>
         removeFile(uri)
       case unknown =>
@@ -51,7 +51,7 @@ class RsyncRepositoryWriter(conf: AppConfig) extends Logging {
 
   private def groupByBaseDir(state: ObjectStore.State): Map[Path, Seq[(Bytes, RsyncFsLocation)]] = {
     state.toSeq.map {
-      case (uri, (base64, _, _)) => (base64, resolvePath(uri))
+      case (uri, (bytes, _, _)) => (bytes, resolvePath(uri))
     }.groupBy(_._2.base)
   }
 
