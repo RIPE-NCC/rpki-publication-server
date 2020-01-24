@@ -87,9 +87,10 @@ class StateActor(conf: AppConfig) extends Actor with Hashing with Logging {
   private def applyDelete(state: State, uri: URI, hashToReplace: String): Either[ReportError, State] = {
     state.get(uri) match {
       case Some((_, Hash(foundHash), _)) =>
-        if (foundHash.toUpperCase == hashToReplace.toUpperCase)
+        if (foundHash.toUpperCase == hashToReplace.toUpperCase) {
+          logger.debug(s"Deleting $uri with hash ${foundHash.toUpperCase}")
           Right(state - uri)
-        else {
+        } else {
           Left(ReportError(BaseError.NonMatchingHash,
             Some(s"Cannot withdraw the object [$uri], hash doesn't match, passed ${hashToReplace.toUpperCase}, but existing one is ${foundHash.toUpperCase}.")))
         }
@@ -104,6 +105,11 @@ class StateActor(conf: AppConfig) extends Actor with Hashing with Logging {
         if (foundHash.toUpperCase == hashToReplace.toUpperCase)
           Right(state + (uri -> (binary, hash(binary), clientId)))
         else
+        if (foundHash.toUpperCase == hashToReplace.toUpperCase) {
+          val newHash = hash(base64)
+          logger.debug(s"Replacing $uri with hash $foundHash -> $newHash")
+          Right(state + (uri -> (base64, newHash, clientId)))
+        } else
           Left(ReportError(BaseError.NonMatchingHash,
             Some(s"Cannot republish the object [$uri], hash doesn't match, passed ${hashToReplace.toUpperCase}, but existing one is ${foundHash.toUpperCase}.")))
       case None =>
@@ -116,6 +122,9 @@ class StateActor(conf: AppConfig) extends Actor with Hashing with Logging {
       Left(ReportError(BaseError.HashForInsert, Some(s"Tried to insert existing object [$uri].")))
     } else {
       Right(state + (uri -> (binary, hash(binary), clientId)))
+      val newHash = hash(binary)
+      logger.debug(s"Adding $uri with hash $newHash")
+      Right(state + (uri -> (binary, newHash, clientId)))
     }
   }
 

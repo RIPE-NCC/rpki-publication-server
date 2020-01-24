@@ -6,12 +6,13 @@ import java.net.URI
 import com.softwaremill.macwire.MacwireMacros._
 import jetbrains.exodus.entitystore.{Entity, StoreTransaction, StoreTransactionalComputable, StoreTransactionalExecutable}
 import net.ripe.rpki.publicationserver.Binaries.Bytes
+import jetbrains.exodus.entitystore.{Entity, EntityIterable, StoreTransaction, StoreTransactionalComputable, StoreTransactionalExecutable}
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.model.ClientId
 
 import scala.collection.JavaConversions._
 
-class ObjectStore extends Hashing {
+class ObjectStore extends Hashing with Logging {
 
   lazy val conf: AppConfig = wire[AppConfig]
 
@@ -81,12 +82,15 @@ class ObjectStore extends Hashing {
   def applyChanges(changeSet: QueryMessage, clientId: ClientId): Unit =
     inTx { txn =>
       changeSet.pdus.foreach {
-        case WithdrawQ(uri, tag, hash) =>
+        case WithdrawQ(uri, _, hash) =>
           delete(txn, Hash(hash))
-        case PublishQ(uri, tag, None, binary) =>
-          insert(txn, (binary, hash(binary), uri, clientId))
-        case PublishQ(uri, tag, Some(h), binary) =>
-          update(txn, (binary, hash(binary), uri, clientId))
+        case PublishQ(uri, _, None, binary) =>
+          val h = hash(binary)
+          insert(txn, (binary, h, uri, clientId))
+        case PublishQ(uri, _, Some(oldHash), binary) =>
+          val h = hash(binary)
+          update(txn, (binary, h, uri, clientId))
+          logger.debug(s"Replacing $uri with hash $oldHash -> $h")
       }
     }
 
