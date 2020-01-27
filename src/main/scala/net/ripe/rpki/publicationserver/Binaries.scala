@@ -3,6 +3,8 @@ package net.ripe.rpki.publicationserver
 import java.io.InputStream
 import java.util.{Base64 => B64}
 
+import com.google.common.io.ByteStreams
+
 object Binaries {
 
   private val base64decoder = B64.getDecoder
@@ -20,13 +22,7 @@ object Binaries {
   }
 
   object Bytes {
-    def fromStream(is: InputStream): Bytes = {
-      val bytes = Stream.continually(is.read)
-        .takeWhile(_ != -1)
-        .map(_.toByte)
-        .toArray
-      Bytes(bytes)
-    }
+    def fromStream(is: InputStream): Bytes = Bytes(ByteStreams.toByteArray(is))
 
     def fromBase64(b64: Base64): Bytes = Bytes(base64decoder.decode(b64.value))
 
