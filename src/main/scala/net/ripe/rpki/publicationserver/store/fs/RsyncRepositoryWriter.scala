@@ -1,13 +1,11 @@
 package net.ripe.rpki.publicationserver.store.fs
 
-import java.io.{ByteArrayInputStream, InputStream}
+import java.io.ByteArrayInputStream
 import java.net.URI
 import java.nio.file.attribute.PosixFilePermissions
 import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 
-import net.ripe.rpki.publicationserver
-  import net.ripe.rpki.publicationserver.Binaries.{Base64, Bytes}
-import net.ripe.rpki.publicationserver.store.ObjectStore
+import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.store.ObjectStore
 import org.apache.commons.io.FileUtils
