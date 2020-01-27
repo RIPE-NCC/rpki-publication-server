@@ -115,10 +115,7 @@ class RrdpFlusher(conf: AppConfig) extends Actor with Logging {
       case Failure(e) =>
         logger.error("Could not update RRDP files: ", e)
     }
-
   }
-
-  private def waitFor[T](f: Future[T]) = Await.result(f, 10.minutes)
 
   def afterRetainPeriod = new Date(System.currentTimeMillis() + conf.unpublishedFileRetainPeriod.toMillis)
 
