@@ -54,14 +54,8 @@ object MsgType extends Enumeration {
   val reply = Value("reply")
 }
 
-abstract class Msg {
+abstract class Msg extends Formatting {
   def serialize: String
-
-  private val attrEscaper = XmlEscapers.xmlAttributeEscaper()
-  private val contentEscaper = XmlEscapers.xmlContentEscaper()
-
-  protected def attr(s: String): String = attrEscaper.escape(s)
-  protected def content(s: String): String = contentEscaper.escape(s)
 
   protected def reply(pdus: => String): String =
     s"""<msg type="reply" version="3" xmlns="http://www.hactrn.net/uris/rpki/publication-spec/">
@@ -83,12 +77,12 @@ case class ReplyMsg(pdus: Seq[ReplyPdu]) extends Msg {
     val sb = new StringBuilder
     pdus.foreach { pdu =>
       val textual = pdu match {
-        case PublishR(uri, Some(tag)) => s"""<publish tag="${attr(tag)}" uri="${uri.toASCIIString}"/>"""
-        case PublishR(uri, None) => s"""<publish uri="${uri.toASCIIString}"/>"""
-        case WithdrawR(uri, Some(tag)) => s"""<withdraw tag="${attr(tag)}" uri="${uri.toASCIIString}"/>"""
-        case WithdrawR(uri, None) => s"""<withdraw uri="${uri.toASCIIString}"/>"""
-        case ListR(uri, hash, Some(tag)) => s"""<list tag="${attr(tag)}" uri="${uri.toASCIIString}" hash="$hash"/>"""
-        case ListR(uri, hash, None) => s"""<list uri="${uri.toASCIIString}" hash="$hash"/>"""
+        case PublishR(uri, Some(tag)) => s"""<publish tag="${attr(tag)}" uri="${attr(uri.toASCIIString)}"/>"""
+        case PublishR(uri, None) => s"""<publish uri="${attr(uri.toASCIIString)}"/>"""
+        case WithdrawR(uri, Some(tag)) => s"""<withdraw tag="${attr(tag)}" uri="${attr(uri.toASCIIString)}"/>"""
+        case WithdrawR(uri, None) => s"""<withdraw uri="${attr(uri.toASCIIString)}"/>"""
+        case ListR(uri, hash, Some(tag)) => s"""<list tag="${attr(tag)}" uri="${attr(uri.toASCIIString)}" hash="$hash"/>"""
+        case ListR(uri, hash, None) => s"""<list uri="${attr(uri.toASCIIString)}" hash="$hash"/>"""
         case ReportError(code, message) =>
           s"""<report_error error_code="$code">
           ${message.map(content).getOrElse("Unspecified error")}
