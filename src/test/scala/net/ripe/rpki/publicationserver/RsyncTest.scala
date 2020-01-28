@@ -9,7 +9,7 @@ import net.ripe.rpki.publicationserver.Binaries.{Base64, Bytes}
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store.ObjectStore
 import org.apache.commons.io.FileUtils
-import spray.testkit.ScalatestRouteTest
+import akka.http.scaladsl.testkit.ScalatestRouteTest
 
 import scala.concurrent.duration._
 
@@ -23,9 +23,7 @@ class RsyncTest extends PublicationServerBaseTest with ScalatestRouteTest with H
   }
 
   def theStateActor = TestActorRef(new StateActor(conf))
-  def publicationService = TestActorRef(new PublicationServiceActor(conf) {
-    override lazy val stateActor = theStateActor
-  }).underlyingActor
+  def publicationService = new PublicationServiceActor(conf, theStateActor)
 
 
   before {

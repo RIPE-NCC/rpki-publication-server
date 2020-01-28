@@ -8,15 +8,17 @@ import net.ripe.rpki.publicationserver.Binaries.Base64
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store.ObjectStore
 import org.apache.commons.io.FileUtils
-import spray.testkit.ScalatestRouteTest
+import akka.http.scaladsl.testkit.ScalatestRouteTest
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future, Promise}
 import scala.util.Try
 
 class PublicationServerStressTest extends PublicationServerBaseTest with ScalatestRouteTest with Hashing {
+  val conf = new AppConfig
+  def theStateActor = TestActorRef(new StateActor(conf))
 
-  lazy val publicationService = TestActorRef(new PublicationServiceActor(new AppConfig)).underlyingActor
+  lazy val publicationService = new PublicationServiceActor(conf, theStateActor)
 
   val objectStore = ObjectStore.get
 
