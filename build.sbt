@@ -10,7 +10,7 @@ name := "rpki-publication-server"
 
 version := "1.1-SNAPSHOT"
 
-scalaVersion := "2.11.12"
+scalaVersion := "2.12.7"
 
 scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8")
 
@@ -34,7 +34,7 @@ dockerCommands := Seq(
   ExecCmd("CMD", "-c", "../conf/rpki-publication-server.default.conf")
        )
 
-dockerTarget in Docker := "rpki-publication-server"
+//dockerTag := "rpki-publication-server"
 
 resolvers += "Codehaus Maven2 Repository" at "http://repository.codehaus.org/"
 
@@ -42,12 +42,11 @@ resolvers += "JCenter" at "http://jcenter.bintray.com/"
 
 libraryDependencies ++= {
   val akkaV = "2.4.17"
-  val sprayV = "1.3.4"
+  val akkaHttp =  "10.1.11"
   Seq(
-    "io.spray"                 %% "spray-can"          % sprayV,
-    "io.spray"                 %% "spray-client"       % sprayV,
-    "io.spray"                 %% "spray-routing"      % sprayV,
-    "io.spray"                 %% "spray-testkit"      % sprayV    % "test",
+    "com.typesafe.akka"        %% "akka-http"           % akkaHttp,
+    "com.typesafe.akka"        %% "akka-http-core"      % akkaHttp,
+    "com.typesafe.akka"        %% "akka-stream-testkit" % "2.5.26",
     "com.typesafe.akka"        %% "akka-actor"         % akkaV,
     "com.typesafe.akka"        %% "akka-testkit"       % akkaV     % "test",
     "com.typesafe.akka"        %% "akka-slf4j"         % akkaV,
@@ -56,24 +55,28 @@ libraryDependencies ++= {
     "org.codehaus.woodstox"     % "woodstox-core-asl" % "4.4.1",
     "com.sun.xml.bind"          % "jaxb1-impl"        % "2.2.5.1",
     "ch.qos.logback"            % "logback-classic"   % "1.2.3",
-    "com.softwaremill.macwire" %% "macros"            % "1.0.7",
-    "com.softwaremill.macwire" %% "runtime"           % "1.0.7",
-    "io.spray"                 %% "spray-json"         % "1.3.3",
+    "com.softwaremill.macwire" %% "macros"            % "2.3.3" % "provided",
+    "com.softwaremill.macwire" %% "macrosakka"            % "2.3.3" % "provided",
+    "com.softwaremill.macwire" %% "util"            % "2.3.3" % "provided",
+    "com.softwaremill.macwire" %% "proxy"            % "2.3.3" % "provided",
+    "io.spray"                 %% "spray-json"         % "1.3.5",
     "com.google.guava"         %  "guava"              % "18.0",
     "com.google.code.findbugs" %  "jsr305"             % "3.0.2",
     "org.jetbrains.xodus"      % "xodus-entity-store" % "1.0.5",
-    "org.apache.commons"        % "commons-io"         % "1.3.2"
+    "org.apache.commons"        % "commons-io"         % "1.3.2",
+    "org.scala-lang.modules"  %% "scala-xml" % "1.2.0"
   )
 }
 
 // Generate the GeneratedBuildInformation object
 import java.util.Date
 import java.text.SimpleDateFormat
+import scala.sys.process._
 
 sourceGenerators in Compile += Def.task {
   val generatedFile = (sourceManaged in Compile).value / "net.ripe.rpki.publicationserver" / "GeneratedBuildInformation.scala"
   val now = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date())
-  val rev = "git rev-parse HEAD".!!.trim()
+  val rev = Process("git rev-parse HEAD").!!.trim()
   val code = s"""package net.ripe.rpki.publicationserver
                 object GeneratedBuildInformation {
                 val version = "$buildNumber"
@@ -84,7 +87,7 @@ sourceGenerators in Compile += Def.task {
   Seq(generatedFile)
 }.taskValue
 
-Revolver.settings: Seq[sbt.Setting[_]]
+//Revolver.settings: Seq[sbt.Setting[_]]
 
 credentials += Credentials("Sonatype Nexus Repository Manager",
   "nexus.ripe.net",

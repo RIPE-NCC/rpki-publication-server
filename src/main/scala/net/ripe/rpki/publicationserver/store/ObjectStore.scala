@@ -2,7 +2,7 @@ package net.ripe.rpki.publicationserver.store
 
 import java.net.URI
 
-import com.softwaremill.macwire.MacwireMacros._
+import com.softwaremill.macwire._
 import jetbrains.exodus.entitystore.{Entity, EntityIterable, StoreTransaction, StoreTransactionalComputable, StoreTransactionalExecutable}
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.model.ClientId

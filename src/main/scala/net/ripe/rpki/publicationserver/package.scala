@@ -1,6 +1,6 @@
 package net.ripe.rpki
 
-import com.softwaremill.macwire.MacwireMacros._
+import com.softwaremill.macwire._
 
 package object publicationserver {
 
