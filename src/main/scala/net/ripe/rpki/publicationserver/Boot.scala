@@ -3,21 +3,22 @@ package net.ripe.rpki.publicationserver
 import java.io.FileInputStream
 import java.security.KeyStore
 
-import akka.actor.ActorSystem
-import akka.io.IO
-import akka.pattern.ask
+import akka.actor.{ActorRef, ActorSystem}
+import akka.http.scaladsl.Http
+import akka.stream.ActorMaterializer
 import akka.util.Timeout
-import com.softwaremill.macwire.MacwireMacros._
+import com.softwaremill.macwire._
+import com.softwaremill.macwire.akkasupport._
+import com.typesafe.sslconfig.akka.AkkaSSLConfig
 import javax.net.ssl._
 import net.ripe.logging.SysStreamsLogger
 import net.ripe.rpki.publicationserver.store.XodusDB
 import org.slf4j.LoggerFactory
-import spray.can.Http
-import spray.io.ServerSSLEngineProvider
+import akka.pattern.ask
 
 import scala.concurrent.duration._
 
-object Boot extends App {
+object Boot extends App with RRDPService {
 
   lazy val conf = wire[AppConfig]
   val logger = setupLogging()
@@ -27,11 +28,15 @@ object Boot extends App {
   logger.info("Starting up the publication server ...")
 
   implicit val system = ActorSystem("0")
-
-  val publicationService = system.actorOf(PublicationServiceActor.props(conf), "publication-service")
-  val rrdpService = system.actorOf(RRDPServiceActor.props(), "rrdp-service")
+  implicit val materializer: ActorMaterializer = ActorMaterializer()(system)
+  val sslConfig = AkkaSSLConfig()
 
   implicit val timeout = Timeout(5.seconds)
+
+
+  val stateActor: ActorRef = system.actorOf(StateActor.props(conf))
+
+  val publicationService = new PublicationServiceActor(conf, stateActor)
 
   implicit val sslContext: SSLContext = {
     val sslContext = SSLContext.getInstance("TLS")
@@ -39,17 +44,23 @@ object Boot extends App {
     sslContext
   }
 
-  val publicationSslEngineProvider = ServerSSLEngineProvider { sslEngine =>
-    sslEngine.setWantClientAuth(conf.publicationServerTrustStoreLocation.nonEmpty)
-    sslEngine
-  }
+// TODO: Figure out how to do this
 
-  IO(Http) ? Http.Bind(publicationService,
-      interface = "::0",
-      port = conf.publicationPort,
-      settings = conf.publicationServerSettings)(publicationSslEngineProvider)
+//  val publicationSslEngineProvider = ServerSSLEngineProvider { sslEngine =>
+//    sslEngine.setWantClientAuth(conf.publicationServerTrustStoreLocation.nonEmpty)
+//    sslEngine
+//  }
 
-  IO(Http) ? Http.Bind(rrdpService, interface = "::0", port = conf.rrdpPort)
+//  IO(Http) ? Http(publicationService,
+//    interface = "::0",
+//    port = conf.publicationPort,
+//    settings = conf.publicationServerSettings)(publicationSslEngineProvider)
+
+// TODO: Configure SSL, serversettings.get?
+  Http().bindAndHandle(publicationService.publicationRoutes, interface = "::0", port = conf.publicationPort, settings = conf.publicationServerSettings.get)
+
+
+  Http().bindAndHandle(rrdpAndMonitoringRoutes, interface = "::0", port = conf.rrdpPort)
 
   def setupLogging() = {
     System.setProperty("LOG_FILE", conf.locationLogfile)
@@ -63,8 +74,11 @@ object Boot extends App {
       null
     } else {
       val trustStore = KeyStore.getInstance("JKS")
-      val tsPassword: Array[Char] = if (conf.publicationServerTrustStorePassword.isEmpty) null
-      else conf.publicationServerTrustStorePassword.toCharArray
+      val tsPassword: Array[Char] = if (conf.publicationServerTrustStorePassword.isEmpty) {
+        null
+      } else {
+        conf.publicationServerTrustStorePassword.toCharArray
+      }
       logger.info(s"Loading HTTPS certificate from ${conf.publicationServerTrustStoreLocation}")
       trustStore.load(new FileInputStream(conf.publicationServerTrustStoreLocation), tsPassword)
       val tmf = TrustManagerFactory.getInstance("SunX509")
@@ -77,14 +91,17 @@ object Boot extends App {
     if (conf.publicationServerKeyStoreLocation.isEmpty) {
       if (conf.getConfig.getBoolean("publication.spray.can.server.ssl-encryption")) {
         logger.error("publication.spray.can.server.ssl-encryption is ON, but publication.server.keystore.location " +
-            "is not defined. THIS WILL NOT WORK!")
+          "is not defined. THIS WILL NOT WORK!")
       } else {
         logger.info("publication.server.keystore.location is not set, skipping keystore init")
       }
       null
     } else {
-      val ksPassword = if (conf.publicationServerKeyStorePassword.isEmpty) null
-      else conf.publicationServerKeyStorePassword.toCharArray
+      val ksPassword = if (conf.publicationServerKeyStorePassword.isEmpty) {
+        null
+      } else {
+        conf.publicationServerKeyStorePassword.toCharArray
+      }
       val keyStore = KeyStore.getInstance("JKS")
       logger.info(s"Loading HTTPS certificate from ${conf.publicationServerKeyStoreLocation}")
       keyStore.load(new FileInputStream(conf.publicationServerKeyStoreLocation), ksPassword)

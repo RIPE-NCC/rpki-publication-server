@@ -1,55 +1,52 @@
 package net.ripe.rpki.publicationserver
 
 import java.io.ByteArrayInputStream
-import javax.xml.stream.XMLStreamException
 
-import akka.actor._
+import akka.actor.{Actor, _}
+import akka.http.scaladsl.model.headers.`Content-Type`
+import akka.http.scaladsl.model.{ContentType, HttpEntity, HttpHeader, MediaType}
+import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.unmarshalling.Unmarshaller
+import akka.http.scaladsl.util.FastFuture
 import akka.pattern.ask
 import akka.util.Timeout
-import com.softwaremill.macwire.MacwireMacros._
+import com.softwaremill.macwire._
+import javax.xml.stream.XMLStreamException
 import net.ripe.rpki.publicationserver.messaging.Messages.RawMessage
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.parsing.PublicationMessageParser
 import org.slf4j.LoggerFactory
-import spray.http.HttpHeaders.`Content-Type`
-import spray.http._
-import spray.httpx.unmarshalling._
-import spray.routing._
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.io.{BufferedSource, Source}
 import scala.util.{Failure, Success}
 
-object PublicationServiceActor {
-  def props(conf: AppConfig) = Props(new PublicationServiceActor(conf))
-}
+class PublicationServiceActor(conf: AppConfig, stateActor: ActorRef)  {
 
-class PublicationServiceActor(conf: AppConfig) extends HttpServiceActor {
 
-  def receive = runRoute(publicationRoutes)
-
-  lazy val stateActor = context.system.actorOf(StateActor.props(conf))
-
-  override val supervisorStrategy = OneForOneStrategy(maxNrOfRetries = 1) {
-    case _: Exception =>
-      SupervisorStrategy.Escalate
-  }
+//  override val supervisorStrategy = OneForOneStrategy(maxNrOfRetries = 1) {
+//    case _: Exception =>
+//      SupervisorStrategy.Escalate
+//  }
 
   val MediaTypeString = "application/rpki-publication"
-  val RpkiPublicationType = MediaType.custom(MediaTypeString)
-  MediaTypes.register(RpkiPublicationType)
+  val RpkiPublicationType = MediaType.custom(MediaTypeString, true)
+
+  // TODO: Find how to do this on akka-http
+  //  MediaTypes.register(RpkiPublicationType)
 
   val serviceLogger = LoggerFactory.getLogger("PublicationService")
 
   val msgParser = wire[PublicationMessageParser]
 
-  implicit val BufferedSourceUnmarshaller =
-    Unmarshaller[BufferedSource](spray.http.ContentTypeRange.*) {
-      case HttpEntity.NonEmpty(contentType, data) =>
-        Source.fromInputStream(new ByteArrayInputStream(data.toByteArray), contentType.charset.nioCharset.toString)
-      case HttpEntity.Empty => Source.fromInputStream(new ByteArrayInputStream(Array[Byte]()))
-    }
+  // TODO:
+  //  - Verify HttpEntity.Strict vs HttpEntity.NonEmpty
+  implicit val BufferedSourceUnmarshaller: Unmarshaller[HttpEntity, BufferedSource] =
+    Unmarshaller.withMaterializer(_ => implicit mat => {
+      case HttpEntity.Strict(_, data) => FastFuture.successful(Source.fromInputStream(new ByteArrayInputStream(data.toArray)))
+      case HttpEntity.Empty => FastFuture.successful(Source.fromInputStream(new ByteArrayInputStream(Array[Byte]())))
+    })
 
   import ExecutionContext.Implicits._
 
@@ -62,7 +59,7 @@ class PublicationServiceActor(conf: AppConfig) extends HttpServiceActor {
             if (ct.isEmpty) {
               serviceLogger.warn("Request does not specify content-type")
             }
-            respondWithMediaType(RpkiPublicationType) {
+            //respondWithMediaType(RpkiPublicationType) {
               entity(as[BufferedSource]) { xmlMessage =>
                 onComplete {
                   Future(msgParser.parse(xmlMessage)).flatMap(
@@ -78,7 +75,7 @@ class PublicationServiceActor(conf: AppConfig) extends HttpServiceActor {
                     complete(500, error.getMessage)
                 }
               }
-            }
+            //}
           }
         }
       }
