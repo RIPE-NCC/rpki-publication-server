@@ -4,14 +4,14 @@ import java.io.File
 import java.nio.file.{Files, Path}
 import java.util.UUID
 
+import akka.http.scaladsl.model.headers.RawHeader
+import akka.http.scaladsl.model.{HttpMethods, HttpRequest}
 import akka.testkit.TestKit.awaitCond
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store.XodusDB
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfter, FunSuite, Matchers}
-import spray.http.HttpHeaders.RawHeader
-import spray.http._
-import spray.testkit.ScalatestRouteTest
+import akka.http.scaladsl.testkit.ScalatestRouteTest
 
 import scala.concurrent.duration._
 import scala.io.Source

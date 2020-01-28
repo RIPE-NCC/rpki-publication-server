@@ -51,9 +51,7 @@ class MassiveDeltaRemovalTest extends PublicationServerBaseTest with Hashing wit
     })
   })
 
-  def publicationService = TestActorRef(new PublicationServiceActor(conf) {
-    override lazy val stateActor = theStateActor
-  }).underlyingActor
+  def publicationService = new PublicationServiceActor(conf, theStateActor)
 
   private def sessionDir = findSessionDir(rootDir).toString
 
