@@ -6,9 +6,9 @@ import java.util.Map.Entry
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
+import akka.http.scaladsl.settings.ServerSettings
 import com.typesafe.config.{ConfigFactory, ConfigObject, ConfigValue}
 import net.ripe.rpki.publicationserver.model.{Delta, ServerState}
-import spray.can.server.ServerSettings
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration

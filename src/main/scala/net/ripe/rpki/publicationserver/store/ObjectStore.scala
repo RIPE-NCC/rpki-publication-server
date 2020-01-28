@@ -3,10 +3,9 @@ package net.ripe.rpki.publicationserver.store
 import java.io.ByteArrayInputStream
 import java.net.URI
 
-import com.softwaremill.macwire.MacwireMacros._
+import com.softwaremill.macwire._
 import jetbrains.exodus.entitystore.{Entity, StoreTransaction, StoreTransactionalComputable, StoreTransactionalExecutable}
 import net.ripe.rpki.publicationserver.Binaries.Bytes
-import jetbrains.exodus.entitystore.{Entity, EntityIterable, StoreTransaction, StoreTransactionalComputable, StoreTransactionalExecutable}
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.model.ClientId
 
