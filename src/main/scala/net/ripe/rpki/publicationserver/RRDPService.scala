@@ -2,42 +2,34 @@ package net.ripe.rpki.publicationserver
 
 import java.nio.file.{Files, Paths}
 
-import akka.actor.{Actor, Props}
-import com.softwaremill.macwire.MacwireMacros.wire
-import spray.http.HttpHeaders.`Cache-Control`
-import spray.http.MediaTypes._
-import spray.http._
-import spray.routing.HttpService
-
-object RRDPServiceActor {
-  def props() = Props(new RRDPServiceActor())
-}
+import akka.http.scaladsl.model.HttpResponse
+import akka.http.scaladsl.model.headers.{CacheDirectives, `Cache-Control`}
+import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.server.Route
+import com.softwaremill.macwire._
 
 
-class RRDPServiceActor() extends Actor with RRDPService {
-  def actorRefFactory = context
-  def receive = runRoute(rrdpRoutes ~ monitoringRoutes)
-}
 
-
-trait RRDPService extends HttpService with RepositoryPath {
-  val immutableContentValiditySeconds: Long = 24*60*60 // ~one day
+trait RRDPService extends RepositoryPath {
+  val immutableContentValiditySeconds: Long = 24 * 60 * 60 // ~one day
 
   val healthChecks = wire[HealthChecks]
 
-  val rrdpRoutes =
+  val rrdpAndMonitoringRoutes = rrdpRoutes ~ monitoringRoutes
+
+  val rrdpRoutes: Route =
     path("notification.xml") {
       respondWithHeader(`Cache-Control`(CacheDirectives.`max-age`(60), CacheDirectives.`no-transform`)) {
-        respondWithMediaType(`application/xhtml+xml`) {
-          complete {
-            try {
-              HttpResponse(200, Files.readAllBytes(Paths.get(s"$repositoryPath/notification.xml")))
-            } catch {
-              case e: Throwable =>
-                HttpResponse(404, e.getMessage)
-            }
+
+        complete {
+          try {
+            HttpResponse(200, Nil, Files.readAllBytes(Paths.get(s"$repositoryPath/notification.xml")))
+          } catch {
+            case e: Throwable =>
+              HttpResponse(404, Nil, e.getMessage)
           }
         }
+
       }
     } ~
       path(JavaUUID / IntNumber / "snapshot.xml") { (sessionId, serial) =>
@@ -61,9 +53,7 @@ trait RRDPService extends HttpService with RepositoryPath {
   }
 
   private def serve(filename: => String) = get {
-    respondWithMediaType(`application/xhtml+xml`) {
-      getFromFile(filename)
-    }
+    getFromFile(filename)
   }
 
 }
