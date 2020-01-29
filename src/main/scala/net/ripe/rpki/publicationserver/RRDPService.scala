@@ -13,9 +13,7 @@ import com.softwaremill.macwire._
 trait RRDPService extends RepositoryPath {
   val immutableContentValiditySeconds: Long = 24 * 60 * 60 // ~one day
 
-  val healthChecks = wire[HealthChecks]
-
-  val rrdpAndMonitoringRoutes = rrdpRoutes ~ monitoringRoutes
+  val healthChecks: HealthChecks = wire[HealthChecks]
 
   val rrdpRoutes: Route =
     path("notification.xml") {
@@ -39,12 +37,15 @@ trait RRDPService extends RepositoryPath {
         serveImmutableContent(s"$repositoryPath/$sessionId/$serial/delta.xml")
       }
 
-  val monitoringRoutes =
+  val monitoringRoutes: Route =
     path("monitoring" / "healthcheck") {
       get {
         complete(healthChecks.healthString)
       }
     }
+
+  val rrdpAndMonitoringRoutes: Route = rrdpRoutes ~ monitoringRoutes
+
 
   private def serveImmutableContent(filename: => String) = {
     respondWithHeader(`Cache-Control`(CacheDirectives.`max-age`(immutableContentValiditySeconds), CacheDirectives.`no-transform`)) {
