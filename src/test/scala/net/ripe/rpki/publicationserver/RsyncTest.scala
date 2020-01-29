@@ -23,7 +23,7 @@ class RsyncTest extends PublicationServerBaseTest with ScalatestRouteTest with H
   }
 
   def theStateActor = TestActorRef(new StateActor(conf))
-  def publicationService = new PublicationServiceActor(conf, theStateActor)
+  def publicationService = new PublicationService(conf, theStateActor)
 
 
   before {

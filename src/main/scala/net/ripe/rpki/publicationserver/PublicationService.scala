@@ -22,7 +22,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.io.{BufferedSource, Source}
 import scala.util.{Failure, Success}
 
-class PublicationServiceActor(conf: AppConfig, stateActor: ActorRef)  {
+class PublicationService(conf: AppConfig, stateActor: ActorRef)  {
 
 
 //  override val supervisorStrategy = OneForOneStrategy(maxNrOfRetries = 1) {

@@ -18,7 +18,7 @@ class PublicationServerStressTest extends PublicationServerBaseTest with Scalate
   val conf = new AppConfig
   def theStateActor = TestActorRef(new StateActor(conf))
 
-  lazy val publicationService = new PublicationServiceActor(conf, theStateActor)
+  lazy val publicationService = new PublicationService(conf, theStateActor)
 
   val objectStore = ObjectStore.get
 

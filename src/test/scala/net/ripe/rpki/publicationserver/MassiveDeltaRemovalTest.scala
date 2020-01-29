@@ -52,7 +52,7 @@ class MassiveDeltaRemovalTest extends PublicationServerBaseTest with Hashing wit
     })
   })
 
-  def publicationService = new PublicationServiceActor(conf, theStateActor)
+  def publicationService = new PublicationService(conf, theStateActor)
 
   private def sessionDir = findSessionDir(rootDir).toString
 

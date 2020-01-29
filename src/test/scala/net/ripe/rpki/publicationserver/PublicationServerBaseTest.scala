@@ -88,7 +88,7 @@ abstract class PublicationServerBaseTest extends FunSuite with BeforeAndAfter wi
     }
   }
 
-  def updateStateWithCallback[T](service: PublicationServiceActor, pdus: Seq[QueryPdu], clientId: ClientId)(callback: => T) = {
+  def updateStateWithCallback[T](service: PublicationService, pdus: Seq[QueryPdu], clientId: ClientId)(callback: => T) = {
     POST(s"/?clientId=${clientId.value}", xmlSeq(pdus).mkString) ~> service.publicationRoutes ~> check {
       status.value should be("200 OK")
       callback

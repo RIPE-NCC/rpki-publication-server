@@ -3,7 +3,7 @@ package net.ripe.rpki.publicationserver
 import java.io.FileInputStream
 import java.security.KeyStore
 
-import akka.actor.{ActorRef, ActorSystem}
+import akka.actor.{ActorRef, ActorSystem, OneForOneStrategy, SupervisorStrategy}
 import akka.http.scaladsl.Http
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
@@ -36,7 +36,7 @@ object Boot extends App with RRDPService {
 
   val stateActor: ActorRef = system.actorOf(StateActor.props(conf))
 
-  val publicationService = new PublicationServiceActor(conf, stateActor)
+  val publicationService = new PublicationService(conf, stateActor)
 
   implicit val sslContext: SSLContext = {
     val sslContext = SSLContext.getInstance("TLS")
