@@ -2,13 +2,11 @@ package net.ripe.rpki.publicationserver
 
 import java.security.MessageDigest
 
-import com.google.common.io.BaseEncoding
+import net.ripe.rpki.publicationserver.Binaries.{Base64, Bytes}
 
 case class Hash(hash: String)
 
 trait Hashing {
-
-  private val base64 = BaseEncoding.base64()
 
   def stringify(bytes: Array[Byte]): String = Option(bytes).map(bytesToHex).getOrElse("")
 
@@ -34,9 +32,6 @@ trait Hashing {
     Hash(stringify(sha256.digest(bytes)))
   }
 
-  def hash(b64: Base64): Hash = {
-    val Base64(b64String) = b64
-    val bytes = base64.decode(b64String)
-    hash(bytes)
-  }
+  def hash(b64: Base64): Hash = hash(Bytes.fromBase64(b64))
+  def hash(bytes: Bytes): Hash = hash(bytes.value)
 }

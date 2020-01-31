@@ -1,11 +1,11 @@
 package net.ripe.rpki.publicationserver.store.fs
 
-import java.io.{ByteArrayInputStream, InputStream}
+import java.io.ByteArrayInputStream
 import java.net.URI
 import java.nio.file.attribute.PosixFilePermissions
 import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 
-import net.ripe.rpki.publicationserver
+import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.store.ObjectStore
 import org.apache.commons.io.FileUtils
@@ -39,8 +39,8 @@ class RsyncRepositoryWriter(conf: AppConfig) extends Logging {
 
   def updateRepo(message: QueryMessage): Unit = {
     message.pdus.foreach {
-      case PublishQ(uri, _, _, base64) =>
-        writeFile(uri, base64)
+      case PublishQ(uri, _, _, bytes) =>
+        writeFile(uri, bytes)
       case WithdrawQ(uri, _, _) =>
         removeFile(uri)
       case unknown =>
@@ -48,16 +48,16 @@ class RsyncRepositoryWriter(conf: AppConfig) extends Logging {
     }
   }
 
-  private def groupByBaseDir(state: ObjectStore.State): Map[Path, Seq[(publicationserver.Base64, RsyncFsLocation)]] = {
-    state.toSeq.view.map {
-      case (uri, (base64, _, _)) => (base64, resolvePath(uri))
+  private def groupByBaseDir(state: ObjectStore.State): Map[Path, Seq[(Bytes, RsyncFsLocation)]] = {
+    state.toSeq.map {
+      case (uri, (bytes, _, _)) => (bytes, resolvePath(uri))
     }.groupBy(_._2.base)
   }
 
-  private def writeObjectUnderDir(base64: Base64, baseDir: Path, relative: Path): Unit = {
+  private def writeObjectUnderDir(bytes: Bytes, baseDir: Path, relative: Path): Unit = {
     val file: Path = baseDir.resolve(relative)
     createParentDirectories(file)
-    writeBase64ToFile(base64, file)
+    writeToFile(bytes, file)
   }
 
   private def promoteStagingToOnline(tempRepoDir: Path): Unit = {
@@ -77,13 +77,13 @@ class RsyncRepositoryWriter(conf: AppConfig) extends Logging {
     }
   }
 
-  private def writeFile(uri: URI, base64: Base64): Unit = {
+  private def writeFile(uri: URI, bytes: Bytes): Unit = {
     val fsLocation = resolvePath(uri)
 
     val stagingDir: Path = stagingDirFor(fsLocation.base)
     Files.createDirectories(stagingDir)
     val tempFile: Path = Files.createTempFile(stagingDir, fsLocation.relative.getFileName.toString, ".tmp")
-    writeBase64ToFile(base64, tempFile)
+    writeToFile(bytes, tempFile)
 
     val targetFile: Path = onlineFileFor(fsLocation)
     createParentDirectories(targetFile)
@@ -97,12 +97,8 @@ class RsyncRepositoryWriter(conf: AppConfig) extends Logging {
     else logger.warn(s"File to delete ($target) does not exist")
   }
 
-  private def decodedStreamFor(base64: Base64): InputStream = {
-    java.util.Base64.getDecoder.wrap(new ByteArrayInputStream(base64.value.getBytes("UTF-8")))
-  }
-
-  private def writeBase64ToFile(base64: Base64, tempFile: Path): Unit = {
-    Files.copy(decodedStreamFor(base64), tempFile, StandardCopyOption.REPLACE_EXISTING)
+  private def writeToFile(bytes: Bytes, tempFile: Path): Unit = {
+    Files.copy(new ByteArrayInputStream(bytes.value), tempFile, StandardCopyOption.REPLACE_EXISTING)
     Files.setPosixFilePermissions(tempFile, filePermissions)
   }
 

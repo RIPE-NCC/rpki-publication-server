@@ -3,6 +3,7 @@ package net.ripe.rpki.publicationserver
 import java.net.URI
 
 import akka.actor.{Actor, Props, Status}
+import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver.messaging.Accumulator
 import net.ripe.rpki.publicationserver.messaging.Messages.{InitRepo, RawMessage, ValidatedMessage}
 import net.ripe.rpki.publicationserver.model.ClientId
@@ -74,10 +75,10 @@ class StateActor(conf: AppConfig) extends Actor with Hashing with Logging {
 
   private def applyPdu(state: State, pdu: QueryPdu, clientId: ClientId): Either[ReportError, State] = {
     pdu match {
-      case PublishQ(uri, tag, None, base64) =>
-        applyCreate(state, clientId, uri, base64)
-      case PublishQ(uri, tag, Some(strHash), base64) =>
-        applyReplace(state, clientId, uri, strHash, base64)
+      case PublishQ(uri, tag, None, bytes) =>
+        applyCreate(state, clientId, uri, bytes)
+      case PublishQ(uri, tag, Some(strHash), bytes) =>
+        applyReplace(state, clientId, uri, strHash, bytes)
       case WithdrawQ(uri, tag, strHash) =>
         applyDelete(state, uri, strHash)
     }
@@ -98,13 +99,16 @@ class StateActor(conf: AppConfig) extends Actor with Hashing with Logging {
     }
   }
 
-  private def applyReplace(state: State, clientId: ClientId, uri: URI, hashToReplace: String, base64: Base64): Either[ReportError, State] = {
+  private def applyReplace(state: State, clientId: ClientId, uri: URI, hashToReplace: String, bytes: Bytes): Either[ReportError, State] = {
     state.get(uri) match {
       case Some((_, Hash(foundHash), _)) =>
+        if (foundHash.toUpperCase == hashToReplace.toUpperCase)
+          Right(state + (uri -> (bytes, hash(bytes), clientId)))
+        else
         if (foundHash.toUpperCase == hashToReplace.toUpperCase) {
-          val newHash = hash(base64)
+          val newHash = hash(bytes)
           logger.debug(s"Replacing $uri with hash $foundHash -> $newHash")
-          Right(state + (uri -> (base64, newHash, clientId)))
+          Right(state + (uri -> (bytes, newHash, clientId)))
         } else
           Left(ReportError(BaseError.NonMatchingHash,
             Some(s"Cannot republish the object [$uri], hash doesn't match, passed ${hashToReplace.toUpperCase}, but existing one is ${foundHash.toUpperCase}.")))
@@ -113,13 +117,14 @@ class StateActor(conf: AppConfig) extends Actor with Hashing with Logging {
     }
   }
 
-  def applyCreate(state: State, clientId: ClientId, uri: URI, base64: Base64): Either[ReportError, State] = {
+  def applyCreate(state: State, clientId: ClientId, uri: URI, bytes: Bytes): Either[ReportError, State] = {
     if (state.contains(uri)) {
       Left(ReportError(BaseError.HashForInsert, Some(s"Tried to insert existing object [$uri].")))
     } else {
-      val newHash = hash(base64)
+      Right(state + (uri -> (bytes, hash(bytes), clientId)))
+      val newHash = hash(bytes)
       logger.debug(s"Adding $uri with hash $newHash")
-      Right(state + (uri -> (base64, newHash, clientId)))
+      Right(state + (uri -> (bytes, newHash, clientId)))
     }
   }
 

@@ -5,6 +5,7 @@ import java.net.URI
 import java.nio.file.FileSystems
 
 import akka.testkit.TestActorRef
+import net.ripe.rpki.publicationserver.Binaries.{Base64, Bytes}
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store.ObjectStore
 import org.apache.commons.io.FileUtils
@@ -28,11 +29,16 @@ class RsyncTest extends PublicationServerBaseTest with ScalatestRouteTest with H
 
 
   before {
+    initStore()
     ObjectStore.get.clear()
     val tmpDir = new File(rsyncDir)
     if (tmpDir.exists()) {
       FileUtils.deleteDirectory(tmpDir)
     }
+  }
+
+  after {
+    cleanStore()
   }
 
   test("should publish the contents in the publication request to the correct rsync folder") {
@@ -49,12 +55,12 @@ class RsyncTest extends PublicationServerBaseTest with ScalatestRouteTest with H
 
   test("should delete the object when getting withdraw request") {
     val service  = publicationService
-    val base64 = Base64("DEADBEEF")
-    updateStateWithCallback(service, Seq(PublishQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), None, None, base64)), ClientId(clientId)) {
+    val bytes = Bytes.fromBase64(Base64("DEADBEEF"))
+    updateStateWithCallback(service, Seq(PublishQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), None, None, bytes)), ClientId(clientId)) {
       checkFileExists(FileSystems.getDefault.getPath(s"$rsyncDir/online/Alice/blCrcCp9ltyPDNzYKPfxc.cer"))
     }
 
-    updateStateWithCallback(service, Seq(WithdrawQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), tag = Some("123"), hash(base64).hash)), ClientId(clientId)) {
+    updateStateWithCallback(service, Seq(WithdrawQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), tag = Some("123"), hash(bytes).hash)), ClientId(clientId)) {
       checkFileAbsent(FileSystems.getDefault.getPath(s"$rsyncDir/online/Alice/blCrcCp9ltyPDNzYKPfxc.cer"))
     }
   }

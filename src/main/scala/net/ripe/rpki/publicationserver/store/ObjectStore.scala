@@ -1,8 +1,11 @@
 package net.ripe.rpki.publicationserver.store
 
+import java.io.ByteArrayInputStream
 import java.net.URI
 
 import com.softwaremill.macwire.MacwireMacros._
+import jetbrains.exodus.entitystore.{Entity, StoreTransaction, StoreTransactionalComputable, StoreTransactionalExecutable}
+import net.ripe.rpki.publicationserver.Binaries.Bytes
 import jetbrains.exodus.entitystore.{Entity, EntityIterable, StoreTransaction, StoreTransactionalComputable, StoreTransactionalExecutable}
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.model.ClientId
@@ -17,7 +20,12 @@ class ObjectStore extends Hashing with Logging {
 
   private val OBJECT_ENTITY_NAME = "object"
 
-  type RRDPObject = (Base64, Hash, URI, ClientId)
+  private val BYTES_FIELD_NAME = "bytes"
+  private val HASH_FIELD_NAME = "hash"
+  private val URI_FIELD_NAME = "uri"
+  private val CLIENT_ID_FIELD_NAME = "clientId"
+
+  type RRDPObject = (Bytes, Hash, URI, ClientId)
 
   private def inTx(f: StoreTransaction => Unit): Unit = {
     entityStore.executeInTransaction(new StoreTransactionalExecutable() {
@@ -34,22 +42,22 @@ class ObjectStore extends Hashing with Logging {
   private type StoredTuple = (String, String, String, String)
 
   private def insert(txn: StoreTransaction, obj: RRDPObject): Unit = {
-    val (base64, hash, uri, clientId) = obj
+    val (bytes, hash, uri, clientId) = obj
     val e = txn.newEntity("object")
-    fillEntity(base64, hash, uri, clientId, e)
+    fillEntity(bytes, hash, uri, clientId, e)
   }
 
-  private def fillEntity(base64: Base64, hash: Hash, uri: URI, clientId: ClientId, e: Entity) = {
-    e.setProperty("base64", base64.value)
-    e.setProperty("hash", hash.hash)
-    e.setProperty("uri", uri.toString)
-    e.setProperty("clientId", clientId.value)
+  private def fillEntity(bytes: Bytes, hash: Hash, uri: URI, clientId: ClientId, e: Entity) = {
+    e.setBlob(BYTES_FIELD_NAME, new ByteArrayInputStream(bytes.value))
+    e.setProperty(HASH_FIELD_NAME, hash.hash)
+    e.setProperty(URI_FIELD_NAME, uri.toString)
+    e.setProperty(CLIENT_ID_FIELD_NAME, clientId.value)
   }
 
   private def update(txn: StoreTransaction, obj: RRDPObject): Unit = {
-    val (base64, hash, uri, clientId) = obj
+    val (bytes, hash, uri, clientId) = obj
     txn.find(OBJECT_ENTITY_NAME, "uri", uri.toString).
-      foreach(e => fillEntity(base64, hash, uri, clientId, e))
+      foreach(e => fillEntity(bytes, hash, uri, clientId, e))
   }
 
   private def delete(txn: StoreTransaction, hash: Hash): Unit = {
@@ -62,37 +70,35 @@ class ObjectStore extends Hashing with Logging {
   }
 
   def getState: ObjectStore.State = withReadTx { txn =>
-    val iterable: EntityIterable = txn.getAll(OBJECT_ENTITY_NAME)
-    iterable.map { e =>
-      val base64 = Base64(e.getProperty("base64").toString)
-      val hash = Hash(e.getProperty("hash").toString)
-      val uri = URI.create(e.getProperty("uri").toString)
-      val clientId = ClientId(e.getProperty("clientId").toString)
-      uri -> (base64, hash, clientId)
+    txn.getAll(OBJECT_ENTITY_NAME).map { e =>
+      val bytes = Bytes.fromStream(e.getBlob(BYTES_FIELD_NAME))
+      val hash = Hash(e.getProperty(HASH_FIELD_NAME).toString)
+      val uri = URI.create(e.getProperty(URI_FIELD_NAME).toString)
+      val clientId = ClientId(e.getProperty(CLIENT_ID_FIELD_NAME).toString)
+      uri -> (bytes, hash, clientId)
     }.toMap
   }
 
   def applyChanges(changeSet: QueryMessage, clientId: ClientId): Unit =
-      inTx { txn =>
-        changeSet.pdus.foreach {
-          case WithdrawQ(uri, _, hash) =>
-            delete(txn, Hash(hash))
-          case PublishQ(uri, _, None, base64) =>
-            val h = hash(base64)
-            insert(txn, (base64, h, uri, clientId))
-          case PublishQ(uri, _, Some(oldHash), base64) =>
-            val h = hash(base64)
-            update(txn, (base64, h, uri, clientId))
-            logger.debug(s"Replacing $uri with hash $oldHash -> $h")
-        }
+    inTx { txn =>
+      changeSet.pdus.foreach {
+        case WithdrawQ(uri, _, hash) =>
+          delete(txn, Hash(hash))
+        case PublishQ(uri, _, None, bytes) =>
+          val h = hash(bytes)
+          insert(txn, (bytes, h, uri, clientId))
+        case PublishQ(uri, _, Some(oldHash), bytes) =>
+          val h = hash(bytes)
+          update(txn, (bytes, h, uri, clientId))
+          logger.debug(s"Replacing $uri with hash $oldHash -> $h")
       }
+    }
 
-  // TODO Implement
-  def check(): Unit = ()
+  def check() = ()
 }
 
 object ObjectStore {
-  type State = Map[URI, (Base64, Hash, ClientId)]
+  type State = Map[URI, (Bytes, Hash, ClientId)]
 
   // it's stateless, so we can return new instance every time
   def get = new ObjectStore

@@ -7,13 +7,14 @@ import java.util.{Date, UUID}
 
 import akka.actor.ActorRef
 import akka.testkit.TestActorRef
+import net.ripe.rpki.publicationserver.Binaries.{Base64, Bytes}
 import net.ripe.rpki.publicationserver.messaging.{Accumulator, RrdpFlusher}
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store._
 import net.ripe.rpki.publicationserver.store.fs._
 import org.mockito.Matchers._
 import org.mockito.Mockito._
-import org.scalatest.{Ignore, BeforeAndAfterAll}
+import org.scalatest.{BeforeAndAfterAll, Ignore}
 import org.scalatest.mock.MockitoSugar
 
 import scala.concurrent.duration._
@@ -69,7 +70,7 @@ class MassiveDeltaRemovalTest extends PublicationServerBaseTest with Hashing wit
 
   test("should create snapshots after removing deltas") {
 
-    val data = Base64("AAAAAA==")
+    val data = Bytes.fromBase64(Base64("AAAAAA=="))
     val uri = "rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"
 
     val service = publicationService

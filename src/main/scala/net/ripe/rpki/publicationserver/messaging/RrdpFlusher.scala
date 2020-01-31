@@ -72,8 +72,8 @@ class RrdpFlusher(conf: AppConfig) extends Actor with Logging {
   def initFS(state: ObjectStore.State) = {
     val serverState = ServerState(sessionId, serial)
     val snapshotPdus = state.map { e =>
-      val (uri, (base64, _, _)) = e
-      (base64, uri)
+      val (uri, (bytes, _, _)) = e
+      (bytes, uri)
     }.toSeq
 
     val snapshot = Snapshot(serverState, snapshotPdus)
@@ -94,7 +94,7 @@ class RrdpFlusher(conf: AppConfig) extends Actor with Logging {
     deltasTotalSize += delta.binarySize
 
     val serverState = ServerState(sessionId, serial)
-    val snapshotPdus = state.map { case (uri, (base64, _, _)) => (base64, uri) }.toSeq
+    val snapshotPdus = state.map { case (uri, (bytes, _, _)) => (bytes, uri) }.toSeq
 
     val snapshot = Snapshot(serverState, snapshotPdus)
     val deltasToDeleteFromFS = deleteExtraDeltas(snapshot.binarySize)
@@ -115,10 +115,7 @@ class RrdpFlusher(conf: AppConfig) extends Actor with Logging {
       case Failure(e) =>
         logger.error("Could not update RRDP files: ", e)
     }
-
   }
-
-  private def waitFor[T](f: Future[T]) = Await.result(f, 10.minutes)
 
   def afterRetainPeriod = new Date(System.currentTimeMillis() + conf.unpublishedFileRetainPeriod.toMillis)
 

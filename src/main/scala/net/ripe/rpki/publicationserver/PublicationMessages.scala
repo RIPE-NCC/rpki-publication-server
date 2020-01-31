@@ -2,6 +2,9 @@ package net.ripe.rpki.publicationserver
 
 import java.net.URI
 
+import com.google.common.xml.XmlEscapers
+import net.ripe.rpki.publicationserver.Binaries.Bytes
+
 object BaseError extends Enumeration {
   type Code = Value
   val NoMsgElement = Value
@@ -12,6 +15,7 @@ object BaseError extends Enumeration {
   val NoObjectForWithdraw = Value
   val NonMatchingHash = Value
   val CouldNotPersist = Value
+  val InvalidBase64 = Value
 }
 
 case class BaseError(code: BaseError.Code, message: String)
@@ -23,10 +27,12 @@ case class QueryMessage(pdus: Seq[QueryPdu]) extends Message
 
 case class ListMessage() extends Message
 
+case class ErrorMessage(baseError: BaseError) extends Message
+
 
 sealed trait QueryPdu
 
-case class PublishQ(uri: URI, tag: Option[String], hash: Option[String], base64: Base64) extends QueryPdu
+case class PublishQ(uri: URI, tag: Option[String], hash: Option[String], bytes: Bytes) extends QueryPdu
 
 case class WithdrawQ(uri: URI, tag: Option[String], hash: String) extends QueryPdu
 
@@ -48,7 +54,7 @@ object MsgType extends Enumeration {
   val reply = Value("reply")
 }
 
-abstract class Msg {
+abstract class Msg extends Formatting {
   def serialize: String
 
   protected def reply(pdus: => String): String =
@@ -60,7 +66,7 @@ abstract class Msg {
 case class ErrorMsg(error: BaseError) extends Msg {
   def serialize: String = reply {
     s"""<report_error error_code="${error.code}">
-      ${error.message}
+      ${content(error.message)}
     </report_error>"""
   }
 }
@@ -71,15 +77,15 @@ case class ReplyMsg(pdus: Seq[ReplyPdu]) extends Msg {
     val sb = new StringBuilder
     pdus.foreach { pdu =>
       val textual = pdu match {
-        case PublishR(uri, Some(tag)) => s"""<publish tag="$tag" uri="$uri"/>"""
-        case PublishR(uri, None) => s"""<publish uri="$uri"/>"""
-        case WithdrawR(uri, Some(tag)) => s"""<withdraw tag="$tag" uri="$uri"/>"""
-        case WithdrawR(uri, None) => s"""<withdraw uri="$uri"/>"""
-        case ListR(uri, hash, Some(tag)) => s"""<list tag="$tag" uri="$uri" hash="$hash"/>"""
-        case ListR(uri, hash, None) => s"""<list uri="$uri" hash="$hash"/>"""
+        case PublishR(uri, Some(tag)) => s"""<publish tag="${attr(tag)}" uri="${attr(uri.toASCIIString)}"/>"""
+        case PublishR(uri, None) => s"""<publish uri="${attr(uri.toASCIIString)}"/>"""
+        case WithdrawR(uri, Some(tag)) => s"""<withdraw tag="${attr(tag)}" uri="${attr(uri.toASCIIString)}"/>"""
+        case WithdrawR(uri, None) => s"""<withdraw uri="${attr(uri.toASCIIString)}"/>"""
+        case ListR(uri, hash, Some(tag)) => s"""<list tag="${attr(tag)}" uri="${attr(uri.toASCIIString)}" hash="$hash"/>"""
+        case ListR(uri, hash, None) => s"""<list uri="${attr(uri.toASCIIString)}" hash="$hash"/>"""
         case ReportError(code, message) =>
           s"""<report_error error_code="$code">
-          ${message.getOrElse("Unspecified error")}
+          ${message.map(content).getOrElse("Unspecified error")}
         </report_error>"""
       }
       sb.append(textual).append("\n")

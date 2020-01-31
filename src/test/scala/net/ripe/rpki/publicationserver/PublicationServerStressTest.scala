@@ -4,6 +4,7 @@ import java.io.File
 import java.util.UUID
 
 import akka.testkit.TestActorRef
+import net.ripe.rpki.publicationserver.Binaries.Base64
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store.ObjectStore
 import org.apache.commons.io.FileUtils

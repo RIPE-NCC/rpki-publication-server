@@ -4,6 +4,7 @@ import java.io.File
 import java.nio.file.{Files, Paths}
 
 import akka.testkit.TestActorRef
+import net.ripe.rpki.publicationserver.Binaries.{Base64, Bytes}
 import net.ripe.rpki.publicationserver.store._
 import net.ripe.rpki.publicationserver.store.fs._
 import org.scalatest.BeforeAndAfterAll

@@ -3,9 +3,10 @@ package net.ripe.rpki.publicationserver.model
 import java.io.ByteArrayOutputStream
 import java.net.URI
 
-import net.ripe.rpki.publicationserver.{Base64, Hashing}
+import net.ripe.rpki.publicationserver.Binaries.Bytes
+import net.ripe.rpki.publicationserver.{Formatting, Hashing}
 
-case class Snapshot(serverState: ServerState, pdus: Seq[(Base64, URI)]) extends Hashing {
+case class Snapshot(serverState: ServerState, pdus: Seq[(Bytes, URI)]) extends Hashing with Formatting {
 
   lazy val bytes = serialize
   lazy val contentHash = hash(bytes)
@@ -16,9 +17,9 @@ case class Snapshot(serverState: ServerState, pdus: Seq[(Base64, URI)]) extends 
     val stream = new ByteArrayOutputStream()
     Dump.streamChars(s"""<snapshot version="1" session_id="$sessionId" serial="$serial" xmlns="http://www.ripe.net/rpki/rrdp">\n""", stream)
     pdus.foreach { pdu =>
-      val (base64, uri) = pdu
-      Dump.streamChars(s"""<publish uri="$uri">""", stream)
-      Dump.streamChars(base64.value, stream)
+      val (bytes, uri) = pdu
+      Dump.streamChars(s"""<publish uri="${attr(uri.toASCIIString)}">""", stream)
+      Dump.streamChars(Bytes.toBase64(bytes).value, stream)
       Dump.streamChars("</publish>\n", stream)
     }
     Dump.streamChars("</snapshot>", stream)

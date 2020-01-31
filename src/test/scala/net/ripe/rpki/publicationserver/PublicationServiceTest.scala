@@ -3,6 +3,7 @@ package net.ripe.rpki.publicationserver
 import java.net.URI
 
 import akka.testkit.TestActorRef
+import net.ripe.rpki.publicationserver.Binaries.{Base64, Bytes}
 import net.ripe.rpki.publicationserver.store.ObjectStore
 import net.ripe.rpki.publicationserver.store.fs.RsyncRepositoryWriter
 
@@ -53,11 +54,12 @@ class PublicationServiceTest extends PublicationServerBaseTest with Hashing {
   test("should return an ok response for a valid withdraw request") {
     val service = publicationService
 
-    val base64 = Base64("DEADBEEF")
-    val pdus = Seq(PublishQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), None, None, base64))
+    val bytes = Bytes.fromBase64(Base64("DEADBEEF"))
+    val certUrl = "rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"
+    val pdus = Seq(PublishQ(new URI(certUrl), None, None, bytes))
     updateState(service, pdus)
 
-    val withdrawXml = xml(WithdrawQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), tag = None, hash(base64).hash))
+    val withdrawXml = xml(WithdrawQ(new URI(certUrl), tag = None, hash(bytes).hash))
     val withdrawXmlResponse = getFile("/withdrawResponse.xml")
 
     POST("/?clientId=1234", withdrawXml.mkString) ~> service.publicationRoutes ~> check {
@@ -69,11 +71,11 @@ class PublicationServiceTest extends PublicationServerBaseTest with Hashing {
   test("should return an ok response for a valid withdraw request (hash casing problem)") {
     val service = publicationService
 
-    val base64 = Base64("DEADBEEF")
-    val pdus = Seq(PublishQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), None, None, base64))
+    val bytes = Bytes.fromBase64(Base64("DEADBEEF"))
+    val pdus = Seq(PublishQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), None, None, bytes))
     updateState(service, pdus)
 
-    val withdrawXml = xml(WithdrawQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), tag = None, hash(base64).hash.toLowerCase))
+    val withdrawXml = xml(WithdrawQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), tag = None, hash(bytes).hash.toLowerCase))
     val withdrawXmlResponse = getFile("/withdrawResponse.xml")
 
     POST("/?clientId=1234", withdrawXml.mkString) ~> service.publicationRoutes ~> check {
@@ -86,11 +88,11 @@ class PublicationServiceTest extends PublicationServerBaseTest with Hashing {
     val service = publicationService
 
     val uri = new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer")
-    val base64 = Base64("DEADBEEF")
-    val pdus = Seq(PublishQ(uri, None, None, base64))
+    val bytes = Bytes.fromBase64(Base64("DEADBEEF"))
+    val pdus = Seq(PublishQ(uri, None, None, bytes))
     updateState(service, pdus)
 
-    val publishWithHashXml = xml(PublishQ(uri, None, Some(hash(base64).hash), base64))
+    val publishWithHashXml = xml(PublishQ(uri, None, Some(hash(bytes).hash), bytes))
     val publishWithHashXmlResponse = getFile("/publishWithHashXmlResponse.xml")
 
     POST("/?clientId=1234", publishWithHashXml.mkString) ~> service.publicationRoutes ~> check {
@@ -103,11 +105,11 @@ class PublicationServiceTest extends PublicationServerBaseTest with Hashing {
     val service = publicationService
 
     val uri = new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer")
-    val base64 = Base64("DEADBEEF")
-    val pdus = Seq(PublishQ(uri, None, None, base64))
+    val bytes = Bytes.fromBase64(Base64("DEADBEEF"))
+    val pdus = Seq(PublishQ(uri, None, None, bytes))
     updateState(service, pdus)
 
-    val publishWithHashXml = xml(PublishQ(uri, None, Some(hash(base64).hash.toLowerCase), base64))
+    val publishWithHashXml = xml(PublishQ(uri, None, Some(hash(bytes).hash.toLowerCase), bytes))
     val publishWithHashXmlResponse = getFile("/publishWithHashXmlResponse.xml")
 
     POST("/?clientId=1234", publishWithHashXml.mkString) ~> service.publicationRoutes ~> check {
@@ -119,11 +121,11 @@ class PublicationServiceTest extends PublicationServerBaseTest with Hashing {
   test("should return the tag in the response if it was present in the withdraw request") {
     val service = publicationService
 
-    val base64 = Base64("DEADBEEF")
-    val pdus = Seq(PublishQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), None, None, base64))
+    val bytes = Bytes.fromBase64(Base64("DEADBEEF"))
+    val pdus = Seq(PublishQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), None, None, bytes))
     updateState(service, pdus)
 
-    val withdrawXml = xml(WithdrawQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), tag = Some("123"), hash(base64).hash))
+    val withdrawXml = xml(WithdrawQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), tag = Some("123"), hash(bytes).hash))
     val withdrawXmlResponse = getFile("/withdrawWithTagResponse.xml")
 
     POST("/?clientId=1234", withdrawXml.mkString) ~> publicationService.publicationRoutes ~> check {
