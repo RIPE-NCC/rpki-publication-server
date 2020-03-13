@@ -42,7 +42,7 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
 
   val theStateActor = TestActorRef(new StateActor(conf))
   def publicationService = TestActorRef(new PublicationServiceActor(conf) {
-    override lazy val stateActor = theStateActor
+    override val stateActor = theStateActor
   }).underlyingActor
 
   before {

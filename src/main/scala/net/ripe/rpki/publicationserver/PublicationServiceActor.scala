@@ -29,7 +29,9 @@ class PublicationServiceActor(conf: AppConfig) extends HttpServiceActor {
 
   def receive = runRoute(publicationRoutes)
 
-  lazy val stateActor = context.system.actorOf(StateActor.props(conf))
+  val stateActor = context.system.actorOf(StateActor.props(conf))
+
+  val serviceLogger = LoggerFactory.getLogger("PublicationService")
 
   override val supervisorStrategy = OneForOneStrategy(maxNrOfRetries = 1) {
     case _: Exception =>
@@ -39,8 +41,6 @@ class PublicationServiceActor(conf: AppConfig) extends HttpServiceActor {
   val MediaTypeString = "application/rpki-publication"
   val RpkiPublicationType = MediaType.custom(MediaTypeString)
   MediaTypes.register(RpkiPublicationType)
-
-  val serviceLogger = LoggerFactory.getLogger("PublicationService")
 
   val msgParser = wire[PublicationMessageParser]
 
