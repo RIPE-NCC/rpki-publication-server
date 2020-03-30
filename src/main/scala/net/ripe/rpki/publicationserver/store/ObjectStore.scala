@@ -69,7 +69,7 @@ class ObjectStore extends Hashing with Logging {
     txn.getAll(OBJECT_ENTITY_NAME).foreach(e => e.delete())
   }
 
-  private def getBytes(e: Entity) = {
+  private def getBytes(e: Entity, uri: URI) = {
     // This is to preserve back-compatibility with the base64-storing version.
     // We do not store base64 (see fillEntity method), but for older objects
     // it can be set, so we can use it instead of bytes.
@@ -82,6 +82,7 @@ class ObjectStore extends Hashing with Logging {
         Bytes.fromBase64(Base64(base64.toString))
       } else {
         // This is just to prevent an NPE and it doesn't make a lot of sense
+        logger.error(s"Object ${uri} has neither \"bytes\" nor \"base64\" field.")
         Bytes(Array())
       }
     }
@@ -92,7 +93,7 @@ class ObjectStore extends Hashing with Logging {
       val hash = Hash(e.getProperty(HASH_FIELD_NAME).toString)
       val uri = URI.create(e.getProperty(URI_FIELD_NAME).toString)
       val clientId = ClientId(e.getProperty(CLIENT_ID_FIELD_NAME).toString)
-      uri -> (getBytes(e), hash, clientId)
+      uri -> (getBytes(e, uri), hash, clientId)
     }.toMap
   }
 
