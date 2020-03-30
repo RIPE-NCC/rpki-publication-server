@@ -5,8 +5,7 @@ import java.net.URI
 
 import com.softwaremill.macwire.MacwireMacros._
 import jetbrains.exodus.entitystore.{Entity, StoreTransaction, StoreTransactionalComputable, StoreTransactionalExecutable}
-import net.ripe.rpki.publicationserver.Binaries.Bytes
-import jetbrains.exodus.entitystore.{Entity, EntityIterable, StoreTransaction, StoreTransactionalComputable, StoreTransactionalExecutable}
+import net.ripe.rpki.publicationserver.Binaries.{Base64, Bytes}
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.model.ClientId
 
@@ -21,6 +20,7 @@ class ObjectStore extends Hashing with Logging {
   private val OBJECT_ENTITY_NAME = "object"
 
   private val BYTES_FIELD_NAME = "bytes"
+  private val BASE64_FIELD_NAME = "base64"
   private val HASH_FIELD_NAME = "hash"
   private val URI_FIELD_NAME = "uri"
   private val CLIENT_ID_FIELD_NAME = "clientId"
@@ -69,13 +69,31 @@ class ObjectStore extends Hashing with Logging {
     txn.getAll(OBJECT_ENTITY_NAME).foreach(e => e.delete())
   }
 
+  private def getBytes(e: Entity, uri: URI) = {
+    // This is to preserve back-compatibility with the base64-storing version.
+    // We do not store base64 (see fillEntity method), but for older objects
+    // it can be set, so we can use it instead of bytes.
+    val bytes = e.getBlob(BYTES_FIELD_NAME)
+    if (bytes != null) {
+      Bytes.fromStream(bytes)
+    } else {
+      val base64 = e.getProperty(BASE64_FIELD_NAME)
+      if (base64 != null) {
+        Bytes.fromBase64(Base64(base64.toString))
+      } else {
+        // This is just to prevent an NPE and it doesn't make a lot of sense
+        logger.error(s"Object ${uri} has neither \"bytes\" nor \"base64\" field.")
+        Bytes(Array())
+      }
+    }
+  }
+
   def getState: ObjectStore.State = withReadTx { txn =>
     txn.getAll(OBJECT_ENTITY_NAME).map { e =>
-      val bytes = Bytes.fromStream(e.getBlob(BYTES_FIELD_NAME))
       val hash = Hash(e.getProperty(HASH_FIELD_NAME).toString)
       val uri = URI.create(e.getProperty(URI_FIELD_NAME).toString)
       val clientId = ClientId(e.getProperty(CLIENT_ID_FIELD_NAME).toString)
-      uri -> (bytes, hash, clientId)
+      uri -> (getBytes(e, uri), hash, clientId)
     }.toMap
   }
 
