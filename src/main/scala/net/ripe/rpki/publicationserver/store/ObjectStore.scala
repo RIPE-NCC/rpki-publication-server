@@ -82,7 +82,7 @@ class ObjectStore extends Hashing with Logging {
         Bytes.fromBase64(Base64(base64.toString))
       } else {
         // This is just to prevent an NPE and it doesn't make a lot of sense
-        logger.error(s"Object ${uri} has neither \"bytes\" nor \"base64\" field.")
+        logger.error(s"Object ${uri} has neither 'bytes' nor 'base64' field.")
         Bytes(Array())
       }
     }
