@@ -35,7 +35,6 @@ class StateActor(conf: AppConfig) extends Actor with Hashing with Logging {
     accActor ! InitRepo(state)
   }
 
-
   override def receive: Receive = {
     case RawMessage(queryMessage@QueryMessage(_), clientId) =>
       processQueryMessage(queryMessage, clientId)

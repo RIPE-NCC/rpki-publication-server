@@ -48,11 +48,14 @@ class MassiveDeltaRemovalTest extends PublicationServerBaseTest with Hashing wit
   val theRrdpFlusher = TestActorRef(new RrdpFlusher(conf))
   val theStateActor = TestActorRef(new StateActor(conf) {
     override val accActor = TestActorRef(new Accumulator(conf) {
-      override lazy val rrdpFlusher = theRrdpFlusher
+      override val rrdpFlusher = theRrdpFlusher
     })
   })
 
-  def publicationService = new PublicationService(conf, theStateActor)
+  //  def publicationService = new PublicationService(conf, theStateActor)
+  def publicationService = TestActorRef(new PublicationServiceActor(conf) {
+    override val stateActor = theStateActor
+  }).underlyingActor
 
   private def sessionDir = findSessionDir(rootDir).toString
 

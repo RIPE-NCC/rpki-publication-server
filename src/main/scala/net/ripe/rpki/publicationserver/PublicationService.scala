@@ -25,18 +25,18 @@ import scala.util.{Failure, Success}
 class PublicationService(conf: AppConfig, stateActor: ActorRef)  {
 
 
-//  override val supervisorStrategy = OneForOneStrategy(maxNrOfRetries = 1) {
-//    case _: Exception =>
-//      SupervisorStrategy.Escalate
-//  }
+  lazy val stateActor = context.system.actorOf(StateActor.props(conf))
+
+  override val supervisorStrategy = OneForOneStrategy(maxNrOfRetries = 1) {
+    case _: Exception =>
+      SupervisorStrategy.Escalate
+  }
 
   val MediaTypeString = "application/rpki-publication"
   val RpkiPublicationType = MediaType.custom(MediaTypeString, true)
 
   // TODO: Find how to do this on akka-http
   //  MediaTypes.register(RpkiPublicationType)
-
-  val serviceLogger = LoggerFactory.getLogger("PublicationService")
 
   val msgParser = wire[PublicationMessageParser]
 
