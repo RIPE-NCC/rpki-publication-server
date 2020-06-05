@@ -40,13 +40,8 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
 
   implicit val customTimeout = RouteTestTimeout(6000.seconds)
 
-  //  lazy val theStateActor = TestActorRef(new StateActor(conf))
-  //  lazy val publicationService = new PublicationService(conf, theStateActor)
-
-  val theStateActor = TestActorRef(new StateActor(conf))
-  def publicationService = TestActorRef(new PublicationServiceActor(conf) {
-    override val stateActor = theStateActor
-  }).underlyingActor
+   lazy val theStateActor = TestActorRef(new StateActor(conf))
+   def publicationService = new PublicationService(conf, theStateActor)
 
   before {
     initStore()

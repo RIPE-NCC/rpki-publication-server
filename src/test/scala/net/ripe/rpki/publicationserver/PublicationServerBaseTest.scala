@@ -41,7 +41,7 @@ abstract class PublicationServerBaseTest extends FunSuite with BeforeAndAfter wi
   def POST(uriString: String, content: String) = HttpRequest(
     method = HttpMethods.POST,
     uri = uriString,
-    headers = List(RawHeader("Content-type", "application/rpki-publication")),
+    headers = List(RawHeader("Content-Type", "application/rpki-publication")),
     entity = content)
 
   def xmlSeq(pdus: Seq[QueryPdu]): Elem = xml(pdus: _*)

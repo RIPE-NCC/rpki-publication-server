@@ -10,7 +10,7 @@ name := "rpki-publication-server"
 
 version := "1.1-SNAPSHOT"
 
-scalaVersion := "2.12.7"
+scalaVersion := "2.12.11"
 
 scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8")
 
@@ -41,13 +41,14 @@ resolvers += "Codehaus Maven2 Repository" at "http://repository.codehaus.org/"
 resolvers += "JCenter" at "http://jcenter.bintray.com/"
 
 libraryDependencies ++= {
-  val akkaV = "2.4.17"
-  val akkaHttp =  "10.1.11"
+//  val akkaV = "2.4.20"
+  val akkaV = "2.6.5"
+  val akkaHttp = "10.1.12"
   Seq(
     "com.typesafe.akka"        %% "akka-http"           % akkaHttp,
     "com.typesafe.akka"        %% "akka-http-core"      % akkaHttp,
-    "com.typesafe.akka"        %% "akka-stream-testkit" % "2.5.26",
-    "com.typesafe.akka"         %% "akka-http-testkit" % akkaHttp,
+    "com.typesafe.akka"        %% "akka-stream-testkit" % akkaV,
+    "com.typesafe.akka"        %% "akka-http-testkit"  % akkaHttp,
     "com.typesafe.akka"        %% "akka-actor"         % akkaV,
     "com.typesafe.akka"        %% "akka-testkit"       % akkaV     % "test",
     "com.typesafe.akka"        %% "akka-slf4j"         % akkaV,

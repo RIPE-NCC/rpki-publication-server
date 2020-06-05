@@ -10,6 +10,7 @@ import akka.util.Timeout
 import com.softwaremill.macwire._
 import com.softwaremill.macwire.akkasupport._
 import com.typesafe.sslconfig.akka.AkkaSSLConfig
+import akka.http.scaladsl.{ ConnectionContext, HttpsConnectionContext, Http }
 import javax.net.ssl._
 import net.ripe.logging.SysStreamsLogger
 import net.ripe.rpki.publicationserver.store.XodusDB
@@ -28,37 +29,26 @@ object Boot extends App with RRDPService {
   logger.info("Starting up the publication server ...")
 
   implicit val system = ActorSystem("0")
-  implicit val materializer: ActorMaterializer = ActorMaterializer()(system)
-  val sslConfig = AkkaSSLConfig()
+  implicit val materializer = ActorMaterializer()
+  implicit val dispatcher = system.dispatcher
 
   implicit val timeout = Timeout(5.seconds)
-
 
   val stateActor: ActorRef = system.actorOf(StateActor.props(conf))
 
   val publicationService = new PublicationService(conf, stateActor)
 
-  implicit val sslContext: SSLContext = {
+  val sslContext: SSLContext = {
     val sslContext = SSLContext.getInstance("TLS")
     sslContext.init(getKeyManagers, getTrustManagers, null)
     sslContext
   }
 
-// TODO: Figure out how to do this
-
-//  val publicationSslEngineProvider = ServerSSLEngineProvider { sslEngine =>
-//    sslEngine.setWantClientAuth(conf.publicationServerTrustStoreLocation.nonEmpty)
-//    sslEngine
-//  }
-
-//  IO(Http) ? Http(publicationService,
-//    interface = "::0",
-//    port = conf.publicationPort,
-//    settings = conf.publicationServerSettings)(publicationSslEngineProvider)
-
-// TODO: Configure SSL, serversettings.get?
-  Http().bindAndHandle(publicationService.publicationRoutes, interface = "::0", port = conf.publicationPort, settings = conf.publicationServerSettings.get)
-
+  val https: HttpsConnectionContext = ConnectionContext.https(sslContext)
+  Http().setDefaultServerHttpContext(https)
+  
+  Http().bindAndHandle(publicationService.publicationRoutes, interface = "::0", 
+    port = conf.publicationPort, settings = conf.publicationServerSettings.get)
 
   Http().bindAndHandle(rrdpAndMonitoringRoutes, interface = "::0", port = conf.rrdpPort)
 
