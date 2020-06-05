@@ -29,11 +29,6 @@ class PublicationService(conf: AppConfig, stateActor: ActorRef) extends Logging 
   }
 
   val MediaTypeString = "application/rpki-publication"
-//  val RpkiPublicationType = MediaType.custom(MediaTypeString, true)
-
-  // TODO: Find how to do this on akka-http
-  //  MediaTypes.register(RpkiPublicationType)
-
   val `rpki-publication` = MediaType.customWithFixedCharset("application", "rpki-publication", HttpCharsets.`UTF-8`)
 
   val msgParser = wire[PublicationMessageParser]
@@ -82,13 +77,6 @@ class PublicationService(conf: AppConfig, stateActor: ActorRef) extends Logging 
     }
 
   private def processRequest[T](clientId: ClientId, parsedMessage: Either[BaseError, T]): Future[Msg] = {
-    def logErrors(errors: Seq[ReplyPdu]): Unit = {
-      logger.warn(s"Request contained ${errors.size} PDU(s) with errors:")
-      errors.foreach { e =>
-        logger.info(e.asInstanceOf[ReportError].message.getOrElse(s"Error code: ${e.asInstanceOf[ReportError].code.toString}"))
-      }
-    }
-
     val response = parsedMessage match {
       case Right(request) =>
         processRequest(request, clientId)
