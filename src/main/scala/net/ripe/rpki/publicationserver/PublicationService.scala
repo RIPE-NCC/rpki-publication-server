@@ -21,16 +21,18 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.io.{BufferedSource, Source}
 import scala.util.{Failure, Success}
 
+object PublicationService {
+    val MediaTypeString = "application/rpki-publication"
+    val `rpki-publication` = MediaType.customWithFixedCharset("application", "rpki-publication", HttpCharsets.`UTF-8`)
+} 
+
 class PublicationService(conf: AppConfig, stateActor: ActorRef) extends Logging {
 
   val supervisorStrategy = OneForOneStrategy(maxNrOfRetries = 1) {
     case _: Exception =>
       SupervisorStrategy.Escalate
   }
-
-  val MediaTypeString = "application/rpki-publication"
-  val `rpki-publication` = MediaType.customWithFixedCharset("application", "rpki-publication", HttpCharsets.`UTF-8`)
-
+  
   val msgParser = wire[PublicationMessageParser]
 
   // TODO:
@@ -52,15 +54,15 @@ class PublicationService(conf: AppConfig, stateActor: ActorRef) extends Logging 
           optionalHeaderValue(checkContentType) { ct =>
             logger.debug("Post request received")
             if (ct.isEmpty) {
-              logger.warn("Request does not specify content-type")
+              logger.warn("Request does not specify Content-Type")
             }
-            entity(as[BufferedSource]) { xmlMessage =>
+            entity(as[BufferedSource]) { xmlMessage =>                
               onComplete {
                   processRequest(ClientId(clientId), msgParser.parse(xmlMessage))
               } {
                 case Success(result) =>
                   val response = result.serialize
-                  complete(HttpResponse(entity = HttpEntity(`rpki-publication`, response)))
+                  complete(HttpResponse(entity = HttpEntity(PublicationService.`rpki-publication`, response)))
 
                 case Failure(error: XMLStreamException) =>
                   logger.error(s"Error parsing POST request with clientId=$clientId", error)
@@ -101,7 +103,7 @@ class PublicationService(conf: AppConfig, stateActor: ActorRef) extends Logging 
 
   private def checkContentType(header: HttpHeader): Option[ContentType] = header match {
     case `Content-Type`(ct) =>
-      if (MediaTypeString != ct.mediaType.toString()) {
+      if (PublicationService.MediaTypeString != ct.mediaType.toString()) {
         logger.warn("Request uses wrong media type: {}", ct.mediaType.toString())
       }
       Some(ct)

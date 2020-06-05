@@ -11,3 +11,5 @@ target
 .metals
 snapshots
 store
+project/metals.sbt
+.scalafmt.conf

@@ -10,67 +10,88 @@ import akka.util.Timeout
 import com.softwaremill.macwire._
 import com.softwaremill.macwire.akkasupport._
 import com.typesafe.sslconfig.akka.AkkaSSLConfig
-import akka.http.scaladsl.{ ConnectionContext, HttpsConnectionContext, Http }
+import akka.http.scaladsl.{ConnectionContext, HttpsConnectionContext, Http}
 import javax.net.ssl._
 import net.ripe.logging.SysStreamsLogger
 import net.ripe.rpki.publicationserver.store.XodusDB
-import org.slf4j.LoggerFactory
+import org.slf4j.{LoggerFactory, Logger}
 import akka.pattern.ask
 
 import scala.concurrent.duration._
 
-object Boot extends App with RRDPService {
-
+object Boot extends App {
   lazy val conf = wire[AppConfig]
-  val logger = setupLogging()
+  lazy val logger = setupLogging(conf)
+  new PublicationServerApp(conf, logger).run()
 
-  XodusDB.init()
-
-  logger.info("Starting up the publication server ...")
-
-  implicit val system = ActorSystem("0")
-  implicit val materializer = ActorMaterializer()
-  implicit val dispatcher = system.dispatcher
-
-  implicit val timeout = Timeout(5.seconds)
-
-  val stateActor: ActorRef = system.actorOf(StateActor.props(conf))
-
-  val publicationService = new PublicationService(conf, stateActor)
-
-  val sslContext: SSLContext = {
-    val sslContext = SSLContext.getInstance("TLS")
-    sslContext.init(getKeyManagers, getTrustManagers, null)
-    sslContext
-  }
-
-  val https: HttpsConnectionContext = ConnectionContext.https(sslContext)
-  Http().setDefaultServerHttpContext(https)
-  
-  Http().bindAndHandle(publicationService.publicationRoutes, interface = "::0", 
-    port = conf.publicationPort, settings = conf.publicationServerSettings.get)
-
-  Http().bindAndHandle(rrdpAndMonitoringRoutes, interface = "::0", port = conf.rrdpPort)
-
-  def setupLogging() = {
+  def setupLogging(conf: AppConfig) = {
     System.setProperty("LOG_FILE", conf.locationLogfile)
     SysStreamsLogger.bindSystemStreams()
     LoggerFactory.getLogger(this.getClass)
   }
+}
 
-  def getTrustManagers: Array[TrustManager] = {
+class PublicationServerApp(conf: AppConfig, logger: Logger) extends RRDPService {
+    
+  def run() {
+    XodusDB.init()
+
+    logger.info("Starting up the publication server ...")
+
+    implicit val system = ActorSystem("0")
+    implicit val materializer = ActorMaterializer()
+    implicit val dispatcher = system.dispatcher
+
+    implicit val timeout = Timeout(5.seconds)
+
+    val stateActor: ActorRef = system.actorOf(StateActor.props(conf))
+
+    val publicationService = new PublicationService(conf, stateActor)
+
+    val sslContext: SSLContext = {
+      val sslContext = SSLContext.getInstance("TLS")
+      sslContext.init(getKeyManagers, getTrustManagers(conf), null)
+      sslContext
+    }
+
+    val https: HttpsConnectionContext = ConnectionContext.https(sslContext)
+    Http().setDefaultServerHttpContext(https)
+
+    Http().bindAndHandle(
+      publicationService.publicationRoutes,
+      interface = "::0",
+      port = conf.publicationPort,
+      settings = conf.publicationServerSettings.get
+    )
+
+    Http().bindAndHandle(
+      rrdpAndMonitoringRoutes,
+      interface = "::0",
+      port = conf.rrdpPort
+    )
+  }
+
+  def getTrustManagers(conf: AppConfig): Array[TrustManager] = {
     if (conf.publicationServerTrustStoreLocation.isEmpty) {
-      logger.info("publication.server.truststore.location is not set, skipping truststore init")
+      logger.info(
+        "publication.server.truststore.location is not set, skipping truststore init"
+      )
       null
     } else {
       val trustStore = KeyStore.getInstance("JKS")
-      val tsPassword: Array[Char] = if (conf.publicationServerTrustStorePassword.isEmpty) {
-        null
-      } else {
-        conf.publicationServerTrustStorePassword.toCharArray
-      }
-      logger.info(s"Loading HTTPS certificate from ${conf.publicationServerTrustStoreLocation}")
-      trustStore.load(new FileInputStream(conf.publicationServerTrustStoreLocation), tsPassword)
+      val tsPassword: Array[Char] =
+        if (conf.publicationServerTrustStorePassword.isEmpty) {
+          null
+        } else {
+          conf.publicationServerTrustStorePassword.toCharArray
+        }
+      logger.info(
+        s"Loading HTTPS certificate from ${conf.publicationServerTrustStoreLocation}"
+      )
+      trustStore.load(
+        new FileInputStream(conf.publicationServerTrustStoreLocation),
+        tsPassword
+      )
       val tmf = TrustManagerFactory.getInstance("SunX509")
       tmf.init(trustStore)
       tmf.getTrustManagers
@@ -79,11 +100,17 @@ object Boot extends App with RRDPService {
 
   def getKeyManagers: Array[KeyManager] = {
     if (conf.publicationServerKeyStoreLocation.isEmpty) {
-      if (conf.getConfig.getBoolean("publication.spray.can.server.ssl-encryption")) {
-        logger.error("publication.spray.can.server.ssl-encryption is ON, but publication.server.keystore.location " +
-          "is not defined. THIS WILL NOT WORK!")
+      if (conf.getConfig.getBoolean(
+            "publication.spray.can.server.ssl-encryption"
+          )) {
+        logger.error(
+          "publication.spray.can.server.ssl-encryption is ON, but publication.server.keystore.location " +
+            "is not defined. THIS WILL NOT WORK!"
+        )
       } else {
-        logger.info("publication.server.keystore.location is not set, skipping keystore init")
+        logger.info(
+          "publication.server.keystore.location is not set, skipping keystore init"
+        )
       }
       null
     } else {
@@ -93,8 +120,13 @@ object Boot extends App with RRDPService {
         conf.publicationServerKeyStorePassword.toCharArray
       }
       val keyStore = KeyStore.getInstance("JKS")
-      logger.info(s"Loading HTTPS certificate from ${conf.publicationServerKeyStoreLocation}")
-      keyStore.load(new FileInputStream(conf.publicationServerKeyStoreLocation), ksPassword)
+      logger.info(
+        s"Loading HTTPS certificate from ${conf.publicationServerKeyStoreLocation}"
+      )
+      keyStore.load(
+        new FileInputStream(conf.publicationServerKeyStoreLocation),
+        ksPassword
+      )
       val kmf = KeyManagerFactory.getInstance("SunX509")
       kmf.init(keyStore, ksPassword)
       kmf.getKeyManagers
