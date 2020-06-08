@@ -46,15 +46,8 @@ class PublicationServerApp(conf: AppConfig, logger: Logger) extends RRDPService 
 
     val stateActor: ActorRef = system.actorOf(StateActor.props(conf))
 
-    val publicationService = new PublicationService(conf, stateActor)
-
-    val sslContext: SSLContext = {
-      val sslContext = SSLContext.getInstance("TLS")
-      sslContext.init(getKeyManagers, getTrustManagers(conf), null)
-      sslContext
-    }
-
-    val https: HttpsConnectionContext = ConnectionContext.https(sslContext)
+    val publicationService = new PublicationService(conf, stateActor)        
+    val https: HttpsConnectionContext = ConnectionContext.https(sslContext())
     Http().setDefaultServerHttpContext(https)
 
     Http().bindAndHandle(
@@ -71,7 +64,13 @@ class PublicationServerApp(conf: AppConfig, logger: Logger) extends RRDPService 
     )
   }
 
-  def getTrustManagers(conf: AppConfig): Array[TrustManager] = {
+  private def sslContext(): SSLContext = {
+    val sslContext = SSLContext.getInstance("TLS")
+    sslContext.init(getKeyManagers, getTrustManagers(conf), null)
+    sslContext
+  }  
+
+  private def getTrustManagers(conf: AppConfig): Array[TrustManager] = {
     if (conf.publicationServerTrustStoreLocation.isEmpty) {
       logger.info(
         "publication.server.truststore.location is not set, skipping truststore init"
@@ -98,7 +97,7 @@ class PublicationServerApp(conf: AppConfig, logger: Logger) extends RRDPService 
     }
   }
 
-  def getKeyManagers: Array[KeyManager] = {
+  private def getKeyManagers: Array[KeyManager] = {
     if (conf.publicationServerKeyStoreLocation.isEmpty) {
       if (conf.getConfig.getBoolean(
             "publication.spray.can.server.ssl-encryption"
@@ -131,5 +130,5 @@ class PublicationServerApp(conf: AppConfig, logger: Logger) extends RRDPService 
       kmf.init(keyStore, ksPassword)
       kmf.getKeyManagers
     }
-  }
+  } 
 }
