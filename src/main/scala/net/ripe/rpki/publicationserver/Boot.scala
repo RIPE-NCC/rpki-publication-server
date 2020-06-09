@@ -34,7 +34,7 @@ object Boot extends App {
 class PublicationServerApp(conf: AppConfig, logger: Logger) extends RRDPService {
     
   def run() {
-    XodusDB.init()
+    XodusDB.init(conf.storePath)
 
     logger.info("Starting up the publication server ...")
 
