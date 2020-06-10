@@ -20,13 +20,18 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.io.{BufferedSource, Source}
 import scala.util.{Failure, Success}
+import akka.util.ByteString
 
 object PublicationService {
     val MediaTypeString = "application/rpki-publication"
     val `rpki-publication` = MediaType.customWithFixedCharset("application", "rpki-publication", HttpCharsets.`UTF-8`)
 } 
 
-class PublicationService(conf: AppConfig, stateActor: ActorRef) extends Logging {
+class PublicationService
+    (conf: AppConfig, stateActor: ActorRef)
+    (implicit val system: ActorSystem) extends Logging {
+
+  implicit val executionContext = system.dispatcher
 
   val supervisorStrategy = OneForOneStrategy(maxNrOfRetries = 1) {
     case _: Exception =>
@@ -35,13 +40,16 @@ class PublicationService(conf: AppConfig, stateActor: ActorRef) extends Logging 
   
   val msgParser = wire[PublicationMessageParser]
 
-  // TODO:
-  //  - Verify HttpEntity.Strict vs HttpEntity.NonEmpty
+  // TODO Support proper streaming
   implicit val BufferedSourceUnmarshaller: Unmarshaller[HttpEntity, BufferedSource] =
     Unmarshaller.withMaterializer { _ => 
         implicit mat => {
-            case HttpEntity.Strict(_, data) => FastFuture.successful(Source.fromInputStream(new ByteArrayInputStream(data.toArray)))
-            case HttpEntity.Empty           => FastFuture.successful(Source.fromInputStream(new ByteArrayInputStream(Array[Byte]())))
+            case HttpEntity.Strict(_, data) => 
+                FastFuture.successful(Source.fromInputStream(new ByteArrayInputStream(data.toArray)))
+            case entity                     => 
+                entity.dataBytes
+                    .runFold(ByteString.empty)(_ ++ _)
+                    .map(data => Source.fromInputStream(new ByteArrayInputStream(data.toArray)))
         }
     }
 
