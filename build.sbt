@@ -50,6 +50,7 @@ libraryDependencies ++= {
     "com.typesafe.akka"        %% "akka-stream-testkit" % akkaV,
     "com.typesafe.akka"        %% "akka-http-testkit"  % akkaHttp,
     "com.typesafe.akka"        %% "akka-actor"         % akkaV,
+    "com.typesafe.akka"        %% "akka-http-spray-json" % akkaHttp,
     "com.typesafe.akka"        %% "akka-testkit"       % akkaV     % "test",
     "com.typesafe.akka"        %% "akka-slf4j"         % akkaV,
     "org.scalatest"            %% "scalatest"          % "3.0.4"   % "test",
@@ -61,11 +62,11 @@ libraryDependencies ++= {
     "com.softwaremill.macwire" %% "macrosakka"            % "2.3.3" % "provided",
     "com.softwaremill.macwire" %% "util"            % "2.3.3" % "provided",
     "com.softwaremill.macwire" %% "proxy"            % "2.3.3" % "provided",
-    "io.spray"                 %% "spray-json"         % "1.3.5",
     "com.google.guava"         %  "guava"              % "18.0",
     "com.google.code.findbugs" %  "jsr305"             % "3.0.2",
     "org.jetbrains.xodus"      % "xodus-entity-store" % "1.0.5",
-    "org.apache.commons"        % "commons-io"         % "1.3.2",
+    "org.apache.commons"       % "commons-io"         % "1.3.2",
+    "io.micrometer"            % "micrometer-registry-prometheus" % "1.3.6",
     "org.scala-lang.modules"  %% "scala-xml" % "1.2.0"
   )
 }
