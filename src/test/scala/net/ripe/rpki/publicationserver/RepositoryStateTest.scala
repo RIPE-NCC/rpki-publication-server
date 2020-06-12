@@ -9,7 +9,7 @@ import net.ripe.rpki.publicationserver.store._
 import net.ripe.rpki.publicationserver.store.fs._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.mockito.MockitoSugar
-import spray.testkit.ScalatestRouteTest
+import akka.http.scaladsl.testkit.{RouteTestTimeout, ScalatestRouteTest}
 
 import scala.concurrent.duration._
 import scala.language.postfixOps
@@ -40,10 +40,8 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
 
   implicit val customTimeout = RouteTestTimeout(6000.seconds)
 
-  val theStateActor = TestActorRef(new StateActor(conf))
-  def publicationService = TestActorRef(new PublicationServiceActor(conf) {
-    override val stateActor = theStateActor
-  }).underlyingActor
+   lazy val theStateActor = TestActorRef(new StateActor(conf))
+   def publicationService = new PublicationService(conf, theStateActor)
 
   before {
     initStore()

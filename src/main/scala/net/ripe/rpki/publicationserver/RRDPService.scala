@@ -2,40 +2,40 @@ package net.ripe.rpki.publicationserver
 
 import java.nio.file.{Files, Paths}
 
-import akka.actor.{Actor, Props}
-import com.softwaremill.macwire.MacwireMacros.wire
-import spray.http.HttpHeaders.`Cache-Control`
-import spray.http.MediaTypes._
-import spray.http._
-import spray.routing.HttpService
-
-object RRDPServiceActor {
-  def props() = Props(new RRDPServiceActor())
-}
-
-
-class RRDPServiceActor() extends Actor with RRDPService {
-  def actorRefFactory = context
-  def receive = runRoute(rrdpRoutes ~ monitoringRoutes)
-}
+import akka.http.scaladsl.model.HttpResponse
+import akka.http.scaladsl.model.headers.{CacheDirectives, `Cache-Control`}
+import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.server.Route
+import com.softwaremill.macwire._
+import akka.http.scaladsl.model.HttpEntity
+import akka.http.scaladsl.model.MediaTypes
+import akka.http.scaladsl.model.ContentType
+import akka.http.scaladsl.model.HttpCharsets
+import akka.stream.scaladsl.Source
+import akka.http.scaladsl.server.directives.ContentTypeResolver
 
 
-trait RRDPService extends HttpService with RepositoryPath {
-  val immutableContentValiditySeconds: Long = 24*60*60 // ~one day
 
-  val healthChecks = wire[HealthChecks]
+trait RRDPService extends RepositoryPath {
+  val oneDayInSeconds: Long = 24 * 60 * 60
 
-  val rrdpRoutes =
+  val healthChecks: HealthChecks = wire[HealthChecks]
+
+  val rrdpContentType = ContentType(MediaTypes.`application/xhtml+xml`, HttpCharsets.`US-ASCII`)
+
+  val rrdpRoutes: Route =
     path("notification.xml") {
       respondWithHeader(`Cache-Control`(CacheDirectives.`max-age`(60), CacheDirectives.`no-transform`)) {
-        respondWithMediaType(`application/xhtml+xml`) {
-          complete {
-            try {
-              HttpResponse(200, Files.readAllBytes(Paths.get(s"$repositoryPath/notification.xml")))
-            } catch {
-              case e: Throwable =>
-                HttpResponse(404, e.getMessage)
-            }
+        complete {
+          try {              
+            HttpResponse(
+                status = 200, 
+                entity = HttpEntity(
+                    rrdpContentType,
+                    Files.readAllBytes(Paths.get(s"$repositoryPath/notification.xml"))))
+          } catch {
+            case e: Throwable =>
+              HttpResponse(404, Nil, e.getMessage)
           }
         }
       }
@@ -47,23 +47,25 @@ trait RRDPService extends HttpService with RepositoryPath {
         serveImmutableContent(s"$repositoryPath/$sessionId/$serial/delta.xml")
       }
 
-  val monitoringRoutes =
+  val monitoringRoutes: Route =
     path("monitoring" / "healthcheck") {
       get {
         complete(healthChecks.healthString)
       }
     }
 
-  private def serveImmutableContent(filename: => String) = {
-    respondWithHeader(`Cache-Control`(CacheDirectives.`max-age`(immutableContentValiditySeconds), CacheDirectives.`no-transform`)) {
-      serve(filename)
-    }
-  }
+  val rrdpAndMonitoringRoutes: Route = rrdpRoutes ~ monitoringRoutes
 
-  private def serve(filename: => String) = get {
-    respondWithMediaType(`application/xhtml+xml`) {
-      getFromFile(filename)
-    }
+
+  private def serveImmutableContent(filename: => String) = {
+    respondWithHeader(
+        `Cache-Control`(
+            CacheDirectives.`max-age`(oneDayInSeconds), 
+            CacheDirectives.`no-transform`)) {
+                get {
+                    getFromFile(filename)(ContentTypeResolver.withDefaultCharset(HttpCharsets.`US-ASCII`))
+                }    
+        }
   }
 
 }

@@ -4,6 +4,7 @@ import java.net.URI
 
 import akka.actor.{Actor, Props, Status}
 import net.ripe.rpki.publicationserver.Binaries.Bytes
+import akka.actor.{Actor, OneForOneStrategy, Props, Status, SupervisorStrategy}
 import net.ripe.rpki.publicationserver.messaging.Accumulator
 import net.ripe.rpki.publicationserver.messaging.Messages.{InitRepo, RawMessage, ValidatedMessage}
 import net.ripe.rpki.publicationserver.model.ClientId
@@ -22,6 +23,11 @@ class StateActor(conf: AppConfig) extends Actor with Hashing with Logging {
   var state: ObjectStore.State = _
 
   val accActor = context.actorOf(Accumulator.props(conf), "accumulator")
+
+  override val supervisorStrategy = OneForOneStrategy(maxNrOfRetries = 1) {
+    case _: Exception =>
+      SupervisorStrategy.Escalate
+  }
 
   @throws[Exception](classOf[Exception])
   override def preStart() = {

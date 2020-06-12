@@ -7,4 +7,9 @@ target
 .project
 .settings/
 .store
+.bloop
+.metals
 snapshots
+store
+project/metals.sbt
+.scalafmt.conf

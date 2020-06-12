@@ -6,12 +6,13 @@ import java.util.Map.Entry
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
+import akka.http.scaladsl.settings.ServerSettings
 import com.typesafe.config.{ConfigFactory, ConfigObject, ConfigValue}
 import net.ripe.rpki.publicationserver.model.{Delta, ServerState}
-import spray.can.server.ServerSettings
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
+import com.typesafe.config.Config
 
 /**
  * Helper class which can be wired into clients while making sure that the config file is loaded only once.
@@ -48,6 +49,7 @@ class AppConfig {
   lazy val publicationServerKeyStorePassword = getConfig.getString("publication.server.keystore.password")
   lazy val publicationServerTrustStoreLocation = getConfig.getString("publication.server.truststore.location")
   lazy val publicationServerTrustStorePassword = getConfig.getString("publication.server.truststore.password")
+  lazy val storePath = getConfig.getString("xodus.path")
 
   def snapshotUrl(serverState: ServerState) = {
     val ServerState(sessionId, serial) = serverState
@@ -60,5 +62,5 @@ class AppConfig {
 }
 
 object AppConfig {
-  lazy val config = ConfigFactory.load()
+  lazy val config : Config = ConfigFactory.load()
 }

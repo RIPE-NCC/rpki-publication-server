@@ -14,8 +14,10 @@ object Store {
 class PublicationServiceTest extends PublicationServerBaseTest with Hashing {
 
   val theRsyncWriter = mock[RsyncRepositoryWriter]
-
-  def publicationService = TestActorRef(new PublicationServiceActor(new AppConfig)).underlyingActor
+  val conf = new AppConfig
+  
+  def theStateActor = TestActorRef(new StateActor(conf))
+  def publicationService = new PublicationService(conf, theStateActor)
 
   val objectStore = Store.objectStore
 
@@ -26,7 +28,6 @@ class PublicationServiceTest extends PublicationServerBaseTest with Hashing {
 
   test("should return a response with content-type application/rpki-publication") {
     POST("/?clientId=1234", getFile("/publish.xml").mkString) ~> publicationService.publicationRoutes ~> check {
-      val response = responseAs[String]
       contentType.toString() should include("application/rpki-publication")
     }
   }
