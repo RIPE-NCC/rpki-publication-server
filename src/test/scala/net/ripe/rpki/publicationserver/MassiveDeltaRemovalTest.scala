@@ -45,8 +45,9 @@ class MassiveDeltaRemovalTest extends PublicationServerBaseTest with Hashing wit
 
   override val waitTime = timeToRunTheTest
 
+
   val theRrdpFlusher = TestActorRef(new RrdpFlusher(conf))
-  val theStateActor = TestActorRef(new StateActor(conf) {
+  val theStateActor = TestActorRef(new StateActor(conf, testMetrics) {
     override val accActor = TestActorRef(new Accumulator(conf) {
       override val rrdpFlusher = theRrdpFlusher
     })

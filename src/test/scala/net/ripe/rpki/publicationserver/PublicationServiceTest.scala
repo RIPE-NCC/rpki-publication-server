@@ -16,7 +16,7 @@ class PublicationServiceTest extends PublicationServerBaseTest with Hashing {
   val theRsyncWriter = mock[RsyncRepositoryWriter]
   val conf = new AppConfig
   
-  def theStateActor = TestActorRef(new StateActor(conf))
+  def theStateActor = TestActorRef(new StateActor(conf, testMetrics))
   def publicationService = new PublicationService(conf, theStateActor)
 
   val objectStore = Store.objectStore

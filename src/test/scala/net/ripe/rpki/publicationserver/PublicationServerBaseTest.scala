@@ -18,6 +18,8 @@ import scala.concurrent.duration._
 import scala.io.Source
 import scala.util.Try
 import scala.xml.Elem
+import net.ripe.rpki.publicationserver.metrics.Metrics
+import io.prometheus.client.CollectorRegistry
 
 abstract class PublicationServerBaseTest extends FunSuite with BeforeAndAfter with Matchers with MockitoSugar with TestLogSetup with ScalatestRouteTest {
 
@@ -28,6 +30,8 @@ abstract class PublicationServerBaseTest extends FunSuite with BeforeAndAfter wi
     tempXodusDir = Files.createTempDirectory("rpki-pub-server-test").toFile
     XodusDB.init(tempXodusDir.getAbsolutePath)
   }
+
+  lazy val testMetrics = new Metrics(CollectorRegistry.defaultRegistry)  
 
   def cleanStore() = {
     // TODO Make it less ugly

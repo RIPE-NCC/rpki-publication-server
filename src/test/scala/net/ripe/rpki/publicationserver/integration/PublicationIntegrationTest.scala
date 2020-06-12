@@ -62,6 +62,8 @@ class PublicationIntegrationTest
 
     val responseError = client.publish("client1", url, "babababa")        
     responseError.contains(s"""Tried to insert existing object [$url].""") should be(true)
+
+    client.getMetrics().contains("objects_published 1.0") should be(true)    
   }
 
   test("should publish an object and withdraw it") {
@@ -69,13 +71,17 @@ class PublicationIntegrationTest
     val base64 = "abababababab"
     val hashStr = hash(Base64(base64)).hash       
     val response = client.publish("client1", url, base64)    
-    response.contains(s"""<publish uri="${url}"/>""") should be(true)
-    
+    response.contains(s"""<publish uri="${url}"/>""") should be(true)    
+
+    client.getMetrics().contains("objects_published 2.0") should be(true)    
+
     client.list("client1")
         .contains(s"""<list uri="$url" hash="$hashStr"/>""") should be(true)            
      
     client.withdraw("client1", url, hashStr)
         .contains(s"""<withdraw uri="${url}"/>""") should be(true)
+
+    client.getMetrics().contains("objects_withdrawn 1.0") should be(true)    
 
     client.list("client1")
         .contains(s"""<list uri="$url" hash="$hashStr"/>""") should be(false)    
