@@ -17,6 +17,8 @@ import akka.util.ByteString
 import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets
 import scala.xml.NodeSeq
+import akka.http.scaladsl.Http
+import akka.http.scaladsl.HttpExt
 
 class PublicationServerClient() {
 
@@ -24,30 +26,38 @@ class PublicationServerClient() {
   implicit val materializer = ActorMaterializer()
   implicit val executionContext = system.dispatcher
 
-  private lazy val http = {
-    val httpImpl = Http()
-    val ssl = sslContext()
+  private val publicationPort = 7766
+  private val rrdpPort = 7788
+
+  private def https = {
+    val httpImpl = Http()    
     // TODO Find a not deprecatreds way to do it
     val sslConfig = AkkaSSLConfig().mapSettings(s =>
       s.withLoose(s.loose.withDisableHostnameVerification(true))
     )
-    val https = ConnectionContext.https(sslContext(), Some(sslConfig))
-    httpImpl.setDefaultClientHttpsContext(https)
+    val context = ConnectionContext.https(sslContext(), Some(sslConfig))
+    httpImpl.setDefaultClientHttpsContext(context)
     httpImpl
   }
 
-  def sendMsg(clientId: String)(message: NodeSeq): String = {
+  private def http = Http()
+
+  private def sendMsg(clientId: String)(message: NodeSeq): String = {
     val msg =
       <msg type="query" version="3" xmlns="http://www.hactrn.net/uris/rpki/publication-spec/">
-                {message}
-            </msg>
+        {message}
+      </msg> 
 
-    val request = HttpRequest(
-      method = HttpMethods.POST,
-      uri = s"https://localhost:7766?clientId=$clientId",
-      entity = HttpEntity(PublicationService.`rpki-publication`, msg.toString())
-    )
+    responseAsString(https) {
+        HttpRequest(
+            method = HttpMethods.POST,
+            uri = s"https://localhost:$publicationPort?clientId=$clientId",
+            entity = HttpEntity(PublicationService.`rpki-publication`, msg.toString())
+        )
+    }
+  }
 
+  private def responseAsString(http: HttpExt)(request: HttpRequest): String = {
     val f = http
       .singleRequest(request)
       .flatMap(_.entity.toStrict(10.seconds))
@@ -76,6 +86,12 @@ class PublicationServerClient() {
     sendMsg(clientId) {
       <list/>
     }
+
+  def getMetrics() : String = {          
+    responseAsString(http) {
+        HttpRequest(method = HttpMethods.GET, uri = s"http://localhost:$rrdpPort/metrics")
+    }
+  }
 
   // SSL configuration
   private val theSamePasswordEverywhere = "123456"

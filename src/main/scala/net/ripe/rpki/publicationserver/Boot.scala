@@ -46,15 +46,14 @@ class PublicationServerApp(conf: AppConfig, logger: Logger) extends RRDPService 
 
     val stateActor: ActorRef = system.actorOf(StateActor.props(conf))
 
-    val publicationService = new PublicationService(conf, stateActor)        
-    val https: HttpsConnectionContext = ConnectionContext.https(sslContext())
-    Http().setDefaultServerHttpContext(https)
+    val publicationService = new PublicationService(conf, stateActor)
 
     Http().bindAndHandle(
       publicationService.publicationRoutes,
       interface = "::0",
       port = conf.publicationPort,
-      settings = conf.publicationServerSettings.get
+      connectionContext = ConnectionContext.https(sslContext()),
+      settings = conf.publicationServerSettings.get      
     )
 
     Http().bindAndHandle(

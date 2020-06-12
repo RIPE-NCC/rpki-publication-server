@@ -36,38 +36,40 @@ dockerCommands := Seq(
 
 //dockerTag := "rpki-publication-server"
 
+
 resolvers += "Codehaus Maven2 Repository" at "http://repository.codehaus.org/"
 
-resolvers += "JCenter" at "http://jcenter.bintray.com/"
+resolvers += "JCenter" at "https://jcenter.bintray.com/"
 
 libraryDependencies ++= {
 //  val akkaV = "2.4.20"
   val akkaV = "2.6.5"
   val akkaHttp = "10.1.12"
   Seq(
-    "com.typesafe.akka"        %% "akka-http"           % akkaHttp,
-    "com.typesafe.akka"        %% "akka-http-core"      % akkaHttp,
-    "com.typesafe.akka"        %% "akka-stream-testkit" % akkaV,
-    "com.typesafe.akka"        %% "akka-http-testkit"  % akkaHttp,
-    "com.typesafe.akka"        %% "akka-actor"         % akkaV,
-    "com.typesafe.akka"        %% "akka-http-spray-json" % akkaHttp,
-    "com.typesafe.akka"        %% "akka-testkit"       % akkaV     % "test",
-    "com.typesafe.akka"        %% "akka-slf4j"         % akkaV,
-    "org.scalatest"            %% "scalatest"          % "3.0.4"   % "test",
-    "org.mockito"               % "mockito-all"        % "1.10.19" % "test",
-    "org.codehaus.woodstox"     % "woodstox-core-asl" % "4.4.1",
-    "com.sun.xml.bind"          % "jaxb1-impl"        % "2.2.5.1",
-    "ch.qos.logback"            % "logback-classic"   % "1.2.3",
-    "com.softwaremill.macwire" %% "macros"            % "2.3.3" % "provided",
+    "com.typesafe.akka"        %% "akka-http"             % akkaHttp,
+    "com.typesafe.akka"        %% "akka-http-core"        % akkaHttp,
+    "com.typesafe.akka"        %% "akka-http-testkit"     % akkaHttp,
+    "com.typesafe.akka"        %% "akka-http-spray-json"  % akkaHttp,
+    "com.typesafe.akka"        %% "akka-stream-testkit"   % akkaV,    
+    "com.typesafe.akka"        %% "akka-actor"            % akkaV,    
+    "com.typesafe.akka"        %% "akka-testkit"          % akkaV     % "test",
+    "com.typesafe.akka"        %% "akka-slf4j"            % akkaV,
+    "org.scalatest"            %% "scalatest"             % "3.0.4"   % "test",
+    "org.mockito"               % "mockito-all"           % "1.10.19" % "test",
+    "org.codehaus.woodstox"     % "woodstox-core-asl"     % "4.4.1",
+    "com.sun.xml.bind"          % "jaxb1-impl"            % "2.2.5.1",
+    "ch.qos.logback"            % "logback-classic"       % "1.2.3",
+    "com.softwaremill.macwire" %% "macros"                % "2.3.3" % "provided",
     "com.softwaremill.macwire" %% "macrosakka"            % "2.3.3" % "provided",
-    "com.softwaremill.macwire" %% "util"            % "2.3.3" % "provided",
-    "com.softwaremill.macwire" %% "proxy"            % "2.3.3" % "provided",
-    "com.google.guava"         %  "guava"              % "18.0",
-    "com.google.code.findbugs" %  "jsr305"             % "3.0.2",
-    "org.jetbrains.xodus"      % "xodus-entity-store" % "1.0.5",
-    "org.apache.commons"       % "commons-io"         % "1.3.2",
-    "io.micrometer"            % "micrometer-registry-prometheus" % "1.3.6",
-    "org.scala-lang.modules"  %% "scala-xml" % "1.2.0"
+    "com.softwaremill.macwire" %% "util"                  % "2.3.3" % "provided",
+    "com.softwaremill.macwire" %% "proxy"                 % "2.3.3" % "provided",
+    "com.google.guava"         %  "guava"                 % "18.0",
+    "com.google.code.findbugs" %  "jsr305"                % "3.0.2",
+    "org.jetbrains.xodus"      % "xodus-entity-store"     % "1.0.5",
+    "org.apache.commons"       % "commons-io"             % "1.3.2",
+    "io.prometheus"            % "simpleclient"           % "0.9.0",
+    "io.prometheus"            % "simpleclient_common"    % "0.9.0",
+    "org.scala-lang.modules"   %% "scala-xml"             % "1.2.0"
   )
 }
 

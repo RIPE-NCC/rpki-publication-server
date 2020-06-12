@@ -7,27 +7,37 @@ import akka.http.scaladsl.model.headers.{CacheDirectives, `Cache-Control`}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import com.softwaremill.macwire._
+import akka.http.scaladsl.model.HttpEntity
+import akka.http.scaladsl.model.MediaTypes
+import akka.http.scaladsl.model.ContentType
+import akka.http.scaladsl.model.HttpCharsets
+import akka.stream.scaladsl.Source
+import akka.http.scaladsl.server.directives.ContentTypeResolver
 
 
 
 trait RRDPService extends RepositoryPath {
-  val immutableContentValiditySeconds: Long = 24 * 60 * 60 // ~one day
+  val oneDayInSeconds: Long = 24 * 60 * 60
 
   val healthChecks: HealthChecks = wire[HealthChecks]
+
+  val rrdpContentType = ContentType(MediaTypes.`application/xhtml+xml`, HttpCharsets.`US-ASCII`)
 
   val rrdpRoutes: Route =
     path("notification.xml") {
       respondWithHeader(`Cache-Control`(CacheDirectives.`max-age`(60), CacheDirectives.`no-transform`)) {
-
         complete {
-          try {
-            HttpResponse(200, Nil, Files.readAllBytes(Paths.get(s"$repositoryPath/notification.xml")))
+          try {              
+            HttpResponse(
+                status = 200, 
+                entity = HttpEntity(
+                    rrdpContentType,
+                    Files.readAllBytes(Paths.get(s"$repositoryPath/notification.xml"))))
           } catch {
             case e: Throwable =>
               HttpResponse(404, Nil, e.getMessage)
           }
         }
-
       }
     } ~
       path(JavaUUID / IntNumber / "snapshot.xml") { (sessionId, serial) =>
@@ -48,13 +58,14 @@ trait RRDPService extends RepositoryPath {
 
 
   private def serveImmutableContent(filename: => String) = {
-    respondWithHeader(`Cache-Control`(CacheDirectives.`max-age`(immutableContentValiditySeconds), CacheDirectives.`no-transform`)) {
-      serve(filename)
-    }
-  }
-
-  private def serve(filename: => String) = get {
-    getFromFile(filename)
+    respondWithHeader(
+        `Cache-Control`(
+            CacheDirectives.`max-age`(oneDayInSeconds), 
+            CacheDirectives.`no-transform`)) {
+                get {
+                    getFromFile(filename)(ContentTypeResolver.withDefaultCharset(HttpCharsets.`US-ASCII`))
+                }    
+        }
   }
 
 }
