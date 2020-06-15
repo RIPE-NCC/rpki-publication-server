@@ -49,48 +49,122 @@ class PublicationIntegrationTest
     client = new PublicationServerClient()
   }
 
+  // NOTE: test order is important
+
   test("should publish an object and don't accept repeated publish") {
     val url = "rsync://localhost:10873/repository/test1"
-    val base64 = "abababababab"
+    val base64 = generateSomeBase64()
     val hashStr = hash(Base64(base64)).hash
 
     val response = client.publish("client1", url, base64)
-    response.contains(s"""<publish uri="${url}"/>""") should be(true)
+    response should include(s"""<publish uri="${url}"/>""")
 
-    client.list("client1")
-        .contains(s"""<list uri="$url" hash="$hashStr"/>""") should be(true)    
+    client.list("client1") should 
+        include(s"""<list uri="$url" hash="$hashStr"/>""")
 
-    client.list("client2").contains("<list") should be(false)    
+    client.list("client2") should not include("<list")
+
+    val metrics = client.getMetrics()    
+    metrics should include("rpkipublicationserver_objects_published_total 1.0")
+    metrics should include("rpkipublicationserver_objects_withdrawn_total 0.0")
+    metrics should include("rpkipublicationserver_objects_failedtoadd_total 0.0")
+    metrics should include("rpkipublicationserver_objects_failedtoreplace_total 0.0")
+    metrics should include("rpkipublicationserver_objects_failedtowithdraw_total 0.0")
 
     val responseError = client.publish("client1", url, "babababa")        
-    responseError.contains(s"""Tried to insert existing object [$url].""") should be(true)
+    responseError should include(s"""Tried to insert existing object [$url].""")
 
-    client.getMetrics().contains("objects_published 1.0") should be(true)    
+    val metrics2 = client.getMetrics()    
+    metrics2 should include("rpkipublicationserver_objects_published_total 1.0")
+    metrics2 should include("rpkipublicationserver_objects_withdrawn_total 0.0")
+    metrics2 should include("rpkipublicationserver_objects_failedtoadd_total 1.0")
+    metrics2 should include("rpkipublicationserver_objects_failedtoreplace_total 0.0")
+    metrics2 should include("rpkipublicationserver_objects_failedtowithdraw_total 0.0")    
   }
 
   test("should publish an object and withdraw it") {
     val url = "rsync://localhost:10873/repository/test2"
-    val base64 = "abababababab"
+    val base64 = generateSomeBase64()
     val hashStr = hash(Base64(base64)).hash       
-    val response = client.publish("client1", url, base64)    
-    response.contains(s"""<publish uri="${url}"/>""") should be(true)    
+    val clientId = "client1"
+    val response = client.publish(clientId, url, base64)    
+    response should include(s"""<publish uri="${url}"/>""")
 
     val metrics1 = client.getMetrics()
-    metrics1.contains("objects_published 2.0") should be(true)    
-    metrics1.contains("last_object_recived") should be(true)
+    metrics1 should include("rpkipublicationserver_objects_published_total 2.0")
+    metrics1 should include("rpkipublicationserver_objects_withdrawn_total 0.0")
+    metrics1 should include("rpkipublicationserver_objects_failedtoadd_total 1.0")
+    metrics1 should include("rpkipublicationserver_objects_failedtoreplace_total 0.0")
+    metrics1 should include("rpkipublicationserver_objects_failedtowithdraw_total 0.0")
 
-    client.list("client1")
-        .contains(s"""<list uri="$url" hash="$hashStr"/>""") should be(true)            
-     
-    client.withdraw("client1", url, hashStr)
-        .contains(s"""<withdraw uri="${url}"/>""") should be(true)
+    client.list(clientId) should 
+        include(s"""<list uri="$url" hash="$hashStr"/>""")        
+    
+    // try to use wrong hash for withdrawing
+    val wrongHash = hash(Base64(generateSomeBase64())).hash       
+    val w = client.withdraw(clientId, url, wrongHash)
+    w should include(s"""<report_error error_code="NonMatchingHash">""")    
+    w should include(s"""Cannot withdraw the object [${url}], hash doesn't match, passed ${wrongHash}, but existing one is $hashStr""")    
+
+    client.withdraw(clientId, url, hashStr) should 
+        include(s"""<withdraw uri="${url}"/>""")
 
     val metrics2 = client.getMetrics()
-    metrics2.contains("objects_withdrawn 1.0") should be(true)        
-    metrics2.contains("last_object_recived") should be(true)        
+    metrics2 should include("rpkipublicationserver_objects_withdrawn_total 1.0")
+    metrics2 should include("rpkipublicationserver_objects_failedtowithdraw_total 1.0")
 
-    client.list("client1")
-        .contains(s"""<list uri="$url" hash="$hashStr"/>""") should be(false)    
+    client.list(clientId) should not
+        include(s"""<list uri="$url" hash="$hashStr"/>""")
+
+    // try to withdraw the second time
+    client.withdraw(clientId, url, hashStr) should 
+        include(s"""No object [$url] found.""")
+    
+    val metrics3 = client.getMetrics()
+    metrics3 should include("rpkipublicationserver_objects_published_total 2.0")
+    metrics3 should include("rpkipublicationserver_objects_withdrawn_total 1.0")
+    metrics3 should include("rpkipublicationserver_objects_failedtoadd_total 1.0")
+    metrics3 should include("rpkipublicationserver_objects_failedtoreplace_total 0.0")
+    metrics3 should include("rpkipublicationserver_objects_failedtowithdraw_total 2.0")
   }
+
+ test("should publish an object and replace it") {
+    val url = "rsync://localhost:10873/repository/test_replace"
+    val base64 = generateSomeBase64()
+    val hashStr = hash(Base64(base64)).hash       
+    val clientId = "client3"
+        
+    client.publish(clientId, url, base64) should 
+        include(s"""<publish uri="${url}"/>""")
+
+    client.list(clientId) should 
+        include(s"""<list uri="$url" hash="$hashStr"/>""")        
+    
+    // try to use wrong hash for replacing
+    val newBase64 = generateSomeBase64()
+    val wrongHash = hash(Base64(generateSomeBase64)).hash       
+    val response = client.publish(clientId, url, wrongHash, newBase64)
+    response should include(s"""<report_error error_code="NonMatchingHash">""")    
+    response should include(s"""Cannot republish the object [${url}], hash doesn't match, passed ${wrongHash}, but existing one is $hashStr""")    
+        
+    client.getMetrics() should 
+        include("rpkipublicationserver_objects_failedtoreplace_total 1.0")
+
+    client.publish(clientId, url, hashStr, newBase64) should include(s"""<publish uri="${url}"/>""")
+
+    val metrics3 = client.getMetrics()
+    metrics3 should include("rpkipublicationserver_objects_published_total 4.0")
+    metrics3 should include("rpkipublicationserver_objects_withdrawn_total 2.0")
+    metrics3 should include("rpkipublicationserver_objects_failedtoadd_total 1.0")
+    metrics3 should include("rpkipublicationserver_objects_failedtoreplace_total 1.0")
+    metrics3 should include("rpkipublicationserver_objects_failedtowithdraw_total 2.0")
+    
+  }  
+
+  private def generateSomeBase64() = {
+      val randomBytes = Array.fill(20)((scala.util.Random.nextInt(256) - 128).toByte)      
+      Bytes.toBase64(Bytes(randomBytes)).value      
+  }
+
 
 }

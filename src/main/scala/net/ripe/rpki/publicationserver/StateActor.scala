@@ -102,10 +102,14 @@ class StateActor(conf: AppConfig, metrics: Metrics)
           metrics.withdrawnObject()
           Right(state - uri)
         } else {
-          Left(ReportError(BaseError.NonMatchingHash,
-            Some(s"Cannot withdraw the object [$uri], hash doesn't match, passed ${hashToReplace.toUpperCase}, but existing one is ${foundHash.toUpperCase}.")))
+            metrics.failedToDelete()
+            Left(ReportError(BaseError.NonMatchingHash,
+                Some(s"Cannot withdraw the object [$uri], hash doesn't match, " +
+                    s"passed ${hashToReplace.toUpperCase}, " +
+                    s"but existing one is ${foundHash.toUpperCase}.")))
         }
       case None =>
+        metrics.failedToDelete()
         Left(ReportError(BaseError.NoObjectForWithdraw, Some(s"No object [$uri] found.")))
     }
   }
@@ -124,9 +128,13 @@ class StateActor(conf: AppConfig, metrics: Metrics)
           metrics.publishedObject()
           metrics.withdrawnObject()
           Right(state + (uri -> (newBytes, newHash, clientId)))
-        } else
-          Left(ReportError(BaseError.NonMatchingHash,
-            Some(s"Cannot republish the object [$uri], hash doesn't match, passed ${hashToReplace.toUpperCase}, but existing one is ${foundHash.toUpperCase}.")))
+        } else {
+            metrics.failedToReplace()
+            Left(ReportError(BaseError.NonMatchingHash,
+                Some(s"Cannot republish the object [$uri], " +
+                  s"hash doesn't match, passed ${hashToReplace.toUpperCase}, " +
+                  s"but existing one is ${foundHash.toUpperCase}.")))
+        }
       case None =>
         Left(ReportError(BaseError.NoObjectToUpdate, Some(s"No object [$uri] has been found.")))
     }
@@ -134,7 +142,8 @@ class StateActor(conf: AppConfig, metrics: Metrics)
 
   def applyCreate(state: State, clientId: ClientId, uri: URI, bytes: Bytes): Either[ReportError, State] = {
     if (state.contains(uri)) {
-      Left(ReportError(BaseError.HashForInsert, Some(s"Tried to insert existing object [$uri].")))
+        metrics.failedToAdd()
+        Left(ReportError(BaseError.HashForInsert, Some(s"Tried to insert existing object [$uri].")))
     } else {      
       val newHash = hash(bytes)
       logger.debug(s"Adding $uri with hash $newHash")

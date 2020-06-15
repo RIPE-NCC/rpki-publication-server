@@ -22,7 +22,7 @@ class Metrics(val registry: CollectorRegistry) {
 
   val countPublishedObjects = Counter
     .build()
-    .name("objects_published")
+    .name("rpkipublicationserver_objects_published_total")
     .help("Number of objects published by publishing clients")
     .register(registry)
 
@@ -32,9 +32,27 @@ class Metrics(val registry: CollectorRegistry) {
     .help("Number of objects published by publishing clients")
     .register(registry)
 
+  val countFailedToAdd = Counter
+    .build()
+    .name("rpkipublicationserver_objects_failedtoadd_total")
+    .help("Number of failed attempts to add an object (already exists for the given URL)")
+    .register(registry)
+
+  val countFailedToReplace = Counter
+    .build()
+    .name("rpkipublicationserver_objects_failedtoreplace_total")
+    .help("Number of failed attempts to replace an object (doesn't exists for the given URL)")
+    .register(registry)
+
+  val countFailedToWithdraw = Counter
+    .build()
+    .name("rpkipublicationserver_objects_failedtowithdraw_total")
+    .help("Number of failed attempts to withdraw an object (doesn't exists for the given URL)")
+    .register(registry)
+
   val lastTimeReceived = Gauge
     .build()
-    .name("last_object_recived")
+    .name("rpkipublicationserver_objects_last_received")
     .help("Timestamp of last object publication/withdrawal.")
     .register(registry)
 
@@ -47,6 +65,10 @@ class Metrics(val registry: CollectorRegistry) {
       countWithdrawnObjects.inc()
       lastTimeReceived.setToCurrentTime()
   }
+
+  def failedToAdd() = countFailedToAdd.inc()  
+  def failedToReplace() = countFailedToReplace.inc()
+  def failedToDelete() = countFailedToWithdraw.inc()  
 
 }
 

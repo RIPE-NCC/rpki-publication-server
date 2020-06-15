@@ -92,6 +92,13 @@ class PublicationServerClient() {
       </publish>
     }
 
+  def publish(clientId: String, url: String, hash: String, content: String): String =
+    sendMsg(clientId) {
+      <publish uri={url} hash={hash}>
+         {content}
+      </publish>
+    }
+
   def list(clientId: String): String =
     sendMsg(clientId) {
       <list/>
