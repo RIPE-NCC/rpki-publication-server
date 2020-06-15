@@ -32,8 +32,22 @@ class Metrics(val registry: CollectorRegistry) {
     .help("Number of objects published by publishing clients")
     .register(registry)
 
-  def publishedObject() = countPublishedObjects.inc()
-  def withdrawnObject() = countWithdrawnObjects.inc()
+  val lastTimeReceived = Gauge
+    .build()
+    .name("last_object_recived")
+    .help("Timestamp of last object publication/withdrawal.")
+    .register(registry)
+
+  def publishedObject() = {
+      countPublishedObjects.inc()
+      lastTimeReceived.setToCurrentTime()
+  }
+
+  def withdrawnObject() = {
+      countWithdrawnObjects.inc()
+      lastTimeReceived.setToCurrentTime()
+  }
+
 }
 
 class MetricsApi(val registry: CollectorRegistry) {
