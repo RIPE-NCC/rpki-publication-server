@@ -13,6 +13,8 @@ import org.slf4j.LoggerFactory
 import net.ripe.rpki.publicationserver.PublicationServerApp
 import java.nio.file._
 import java.net.URI
+import akka.http.scaladsl.model.MediaType
+import akka.http.scaladsl.model.HttpCharsets
 
 class PublicationIntegrationTest
     extends PublicationServerBaseTest
@@ -63,8 +65,6 @@ class PublicationIntegrationTest
     val responseError = client.publish("client1", url, "babababa")        
     responseError.contains(s"""Tried to insert existing object [$url].""") should be(true)
 
-    val m = client.getMetrics()
-    println("m = " + m)
     client.getMetrics().contains("objects_published 1.0") should be(true)    
   }
 

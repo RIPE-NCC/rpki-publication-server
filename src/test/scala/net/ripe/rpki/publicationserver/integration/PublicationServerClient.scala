@@ -42,7 +42,10 @@ class PublicationServerClient() {
 
   private def http = Http()
 
-  private def sendMsg(clientId: String)(message: NodeSeq): String = {
+  private def sendMsg(clientId: String)(message: NodeSeq): String = 
+    sendMsg(clientId, PublicationService.`rpki-publication`)(message)
+  
+  private def sendMsg(clientId: String, mediaType: MediaType.WithFixedCharset)(message: NodeSeq): String = {
     val msg =
       <msg type="query" version="3" xmlns="http://www.hactrn.net/uris/rpki/publication-spec/">
         {message}
@@ -52,7 +55,7 @@ class PublicationServerClient() {
         HttpRequest(
             method = HttpMethods.POST,
             uri = s"https://localhost:$publicationPort?clientId=$clientId",
-            entity = HttpEntity(PublicationService.`rpki-publication`, msg.toString())
+            entity = HttpEntity(mediaType, msg.toString())
         )
     }
   }
@@ -73,6 +76,13 @@ class PublicationServerClient() {
   def withdraw(clientId: String, url: String, hash: String): String =
     sendMsg(clientId) {
       <withdraw uri={url} hash={hash}/>
+    }
+
+  def publish(clientId: String, url: String, content: String, mediaType: MediaType.WithFixedCharset): String =
+    sendMsg(clientId, mediaType) {
+      <publish uri={url}>
+         {content}
+      </publish>
     }
 
   def publish(clientId: String, url: String, content: String): String =
