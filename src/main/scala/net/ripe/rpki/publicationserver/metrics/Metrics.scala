@@ -28,7 +28,7 @@ class Metrics(val registry: CollectorRegistry) {
 
   val countWithdrawnObjects = Counter
     .build()
-    .name("objects_withdrawn")
+    .name("rpkipublicationserver_objects_withdrawn_total")
     .help("Number of objects published by publishing clients")
     .register(registry)
 
