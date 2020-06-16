@@ -2,7 +2,7 @@ package net.ripe.rpki.publicationserver
 
 import java.io.File
 import java.nio.file.{Files, Path}
-import java.util.UUID
+import java.util.{Comparator, UUID}
 
 import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.model.{HttpMethods, HttpRequest}
@@ -34,8 +34,9 @@ abstract class PublicationServerBaseTest extends FunSuite with BeforeAndAfter wi
   lazy val testMetrics = new Metrics(CollectorRegistry.defaultRegistry)  
 
   def cleanStore() = {
-    // TODO Make it less ugly
-    Runtime.getRuntime.exec("rm -Rf \"" + tempXodusDir.getAbsolutePath + "\"")
+    Files.walk(tempXodusDir.toPath)
+      .sorted(Comparator.reverseOrder())
+      .forEach(p => p.toFile.delete())
   }
 
   def getFile(fileName: String) = Source.fromURL(getClass.getResource(fileName))
