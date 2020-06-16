@@ -37,7 +37,7 @@ dockerCommands := Seq(
 //dockerTag := "rpki-publication-server"
 
 
-resolvers += "Codehaus Maven2 Repository" at "http://repository.codehaus.org/"
+resolvers += "Codehaus Maven2 Repository" at "https://repository.codehaus.org/"
 
 resolvers += "JCenter" at "https://jcenter.bintray.com/"
 
