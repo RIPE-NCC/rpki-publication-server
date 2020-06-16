@@ -20,55 +20,40 @@ import io.prometheus.client._
 
 class Metrics(val registry: CollectorRegistry) {
 
-  val countPublishedObjects = Counter
+  val countObjectOperations = Counter
     .build()
-    .name("rpkipublicationserver_objects_published_total")
-    .help("Number of objects published by publishing clients")
+    .name("rpkipublicationserver_object_operations_total")
+    .labelNames("operation")
+    .help("Number of objects from publishing clients")
     .register(registry)
 
-  val countWithdrawnObjects = Counter
+  val countFailures = Counter
     .build()
-    .name("rpkipublicationserver_objects_withdrawn_total")
-    .help("Number of objects published by publishing clients")
-    .register(registry)
-
-  val countFailedToAdd = Counter
-    .build()
-    .name("rpkipublicationserver_objects_failedtoadd_total")
-    .help("Number of failed attempts to add an object (already exists for the given URL)")
-    .register(registry)
-
-  val countFailedToReplace = Counter
-    .build()
-    .name("rpkipublicationserver_objects_failedtoreplace_total")
-    .help("Number of failed attempts to replace an object (doesn't exists for the given URL)")
-    .register(registry)
-
-  val countFailedToWithdraw = Counter
-    .build()
-    .name("rpkipublicationserver_objects_failedtowithdraw_total")
-    .help("Number of failed attempts to withdraw an object (doesn't exists for the given URL)")
+    .name("rpkipublicationserver_objects_failure_total")
+    .labelNames("operation")
+    .help("Number of failed (mutation) operations attempts by operation")
     .register(registry)
 
   val lastTimeReceived = Gauge
     .build()
     .name("rpkipublicationserver_objects_last_received")
+    .labelNames("operation")
     .help("Timestamp of last object publication/withdrawal.")
     .register(registry)
 
   def publishedObject() = {
-      countPublishedObjects.inc()
-      lastTimeReceived.setToCurrentTime()
+      countObjectOperations.labels("publish").inc()
+      lastTimeReceived.labels("publish").setToCurrentTime()
   }
 
   def withdrawnObject() = {
-      countWithdrawnObjects.inc()
-      lastTimeReceived.setToCurrentTime()
+      countObjectOperations.labels("withdraw").inc()
+      lastTimeReceived.labels("withdraw").setToCurrentTime()
   }
 
-  def failedToAdd() = countFailedToAdd.inc()  
-  def failedToReplace() = countFailedToReplace.inc()
-  def failedToDelete() = countFailedToWithdraw.inc()  
+  def failedToAdd() = countFailures.labels("add").inc()
+  def failedToReplace() = countFailures.labels("replace").inc()
+  def failedToDelete() = countFailures.labels("delete").inc()
 
 }
 

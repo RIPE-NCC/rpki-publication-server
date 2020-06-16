@@ -103,7 +103,7 @@ publishTo := {
   if (sys.props.isDefinedAt("build.number"))
     Some(Resolver.file("",  new File(Path.userHome.absolutePath+"/.m2/repository")))
   else
-    Some("ripe-snapshots" at "http://nexus.ripe.net/nexus/content/repositories/snapshots")
+    Some("ripe-snapshots" at "https://nexus.ripe.net/nexus/content/repositories/snapshots")
 }
 
 // Disable the use of the Scala version in output paths and artifacts
