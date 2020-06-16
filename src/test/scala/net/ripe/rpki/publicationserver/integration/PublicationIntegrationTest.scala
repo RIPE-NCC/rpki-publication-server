@@ -64,22 +64,18 @@ class PublicationIntegrationTest
 
     client.list("client2") should not include("<list")
 
-    val metrics = client.getMetrics()    
-    metrics should include("rpkipublicationserver_objects_published_total 1.0")
-    metrics should include("rpkipublicationserver_objects_withdrawn_total 0.0")
-    metrics should include("rpkipublicationserver_objects_failedtoadd_total 0.0")
-    metrics should include("rpkipublicationserver_objects_failedtoreplace_total 0.0")
-    metrics should include("rpkipublicationserver_objects_failedtowithdraw_total 0.0")
+    forMetrics { metrics => 
+        metrics should include("""rpkipublicationserver_object_operations_total{operation="publish",} 1.0""")
+        metrics should include("""rpkipublicationserver_objects_last_received{operation="publish",}""")    
+    }
 
     val responseError = client.publish("client1", url, "babababa")        
     responseError should include(s"""Tried to insert existing object [$url].""")
 
-    val metrics2 = client.getMetrics()    
-    metrics2 should include("rpkipublicationserver_objects_published_total 1.0")
-    metrics2 should include("rpkipublicationserver_objects_withdrawn_total 0.0")
-    metrics2 should include("rpkipublicationserver_objects_failedtoadd_total 1.0")
-    metrics2 should include("rpkipublicationserver_objects_failedtoreplace_total 0.0")
-    metrics2 should include("rpkipublicationserver_objects_failedtowithdraw_total 0.0")    
+    forMetrics { metrics => 
+        metrics should include("""rpkipublicationserver_object_operations_total{operation="publish",} 1.0""")
+        metrics should include("""rpkipublicationserver_objects_failure_total{operation="add",} 1.0""")    
+    }
   }
 
   test("should publish an object and withdraw it") {
@@ -90,12 +86,9 @@ class PublicationIntegrationTest
     val response = client.publish(clientId, url, base64)    
     response should include(s"""<publish uri="${url}"/>""")
 
-    val metrics1 = client.getMetrics()
-    metrics1 should include("rpkipublicationserver_objects_published_total 2.0")
-    metrics1 should include("rpkipublicationserver_objects_withdrawn_total 0.0")
-    metrics1 should include("rpkipublicationserver_objects_failedtoadd_total 1.0")
-    metrics1 should include("rpkipublicationserver_objects_failedtoreplace_total 0.0")
-    metrics1 should include("rpkipublicationserver_objects_failedtowithdraw_total 0.0")
+    forMetrics { metrics => 
+        metrics should include("""rpkipublicationserver_object_operations_total{operation="publish",} 2.0""")        
+    }
 
     client.list(clientId) should 
         include(s"""<list uri="$url" hash="$hashStr"/>""")        
@@ -106,13 +99,19 @@ class PublicationIntegrationTest
     w should include(s"""<report_error error_code="NonMatchingHash">""")    
     w should include(s"""Cannot withdraw the object [${url}], hash doesn't match, passed ${wrongHash}, but existing one is $hashStr""")    
 
+    forMetrics { metrics => 
+        metrics should include("""rpkipublicationserver_objects_failure_total{operation="delete",} 1.0""")
+        metrics should not include("""rpkipublicationserver_object_operations_total{operation="withdraw",}""")        
+    }    
+
     client.withdraw(clientId, url, hashStr) should 
         include(s"""<withdraw uri="${url}"/>""")
 
-    val metrics2 = client.getMetrics()
-    metrics2 should include("rpkipublicationserver_objects_withdrawn_total 1.0")
-    metrics2 should include("rpkipublicationserver_objects_failedtowithdraw_total 1.0")
-
+    forMetrics { metrics => 
+        metrics should include("""rpkipublicationserver_objects_failure_total{operation="delete",} 1.0""")
+        metrics should include("""rpkipublicationserver_object_operations_total{operation="withdraw",} 1.0""")        
+    }
+    
     client.list(clientId) should not
         include(s"""<list uri="$url" hash="$hashStr"/>""")
 
@@ -120,12 +119,11 @@ class PublicationIntegrationTest
     client.withdraw(clientId, url, hashStr) should 
         include(s"""No object [$url] found.""")
     
-    val metrics3 = client.getMetrics()
-    metrics3 should include("rpkipublicationserver_objects_published_total 2.0")
-    metrics3 should include("rpkipublicationserver_objects_withdrawn_total 1.0")
-    metrics3 should include("rpkipublicationserver_objects_failedtoadd_total 1.0")
-    metrics3 should include("rpkipublicationserver_objects_failedtoreplace_total 0.0")
-    metrics3 should include("rpkipublicationserver_objects_failedtowithdraw_total 2.0")
+    forMetrics { metrics => 
+        metrics should include("""rpkipublicationserver_object_operations_total{operation="publish",} 2.0""")
+        metrics should include("""rpkipublicationserver_object_operations_total{operation="withdraw",} 1.0""")                
+        metrics should include("""rpkipublicationserver_objects_failure_total{operation="delete",} 2.0""")
+    }
   }
 
  test("should publish an object and replace it") {
@@ -146,20 +144,24 @@ class PublicationIntegrationTest
     val response = client.publish(clientId, url, wrongHash, newBase64)
     response should include(s"""<report_error error_code="NonMatchingHash">""")    
     response should include(s"""Cannot republish the object [${url}], hash doesn't match, passed ${wrongHash}, but existing one is $hashStr""")    
-        
-    client.getMetrics() should 
-        include("rpkipublicationserver_objects_failedtoreplace_total 1.0")
 
-    client.publish(clientId, url, hashStr, newBase64) should include(s"""<publish uri="${url}"/>""")
+    forMetrics { metrics =>
+        metrics should  include("""rpkipublicationserver_objects_failure_total{operation="replace",} 1.0""")
+    }
 
-    val metrics3 = client.getMetrics()
-    metrics3 should include("rpkipublicationserver_objects_published_total 4.0")
-    metrics3 should include("rpkipublicationserver_objects_withdrawn_total 2.0")
-    metrics3 should include("rpkipublicationserver_objects_failedtoadd_total 1.0")
-    metrics3 should include("rpkipublicationserver_objects_failedtoreplace_total 1.0")
-    metrics3 should include("rpkipublicationserver_objects_failedtowithdraw_total 2.0")
+    client.publish(clientId, url, hashStr, newBase64) should 
+         include(s"""<publish uri="${url}"/>""")
+
+    forMetrics { metrics => 
+        metrics should include("""rpkipublicationserver_object_operations_total{operation="publish",} 4.0""")
+        metrics should include("""rpkipublicationserver_object_operations_total{operation="withdraw",} 2.0""")        
+    }
     
   }  
+
+  def forMetrics(f: String => Unit) = { 
+      f(client.getMetrics())
+  }
 
   private def generateSomeBase64() = {
       val randomBytes = Array.fill(20)((scala.util.Random.nextInt(256) - 128).toByte)      
