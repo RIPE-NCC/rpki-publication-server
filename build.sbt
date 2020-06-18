@@ -37,7 +37,7 @@ dockerCommands := Seq(
 //dockerTag := "rpki-publication-server"
 
 
-resolvers += "Codehaus Maven2 Repository" at "http://repository.codehaus.org/"
+resolvers += "Codehaus Maven2 Repository" at "https://repository.codehaus.org/"
 
 resolvers += "JCenter" at "https://jcenter.bintray.com/"
 
@@ -50,8 +50,8 @@ libraryDependencies ++= {
     "com.typesafe.akka"        %% "akka-http-core"        % akkaHttp,
     "com.typesafe.akka"        %% "akka-http-testkit"     % akkaHttp,
     "com.typesafe.akka"        %% "akka-http-spray-json"  % akkaHttp,
-    "com.typesafe.akka"        %% "akka-stream-testkit"   % akkaV,    
-    "com.typesafe.akka"        %% "akka-actor"            % akkaV,    
+    "com.typesafe.akka"        %% "akka-stream-testkit"   % akkaV,
+    "com.typesafe.akka"        %% "akka-actor"            % akkaV,
     "com.typesafe.akka"        %% "akka-testkit"          % akkaV     % "test",
     "com.typesafe.akka"        %% "akka-slf4j"            % akkaV,
     "org.scalatest"            %% "scalatest"             % "3.0.4"   % "test",
@@ -103,7 +103,7 @@ publishTo := {
   if (sys.props.isDefinedAt("build.number"))
     Some(Resolver.file("",  new File(Path.userHome.absolutePath+"/.m2/repository")))
   else
-    Some("ripe-snapshots" at "http://nexus.ripe.net/nexus/content/repositories/snapshots")
+    Some("ripe-snapshots" at "https://nexus.ripe.net/nexus/content/repositories/snapshots")
 }
 
 // Disable the use of the Scala version in output paths and artifacts

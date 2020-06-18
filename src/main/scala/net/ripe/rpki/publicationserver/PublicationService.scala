@@ -40,13 +40,23 @@ class PublicationService
   
   val msgParser = wire[PublicationMessageParser]
 
+  def verifyContentType(contentType: ContentType) = {
+      if (contentType == null) {
+        logger.warn("Request does not specify Content-Type")
+      } else if (contentType.mediaType != PublicationService.`rpki-publication`) {
+        logger.warn(s"Request specifies Content-Type = ${contentType}")
+      }
+  }
+
   // TODO Support proper streaming
   implicit val BufferedSourceUnmarshaller: Unmarshaller[HttpEntity, BufferedSource] =
     Unmarshaller.withMaterializer { _ => 
         implicit mat => {
-            case HttpEntity.Strict(_, data) => 
-                FastFuture.successful(Source.fromInputStream(new ByteArrayInputStream(data.toArray)))
+            case HttpEntity.Strict(contentType, data) => 
+                verifyContentType(contentType)
+                FastFuture.successful(Source.fromInputStream(new ByteArrayInputStream(data.toArray)))            
             case entity                     => 
+                verifyContentType(entity.contentType)
                 entity.dataBytes
                     .runFold(ByteString.empty)(_ ++ _)
                     .map(data => Source.fromInputStream(new ByteArrayInputStream(data.toArray)))
@@ -58,12 +68,7 @@ class PublicationService
   val publicationRoutes =
     path("") {
       post {
-        parameter("clientId") { clientId =>
-          optionalHeaderValue(checkContentType) { ct =>
-            logger.debug("Post request received")
-            if (ct.isEmpty) {
-              logger.warn("Request does not specify Content-Type")
-            }
+        parameter("clientId") { clientId =>          
             entity(as[BufferedSource]) { xmlMessage =>                
               onComplete {
                   processRequest(ClientId(clientId), msgParser.parse(xmlMessage))
@@ -81,8 +86,7 @@ class PublicationService
                   complete(500, error.getMessage)
               }
             }
-          }
-        }
+          }        
       }
     }
 

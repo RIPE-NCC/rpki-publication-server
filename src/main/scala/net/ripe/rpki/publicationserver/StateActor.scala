@@ -3,20 +3,24 @@ package net.ripe.rpki.publicationserver
 import java.net.URI
 
 import akka.actor.{Actor, Props, Status}
-import net.ripe.rpki.publicationserver.Binaries.Bytes
 import akka.actor.{Actor, OneForOneStrategy, Props, Status, SupervisorStrategy}
+
+import io.prometheus.client.{CollectorRegistry, Histogram}
+
+import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver.messaging.Accumulator
 import net.ripe.rpki.publicationserver.messaging.Messages.{InitRepo, RawMessage, ValidatedMessage}
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store.ObjectStore
 import net.ripe.rpki.publicationserver.store.ObjectStore.State
+import net.ripe.rpki.publicationserver.metrics.Metrics
 
 object StateActor {
-  def props(conf: AppConfig): Props = Props(new StateActor(conf))
+  def props(conf: AppConfig, metrics: Metrics): Props = Props(new StateActor(conf, metrics))
 }
 
-
-class StateActor(conf: AppConfig) extends Actor with Hashing with Logging {
+class StateActor(conf: AppConfig, metrics: Metrics) 
+    extends Actor with Hashing with Logging {
 
   lazy val objectStore = ObjectStore.get
 
@@ -86,6 +90,7 @@ class StateActor(conf: AppConfig) extends Actor with Hashing with Logging {
         applyReplace(state, clientId, uri, strHash, bytes)
       case WithdrawQ(uri, tag, strHash) =>
         applyDelete(state, uri, strHash)
+      case ListQ(_) => Right(state)
     }
   }
 
@@ -94,29 +99,42 @@ class StateActor(conf: AppConfig) extends Actor with Hashing with Logging {
       case Some((_, Hash(foundHash), _)) =>
         if (foundHash.toUpperCase == hashToReplace.toUpperCase) {
           logger.debug(s"Deleting $uri with hash ${foundHash.toUpperCase}")
+          metrics.withdrawnObject()
           Right(state - uri)
         } else {
-          Left(ReportError(BaseError.NonMatchingHash,
-            Some(s"Cannot withdraw the object [$uri], hash doesn't match, passed ${hashToReplace.toUpperCase}, but existing one is ${foundHash.toUpperCase}.")))
+            metrics.failedToDelete()
+            Left(ReportError(BaseError.NonMatchingHash,
+                Some(s"Cannot withdraw the object [$uri], hash doesn't match, " +
+                    s"passed ${hashToReplace.toUpperCase}, " +
+                    s"but existing one is ${foundHash.toUpperCase}.")))
         }
       case None =>
+        metrics.failedToDelete()
         Left(ReportError(BaseError.NoObjectForWithdraw, Some(s"No object [$uri] found.")))
     }
   }
 
-  private def applyReplace(state: State, clientId: ClientId, uri: URI, hashToReplace: String, bytes: Bytes): Either[ReportError, State] = {
+  private def applyReplace(state: State, 
+                           clientId: ClientId, 
+                           uri: URI, 
+                           hashToReplace: String, 
+                           newBytes: Bytes): Either[ReportError, State] = {
     state.get(uri) match {
       case Some((_, Hash(foundHash), _)) =>
-        if (foundHash.toUpperCase == hashToReplace.toUpperCase)
-          Right(state + (uri -> (bytes, hash(bytes), clientId)))
-        else
         if (foundHash.toUpperCase == hashToReplace.toUpperCase) {
-          val newHash = hash(bytes)
+          val newHash = hash(newBytes)
           logger.debug(s"Replacing $uri with hash $foundHash -> $newHash")
-          Right(state + (uri -> (bytes, newHash, clientId)))
-        } else
-          Left(ReportError(BaseError.NonMatchingHash,
-            Some(s"Cannot republish the object [$uri], hash doesn't match, passed ${hashToReplace.toUpperCase}, but existing one is ${foundHash.toUpperCase}.")))
+          // one added one deleted
+          metrics.publishedObject()
+          metrics.withdrawnObject()
+          Right(state + (uri -> (newBytes, newHash, clientId)))
+        } else {
+            metrics.failedToReplace()
+            Left(ReportError(BaseError.NonMatchingHash,
+                Some(s"Cannot republish the object [$uri], " +
+                  s"hash doesn't match, passed ${hashToReplace.toUpperCase}, " +
+                  s"but existing one is ${foundHash.toUpperCase}.")))
+        }
       case None =>
         Left(ReportError(BaseError.NoObjectToUpdate, Some(s"No object [$uri] has been found.")))
     }
@@ -124,11 +142,12 @@ class StateActor(conf: AppConfig) extends Actor with Hashing with Logging {
 
   def applyCreate(state: State, clientId: ClientId, uri: URI, bytes: Bytes): Either[ReportError, State] = {
     if (state.contains(uri)) {
-      Left(ReportError(BaseError.HashForInsert, Some(s"Tried to insert existing object [$uri].")))
-    } else {
-      Right(state + (uri -> (bytes, hash(bytes), clientId)))
+        metrics.failedToAdd()
+        Left(ReportError(BaseError.HashForInsert, Some(s"Tried to insert existing object [$uri].")))
+    } else {      
       val newHash = hash(bytes)
       logger.debug(s"Adding $uri with hash $newHash")
+      metrics.publishedObject()
       Right(state + (uri -> (bytes, newHash, clientId)))
     }
   }

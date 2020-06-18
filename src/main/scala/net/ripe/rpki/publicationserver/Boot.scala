@@ -5,6 +5,7 @@ import java.security.KeyStore
 
 import akka.actor.{ActorRef, ActorSystem, OneForOneStrategy, SupervisorStrategy}
 import akka.http.scaladsl.Http
+import akka.http.scaladsl.server.Directives._
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import com.softwaremill.macwire._
@@ -14,10 +15,16 @@ import akka.http.scaladsl.{ConnectionContext, HttpsConnectionContext, Http}
 import javax.net.ssl._
 import net.ripe.logging.SysStreamsLogger
 import net.ripe.rpki.publicationserver.store.XodusDB
+import net.ripe.rpki.publicationserver.metrics._
 import org.slf4j.{LoggerFactory, Logger}
 import akka.pattern.ask
 
+import io.prometheus.client.exporter.common.TextFormat
+import io.prometheus.client._
+
 import scala.concurrent.duration._
+
+
 
 object Boot extends App {
   lazy val conf = wire[AppConfig]
@@ -44,7 +51,11 @@ class PublicationServerApp(conf: AppConfig, logger: Logger) extends RRDPService 
 
     implicit val timeout = Timeout(5.seconds)
 
-    val stateActor: ActorRef = system.actorOf(StateActor.props(conf))
+    val registry = CollectorRegistry.defaultRegistry
+    val metrics = new Metrics(registry)
+    val metricsApi = new MetricsApi(registry)
+
+    val stateActor: ActorRef = system.actorOf(StateActor.props(conf, metrics))
 
     val publicationService = new PublicationService(conf, stateActor)
 
@@ -57,7 +68,7 @@ class PublicationServerApp(conf: AppConfig, logger: Logger) extends RRDPService 
     )
 
     Http().bindAndHandle(
-      rrdpAndMonitoringRoutes,
+      rrdpAndMonitoringRoutes ~ metricsApi.routes,
       interface = "::0",
       port = conf.rrdpPort
     )

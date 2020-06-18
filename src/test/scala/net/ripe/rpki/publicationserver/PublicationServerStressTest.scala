@@ -16,7 +16,7 @@ import scala.util.Try
 
 class PublicationServerStressTest extends PublicationServerBaseTest with ScalatestRouteTest with Hashing {
   val conf = new AppConfig
-  def theStateActor = TestActorRef(new StateActor(conf))
+  def theStateActor = TestActorRef(new StateActor(conf, testMetrics))
 
   lazy val publicationService = new PublicationService(conf, theStateActor)
 

@@ -2,7 +2,7 @@ package net.ripe.rpki.publicationserver
 
 import java.io.File
 import java.nio.file.{Files, Path}
-import java.util.UUID
+import java.util.{Comparator, UUID}
 
 import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.model.{HttpMethods, HttpRequest}
@@ -18,6 +18,8 @@ import scala.concurrent.duration._
 import scala.io.Source
 import scala.util.Try
 import scala.xml.Elem
+import net.ripe.rpki.publicationserver.metrics.Metrics
+import io.prometheus.client.CollectorRegistry
 
 abstract class PublicationServerBaseTest extends FunSuite with BeforeAndAfter with Matchers with MockitoSugar with TestLogSetup with ScalatestRouteTest {
 
@@ -29,9 +31,12 @@ abstract class PublicationServerBaseTest extends FunSuite with BeforeAndAfter wi
     XodusDB.init(tempXodusDir.getAbsolutePath)
   }
 
+  lazy val testMetrics = new Metrics(CollectorRegistry.defaultRegistry)  
+
   def cleanStore() = {
-    // TODO Make it less ugly
-    Runtime.getRuntime.exec("rm -Rf \"" + tempXodusDir.getAbsolutePath + "\"")
+    Files.walk(tempXodusDir.toPath)
+      .sorted(Comparator.reverseOrder())
+      .forEach(p => p.toFile.delete())
   }
 
   def getFile(fileName: String) = Source.fromURL(getClass.getResource(fileName))
