@@ -9,7 +9,7 @@ import io.prometheus.client.{CollectorRegistry, Histogram}
 
 import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver.messaging.Accumulator
-import net.ripe.rpki.publicationserver.messaging.Messages.{InitRepo, RawMessage, ValidatedMessage}
+import net.ripe.rpki.publicationserver.messaging.Messages.{InitRepo, RawMessage, ValidatedStateMessage}
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store.ObjectStore
 import net.ripe.rpki.publicationserver.store.ObjectStore.State
@@ -35,8 +35,10 @@ class StateActor(conf: AppConfig, metrics: Metrics)
 
   @throws[Exception](classOf[Exception])
   override def preStart() = {
-    state = objectStore.getState
+    state = objectStore.getState    
     accActor ! InitRepo(state)
+    
+    // println("just sent InitRepo")
   }
 
   override def receive: Receive = {
@@ -70,7 +72,7 @@ class StateActor(conf: AppConfig, metrics: Metrics)
 
     replyStatus match {
       case _: ReplyMsg =>
-        accActor ! ValidatedMessage(queryMessage, state)
+        accActor ! ValidatedStateMessage(queryMessage, state)
       case e: ErrorMsg =>
         logger.warn(s"Error processing query from $clientId: ${e.error.message}")
     }

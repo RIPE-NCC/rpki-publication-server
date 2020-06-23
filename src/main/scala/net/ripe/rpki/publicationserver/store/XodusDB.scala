@@ -27,4 +27,8 @@ object XodusDB extends Logging {
       entityStore = PersistentEntityStores.newInstance(env)
     }
   }
+
+  def reset() = {
+      entityStore = null;
+  }
 }

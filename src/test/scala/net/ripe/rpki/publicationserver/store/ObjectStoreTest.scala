@@ -14,7 +14,6 @@ class ObjectStoreTest extends PublicationServerBaseTest with Hashing {
 
   before {
     initStore()
-    objectStore.clear()
   }
 
   private val uri: URI = new URI("rsync://host.com/path")

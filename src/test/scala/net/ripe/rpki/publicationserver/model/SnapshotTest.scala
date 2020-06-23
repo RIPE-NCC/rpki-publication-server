@@ -1,11 +1,13 @@
+package net.ripe.rpki.publicationserver.model
+
 import java.net.URI
 import java.util.UUID
 
 import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver.PublicationServerBaseTest
-import net.ripe.rpki.publicationserver.model.{ServerState, Snapshot}
+import org.scalatest._
 
-class SnapshotTest extends PublicationServerBaseTest {
+class SnapshotTest extends FunSuite with BeforeAndAfter with Matchers {
 
   test("should serialize to proper xml") {
     val sessionId = UUID.randomUUID()

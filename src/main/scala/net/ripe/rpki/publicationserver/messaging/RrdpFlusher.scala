@@ -79,10 +79,11 @@ class RrdpFlusher(conf: AppConfig) extends Actor with Logging {
     val snapshot = Snapshot(serverState, snapshotPdus)
     val notification = Notification.create(conf)(snapshot, serverState, Seq())
 
-    logger.info("Writing initial RRDP state")
+    logger.info("Writing initial RRDP state to " + conf.rrdpRepositoryPath)
     rrdpWriter.writeNewState(conf.rrdpRepositoryPath, serverState, notification, snapshot)
       .recover {
         case e: Exception =>
+          e.printStackTrace()
           logger.error(s"Could not write snapshot to rrdp repo: ", e)
           throwFatalException
       }

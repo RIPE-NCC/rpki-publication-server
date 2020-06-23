@@ -9,6 +9,7 @@ import net.ripe.rpki.publicationserver.model.{Delta, Notification, ServerState, 
 
 import scala.util.{Failure, Try}
 import scala.xml.{Node, XML}
+import java.io.File
 
 class RrdpRepositoryWriter extends Logging {
 
@@ -23,12 +24,13 @@ class RrdpRepositoryWriter extends Logging {
 
   private val fileAttributes = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-r--r--"))
 
-  def writeNewState(rootDir: String, serverState: ServerState, newNotification: Notification, snapshot: Snapshot): Try[Option[FileTime]] =
+  def writeNewState(rootDir: String, serverState: ServerState, newNotification: Notification, snapshot: Snapshot): Try[Option[FileTime]] =    
     Try {
       writeSnapshot(rootDir, serverState, snapshot)
       writeNotification(rootDir, newNotification)
     }.recoverWith { case e: Exception =>
       logger.error("An error occurred, removing snapshot: ", e)
+      e.printStackTrace()
       deleteSnapshot(rootDir, serverState)
       Failure(e)
     }
@@ -68,26 +70,34 @@ class RrdpRepositoryWriter extends Logging {
   private def getRootFolder(rootDir: String): Path =
     Files.createDirectories(Paths.get(rootDir))
 
-  private def getStateDir(rootDir: String, sessionId: String, serial: Long): Path =
+  private def getStateDir(rootDir: String, sessionId: String, serial: Long): Path = {
+    //   println("rootDir 1 = " + rootDir + ", exists = " + new File(rootDir).exists)
+    //   println("rootDir 2 = " + new File(rootDir, sessionId) + ", exists = " + new File(rootDir, sessionId).exists)
     Files.createDirectories(Paths.get(rootDir, sessionId, String.valueOf(serial)))
+  }
 
-  def deleteSessionFile(rootDir: String, serverState: ServerState, name: String): Boolean = {
+  def deleteSessionFile(rootDir: String, serverState: ServerState, name: String): Boolean = {      
     val ServerState(sessionId, serial) = serverState
     Files.deleteIfExists(Paths.get(rootDir, sessionId.toString, serial.toString, name))
   }
 
   def deleteSnapshotsOlderThan(rootDir: String, timestamp: FileTime, latestSerial: Long): Unit = {
+    //   println("deleteSnapshotsOlderThan")
     Files.walkFileTree(Paths.get(rootDir), new RemovingFileVisitor(timestamp, Paths.get(Rrdp.snapshotFilename), latestSerial))
   }
 
   def deleteDeltaOlderThan(rootDir: String, timestamp: FileTime, latestSerial: Long): Unit = {
+    //   println("deleteDeltaOlderThan")
     Files.walkFileTree(Paths.get(rootDir), new RemovingFileVisitor(timestamp, Paths.get(Rrdp.deltaFilename), latestSerial))
   }
 
-  def deleteSnapshot(rootDir: String, serverState: ServerState): Boolean =
+  def deleteSnapshot(rootDir: String, serverState: ServerState): Boolean = {
+    //   println("deleteSnapshot")
     deleteSessionFile(rootDir, serverState, Rrdp.snapshotFilename)
+  }
 
   def cleanUpEmptyDir(rootDir: String, serverState: ServerState): AnyVal = {
+    //   println("cleanUpEmptyDir")
     val ServerState(sessionId, serial) = serverState
     val dir = Paths.get(rootDir, sessionId.toString, serial.toString)
     if (FSUtil.isEmptyDir(dir)) {
@@ -96,6 +106,7 @@ class RrdpRepositoryWriter extends Logging {
   }
 
   def deleteDelta(rootDir: String, serverState: ServerState): AnyVal = {
+    //   println("deleteDelta")
     deleteSessionFile(rootDir, serverState, Rrdp.deltaFilename)
     cleanUpEmptyDir(rootDir, serverState)
   }

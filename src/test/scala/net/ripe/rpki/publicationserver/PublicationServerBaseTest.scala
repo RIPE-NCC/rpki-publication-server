@@ -26,17 +26,30 @@ abstract class PublicationServerBaseTest extends FunSuite with BeforeAndAfter wi
   protected def waitTime: FiniteDuration = 30.seconds
 
   var tempXodusDir: File = _
+
   def initStore() = {
     tempXodusDir = Files.createTempDirectory("rpki-pub-server-test").toFile
+    XodusDB.reset()
     XodusDB.init(tempXodusDir.getAbsolutePath)
   }
 
-  lazy val testMetrics = new Metrics(CollectorRegistry.defaultRegistry)  
+  lazy val testMetrics = Metrics.get(CollectorRegistry.defaultRegistry)  
 
   def cleanStore() = {
     Files.walk(tempXodusDir.toPath)
       .sorted(Comparator.reverseOrder())
       .forEach(p => p.toFile.delete())
+  }
+
+  def withTempDir[R](f : File => R) : R = {
+      val dir = Files.createTempDirectory("rpki-pub-server-test").toFile
+      try {        
+        f(dir)
+      } finally {
+        Files.walk(dir.toPath())
+            .sorted(Comparator.reverseOrder())
+            .forEach(p => p.toFile.delete())
+      }      
   }
 
   def getFile(fileName: String) = Source.fromURL(getClass.getResource(fileName))
