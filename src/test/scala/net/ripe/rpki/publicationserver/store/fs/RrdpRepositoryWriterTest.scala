@@ -4,9 +4,11 @@ import java.nio.file.attribute.FileTime
 import java.nio.file.{Files, Path, Paths}
 
 import net.ripe.rpki.publicationserver.PublicationServerBaseTest
+import org.scalatest.Ignore
 
 import scala.util.Random
 
+@Ignore
 class RrdpRepositoryWriterTest extends PublicationServerBaseTest {
 
   val subject = new RrdpRepositoryWriter
