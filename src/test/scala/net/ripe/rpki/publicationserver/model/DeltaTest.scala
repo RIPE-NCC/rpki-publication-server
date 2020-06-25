@@ -26,7 +26,7 @@ class DeltaTest extends FunSuite with BeforeAndAfter with Matchers {
     state.bytes should be(toBytes(xml))
   }
 
-  private def toBytes(s: String) = {
+  private def toBytes(s: String) =
     s.map(c => c.toByte).toArray
-  }
+  
 }

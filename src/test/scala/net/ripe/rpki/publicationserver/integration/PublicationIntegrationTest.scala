@@ -15,17 +15,17 @@ import java.nio.file._
 import java.net.URI
 import akka.http.scaladsl.model.MediaType
 import akka.http.scaladsl.model.HttpCharsets
+import org.scalatest._
 
 class PublicationIntegrationTest
-    extends PublicationServerBaseTest
-    with Hashing {
+    extends FunSuite with BeforeAndAfter with Matchers with Hashing {
 
   private var server: PublicationServerApp = null
 
   def withPubServer[R](f : PublicationServerClient => R) : R = {
       val server = createServer()
       
-      Thread.sleep(500)
+    //   Thread.sleep(500)
       server.run()    
       // wait until things are initialised
       // TODO Make it in more deterministic way

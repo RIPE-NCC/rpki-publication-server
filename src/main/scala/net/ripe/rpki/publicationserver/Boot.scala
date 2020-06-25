@@ -52,6 +52,7 @@ class PublicationServerApp(conf: AppConfig, logger: Logger) extends RRDPService 
   var httpsBinding: Future[ServerBinding] = _
 
   def run() {      
+    XodusDB.reset()
     XodusDB.init(conf.storePath)    
 
     logger.info("Starting up the publication server ...")    
