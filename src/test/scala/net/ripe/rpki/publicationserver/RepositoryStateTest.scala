@@ -45,15 +45,16 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
 
   before {
     initStore()
-    cleanDir(rootDir.toFile)
+    cleanDir(rootDir)
     serial = 1L
     theObjectStore.clear()
     theStateActor.underlyingActor.preStart()
   }
 
   override def afterAll() = {
-    cleanDir(rootDir.toFile)
+    cleanDir(rootDir)
     Files.deleteIfExists(rootDir)
+    cleanStore()
   }
 
   test("should create snapshots and deltas") {
@@ -85,10 +86,12 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
 
     val service = publicationService
 
+    checkFileExists(Paths.get(sessionDir))
     checkFileExists(Paths.get(sessionDir, "1", "snapshot.xml"))
 
     POST("/?clientId=1234", publishXml.mkString) ~> service.publicationRoutes ~> check { responseAs[String] }
 
+    checkFileExists(Paths.get(sessionDir, "2"))
     checkFileExists(Paths.get(sessionDir, "2", "snapshot.xml"))
     checkFileAbsent(Paths.get(sessionDir, "1", "snapshot.xml"))
 
@@ -156,16 +159,5 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
           uri="$uri" hash="${hash.hash}"></withdraw>
         </msg>"""
 
-  private def cleanDir(dir: File) = {
-    def cleanDir_(file: File): Unit =
-      Option(file.listFiles).map(_.toList).getOrElse(Nil).foreach { f =>
-        if (f.isDirectory)
-          cleanDir_(f)
-        f.delete
-      }
-
-    if (dir.isDirectory)
-      cleanDir_(dir)
-  }
 
 }

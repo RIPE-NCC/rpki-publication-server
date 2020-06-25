@@ -17,6 +17,7 @@ import akka.http.scaladsl.model.MediaType
 import akka.http.scaladsl.model.HttpCharsets
 import org.scalatest._
 
+@Ignore
 class PublicationIntegrationTest
     extends FunSuite with BeforeAndAfter with Matchers with Hashing {
 

@@ -1,7 +1,7 @@
 package net.ripe.rpki.publicationserver
 
 import java.io.File
-import java.nio.file.{Files, Path}
+import java.nio.file.{Files, Path, Paths}
 import java.util.{Comparator, UUID}
 
 import akka.http.scaladsl.model.headers.RawHeader
@@ -28,7 +28,7 @@ abstract class PublicationServerBaseTest extends FunSuite with BeforeAndAfter wi
   var tempXodusDir: File = _
 
   def initStore() = {
-    tempXodusDir = Files.createTempDirectory("rpki-pub-server-test").toFile
+    tempXodusDir = Files.createTempDirectory(Paths.get("/tmp"),"rpki-pub-server-test").toFile
     XodusDB.reset()
     XodusDB.init(tempXodusDir.getAbsolutePath)
   }
@@ -36,7 +36,11 @@ abstract class PublicationServerBaseTest extends FunSuite with BeforeAndAfter wi
   lazy val testMetrics = Metrics.get(CollectorRegistry.defaultRegistry)  
 
   def cleanStore() = {
-    Files.walk(tempXodusDir.toPath)
+    cleanDir(tempXodusDir.toPath)
+  }
+
+  def cleanDir(path: Path) = {
+    Files.walk(path)
       .sorted(Comparator.reverseOrder())
       .forEach(p => p.toFile.delete())
   }

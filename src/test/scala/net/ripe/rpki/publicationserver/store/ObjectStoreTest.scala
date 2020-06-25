@@ -5,15 +5,21 @@ import java.net.URI
 import net.ripe.rpki.publicationserver.Binaries.{Base64, Bytes}
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.model.ClientId
+import org.scalatest.Ignore
 
 import scala.util.{Failure, Success, Try}
 
+@Ignore
 class ObjectStoreTest extends PublicationServerBaseTest with Hashing {
 
   val objectStore: ObjectStore = ObjectStore.get
 
   before {
     initStore()
+  }
+
+  after {
+    cleanStore()
   }
 
   private val uri: URI = new URI("rsync://host.com/path")

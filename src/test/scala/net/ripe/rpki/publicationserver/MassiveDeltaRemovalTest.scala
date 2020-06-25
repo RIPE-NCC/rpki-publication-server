@@ -57,14 +57,16 @@ class MassiveDeltaRemovalTest extends PublicationServerBaseTest with Hashing wit
 
   private def sessionDir = findSessionDir(rootDir).toString
 
-//   before {
-//     cleanDir(rootDir.toFile)
-//   }
+   before {
+     initStore()
+     cleanDir(rootDir)
+   }
 
-//   override def afterAll() = {
-//     cleanDir(rootDir.toFile)
-//     Files.deleteIfExists(rootDir)
-//   }
+   override def afterAll() = {
+     cleanStore()
+     cleanDir(rootDir)
+     Files.deleteIfExists(rootDir)
+   }
 
 
 //   test("should create snapshots after removing deltas") {
@@ -98,15 +100,4 @@ class MassiveDeltaRemovalTest extends PublicationServerBaseTest with Hashing wit
 //     checkFileExists(Paths.get(sessionDir, (latestSerial + 1).toString, "snapshot.xml"))
 //   }
 
-  private def cleanDir(dir: File) = {
-    def cleanDir_(file: File): Unit =
-      Option(file.listFiles).map(_.toList).getOrElse(Nil).foreach { f =>
-        if (f.isDirectory)
-          cleanDir_(f)
-        f.delete
-      }
-
-    if (dir.isDirectory)
-      cleanDir_(dir)
-  }
 }
