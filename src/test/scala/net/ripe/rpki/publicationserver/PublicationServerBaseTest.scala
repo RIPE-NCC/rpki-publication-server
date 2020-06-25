@@ -6,20 +6,20 @@ import java.util.{Comparator, UUID}
 
 import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.model.{HttpMethods, HttpRequest}
+import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.testkit.TestKit.awaitCond
-import net.ripe.rpki.publicationserver.Binaries.{Base64, Bytes}
+import io.prometheus.client.CollectorRegistry
+import net.ripe.rpki.publicationserver.Binaries.Bytes
+import net.ripe.rpki.publicationserver.metrics.Metrics
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store.XodusDB
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfter, FunSuite, Matchers}
-import akka.http.scaladsl.testkit.ScalatestRouteTest
 
 import scala.concurrent.duration._
 import scala.io.Source
 import scala.util.Try
 import scala.xml.Elem
-import net.ripe.rpki.publicationserver.metrics.Metrics
-import io.prometheus.client.CollectorRegistry
 
 abstract class PublicationServerBaseTest extends FunSuite with BeforeAndAfter with Matchers with MockitoSugar with TestLogSetup with ScalatestRouteTest {
 

@@ -25,6 +25,9 @@ class PublicationServiceTest extends PublicationServerBaseTest with Hashing {
     initStore()
     objectStore.clear()
   }
+  after {
+    cleanStore()
+  }
 
   test("should return a response with content-type application/rpki-publication") {
     POST("/?clientId=1234", getFile("/publish.xml").mkString) ~> publicationService.publicationRoutes ~> check {

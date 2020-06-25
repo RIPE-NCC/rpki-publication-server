@@ -19,7 +19,7 @@ import org.scalatest.mock.MockitoSugar
 
 import scala.concurrent.duration._
 
-@Ignore
+
 object MassiveDeltaRemovalTest {
 
   val timeToRunTheTest: FiniteDuration = 5.seconds
@@ -28,7 +28,7 @@ object MassiveDeltaRemovalTest {
 
   val rootDir = Files.createTempDirectory(Paths.get("/tmp"),"test_pub_server_")
 
-  val rootDirName = rootDir.toString
+  val rootDirName = rootDir.toAbsolutePath.toString
   val theSessionId = UUID.randomUUID()
 
   lazy val conf = new AppConfig {
@@ -39,7 +39,7 @@ object MassiveDeltaRemovalTest {
 
 }
 
-@Ignore
+
 class MassiveDeltaRemovalTest extends PublicationServerBaseTest with Hashing with BeforeAndAfterAll with Logging {
   import MassiveDeltaRemovalTest._
 
@@ -61,8 +61,9 @@ class MassiveDeltaRemovalTest extends PublicationServerBaseTest with Hashing wit
      initStore()
    }
 
-   override def afterAll() = {
+   after {
      cleanStore()
+     cleanDir(rootDir)
    }
 
 

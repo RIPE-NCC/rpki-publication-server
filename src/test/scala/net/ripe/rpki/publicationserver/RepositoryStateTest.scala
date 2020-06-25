@@ -51,10 +51,13 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
     theStateActor.underlyingActor.preStart()
   }
 
+  after {
+    cleanStore()
+  }
+
   override def afterAll() = {
     cleanDir(rootDir)
     Files.deleteIfExists(rootDir)
-    cleanStore()
   }
 
   test("should create snapshots and deltas") {
