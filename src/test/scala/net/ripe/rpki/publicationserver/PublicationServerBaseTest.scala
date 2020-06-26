@@ -31,11 +31,11 @@ abstract class PublicationServerBaseTest extends FunSuite with BeforeAndAfter wi
     tempXodusDir = Files.createTempDirectory("rpki-pub-server-test").toFile
     XodusDB.reset()
     XodusDB.init(tempXodusDir.getAbsolutePath)
-    shutdownHook(tempXodusDir.toPath)
+    deleteOnExit(tempXodusDir.toPath)
     tempXodusDir.deleteOnExit()
   }
 
-  lazy val testMetrics = Metrics.get(CollectorRegistry.defaultRegistry)  
+  def testMetrics = Metrics.get(new CollectorRegistry(true));
 
   def cleanStore() = {
     cleanDir(tempXodusDir.toPath)
@@ -49,7 +49,8 @@ abstract class PublicationServerBaseTest extends FunSuite with BeforeAndAfter wi
     }
   }
 
-  def shutdownHook(path: Path): Unit ={
+  def deleteOnExit(path: Path): Unit ={
+    path.toFile.deleteOnExit()
     Runtime.getRuntime.addShutdownHook(new Thread(new Runnable {
       override def run(): Unit = cleanDir(path)
     }))
@@ -60,9 +61,7 @@ abstract class PublicationServerBaseTest extends FunSuite with BeforeAndAfter wi
       try {        
         f(dir)
       } finally {
-        Files.walk(dir.toPath())
-            .sorted(Comparator.reverseOrder())
-            .forEach(p => p.toFile.delete())
+        cleanDir(dir.toPath)
       }      
   }
 

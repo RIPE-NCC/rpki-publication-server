@@ -3,18 +3,19 @@ package net.ripe.rpki.publicationserver
 import java.io.File
 import java.util.UUID
 
-import akka.testkit.TestActorRef
+import akka.testkit.{TestActorRef, TestKit}
 import net.ripe.rpki.publicationserver.Binaries.Base64
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store.ObjectStore
 import org.apache.commons.io.FileUtils
 import akka.http.scaladsl.testkit.ScalatestRouteTest
+import org.scalatest.BeforeAndAfterAll
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future, Promise}
 import scala.util.Try
 
-class PublicationServerStressTest extends PublicationServerBaseTest with ScalatestRouteTest with Hashing {
+class PublicationServerStressTest extends PublicationServerBaseTest with ScalatestRouteTest with Hashing with BeforeAndAfterAll{
   val conf = new AppConfig
   def theStateActor = TestActorRef(new StateActor(conf, testMetrics))
 
@@ -34,6 +35,10 @@ class PublicationServerStressTest extends PublicationServerBaseTest with Scalate
 
   after {
     cleanStore()
+  }
+
+  override def afterAll(): Unit = {
+    TestKit.shutdownActorSystem(system)
   }
 
   def publishAndRetrieve(clientId: ClientId, promise: Promise[Unit]) = {

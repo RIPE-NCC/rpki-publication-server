@@ -9,7 +9,6 @@ import org.scalatest.Ignore
 
 import scala.util.{Failure, Success, Try}
 
-@Ignore
 class ObjectStoreTest extends PublicationServerBaseTest with Hashing {
 
   val objectStore: ObjectStore = ObjectStore.get

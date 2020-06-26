@@ -2,16 +2,17 @@ package net.ripe.rpki.publicationserver
 
 import java.net.URI
 
-import akka.testkit.TestActorRef
+import akka.testkit.{TestActorRef, TestKit}
 import net.ripe.rpki.publicationserver.Binaries.{Base64, Bytes}
 import net.ripe.rpki.publicationserver.store.ObjectStore
 import net.ripe.rpki.publicationserver.store.fs.RsyncRepositoryWriter
+import org.scalatest.BeforeAndAfterAll
 
 object Store {
   val objectStore = ObjectStore.get
 }
 
-class PublicationServiceTest extends PublicationServerBaseTest with Hashing {
+class PublicationServiceTest extends PublicationServerBaseTest with Hashing with BeforeAndAfterAll{
 
   val theRsyncWriter = mock[RsyncRepositoryWriter]
   val conf = new AppConfig
@@ -27,6 +28,10 @@ class PublicationServiceTest extends PublicationServerBaseTest with Hashing {
   }
   after {
     cleanStore()
+  }
+
+  override def afterAll(): Unit = {
+    cleanUp()
   }
 
   test("should return a response with content-type application/rpki-publication") {

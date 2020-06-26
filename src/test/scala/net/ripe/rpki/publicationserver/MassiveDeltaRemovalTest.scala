@@ -1,23 +1,18 @@
 package net.ripe.rpki.publicationserver
 
-import java.io.File
 import java.net.URI
 import java.nio.file.{Files, Paths}
 import java.util.{Date, UUID}
 
-import akka.actor.ActorRef
-import akka.testkit.TestActorRef
+import akka.testkit.{TestActorRef, TestKit}
 import net.ripe.rpki.publicationserver.Binaries.{Base64, Bytes}
 import net.ripe.rpki.publicationserver.messaging.{Accumulator, RrdpFlusher}
+import net.ripe.rpki.publicationserver.metrics.Metrics
 import net.ripe.rpki.publicationserver.model.ClientId
-import net.ripe.rpki.publicationserver.store._
-import net.ripe.rpki.publicationserver.store.fs._
-import org.mockito.Matchers._
-import org.mockito.Mockito._
 import org.scalatest.{BeforeAndAfterAll, Ignore}
-import org.scalatest.mock.MockitoSugar
 
 import scala.concurrent.duration._
+
 
 
 object MassiveDeltaRemovalTest {
@@ -26,10 +21,9 @@ object MassiveDeltaRemovalTest {
   val deadline = timeToRunTheTest.fromNow
   val deadlineDate: Date = new Date(System.currentTimeMillis() + deadline.timeLeft.toMillis)
 
-  val rootDir = Files.createTempDirectory("test_pub_server_")
-  rootDir.toFile.deleteOnExit()
+  lazy val rootDir = Files.createTempDirectory("test_massive_delta_removal")
 
-  val rootDirName = rootDir.toAbsolutePath.toString
+  lazy val rootDirName = rootDir.toAbsolutePath.toString
   val theSessionId = UUID.randomUUID()
 
   lazy val conf = new AppConfig {
@@ -44,11 +38,8 @@ object MassiveDeltaRemovalTest {
 class MassiveDeltaRemovalTest extends PublicationServerBaseTest with Hashing with BeforeAndAfterAll with Logging {
   import MassiveDeltaRemovalTest._
 
-  override val waitTime = timeToRunTheTest
-
-
-  val theRrdpFlusher = TestActorRef(new RrdpFlusher(conf))
-  val theStateActor = TestActorRef(new StateActor(conf, testMetrics) {
+  lazy val theRrdpFlusher = TestActorRef(new RrdpFlusher(conf))
+  lazy val theStateActor = TestActorRef(new StateActor(conf, mock[Metrics]) {
     override val accActor = TestActorRef(new Accumulator(conf) {
       override val rrdpFlusher = theRrdpFlusher
     })
@@ -58,15 +49,15 @@ class MassiveDeltaRemovalTest extends PublicationServerBaseTest with Hashing wit
 
   private def sessionDir = findSessionDir(rootDir).toString
 
-   before {
+   override def beforeAll() {
      initStore()
    }
 
-   after {
-     cleanStore()
-     cleanDir(rootDir)
-   }
-
+  override def afterAll(): Unit = {
+    publicationService.system.terminate()
+    cleanUp()
+    cleanDir(rootDir)
+  }
 
    test("should create snapshots after removing deltas") {
 
@@ -75,7 +66,7 @@ class MassiveDeltaRemovalTest extends PublicationServerBaseTest with Hashing wit
 
      val service = publicationService
 
-     val clientId: ClientId = ClientId("test")
+     val clientId: ClientId = ClientId("test_massive")
      val publishQuery = Seq(PublishQ(URI.create(uri), None, None, data))
      val withdrawQuery = Seq(WithdrawQ(URI.create(uri), None, hash(data).hash))
 

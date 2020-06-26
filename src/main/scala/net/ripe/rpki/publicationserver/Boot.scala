@@ -44,8 +44,7 @@ object Boot extends App {
 
 class PublicationServerApp(conf: AppConfig, logger: Logger) extends RRDPService {
     
-  implicit val system = ActorSystem(Math.abs(new ju.Random().nextLong()).toString())
-  implicit val materializer = ActorMaterializer()
+  implicit val system = ActorSystem.create(Math.abs(new ju.Random().nextLong()).toString())
   implicit val dispatcher = system.dispatcher
 
   var httpBinding: Future[ServerBinding] = _

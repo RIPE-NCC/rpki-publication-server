@@ -3,11 +3,11 @@ package net.ripe.rpki.publicationserver
 import java.io.File
 import java.nio.file.{Files, Paths}
 
-import akka.testkit.TestActorRef
+import akka.testkit.{TestActorRef, TestKit}
 import net.ripe.rpki.publicationserver.Binaries.{Base64, Bytes}
 import net.ripe.rpki.publicationserver.store._
 import net.ripe.rpki.publicationserver.store.fs._
-import org.scalatest.BeforeAndAfterAll
+import org.scalatest.{BeforeAndAfterAll, Ignore}
 import org.scalatest.mockito.MockitoSugar
 import akka.http.scaladsl.testkit.{RouteTestTimeout, ScalatestRouteTest}
 
@@ -15,9 +15,8 @@ import scala.concurrent.duration._
 import scala.language.postfixOps
 
 object RepositoryStateTest {
-  val rootDir = Files.createTempDirectory(Paths.get("/tmp"),"test_pub_server_")
-  rootDir.toFile.deleteOnExit()
-  val rootDirName = rootDir.toString
+  lazy val rootDir = Files.createTempDirectory("test_repo_state")
+  lazy val rootDirName = rootDir.toString
 
   var retainPeriodOverride: Int = 1
 
@@ -40,12 +39,13 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
 
   implicit val customTimeout = RouteTestTimeout(6000.seconds)
 
-   lazy val theStateActor = TestActorRef(new StateActor(conf, testMetrics))
-   def publicationService = new PublicationService(conf, theStateActor)
+  lazy val theStateActor = TestActorRef(new StateActor(conf, testMetrics))
+  def publicationService = new PublicationService(conf, theStateActor)
 
+  deleteOnExit(rootDir)
+  
   before {
     initStore()
-    cleanDir(rootDir)
     serial = 1L
     theObjectStore.clear()
     theStateActor.underlyingActor.preStart()
@@ -56,8 +56,7 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
   }
 
   override def afterAll() = {
-    cleanDir(rootDir)
-    Files.deleteIfExists(rootDir)
+    cleanUp()
   }
 
   test("should create snapshots and deltas") {
