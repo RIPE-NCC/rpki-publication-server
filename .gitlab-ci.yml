@@ -7,7 +7,7 @@ rpki-publication-server:
 
 
   script:
-    - sbt clean test universal:packageZipTarball 
+    - sbt clean "testOnly *RepositoryStateTest" universal:packageZipTarball 
   artifacts:
     paths:
       - target/universal/rpki-publication-server-1.1-SNAPSHOT.tgz

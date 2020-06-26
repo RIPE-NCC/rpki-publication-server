@@ -13,7 +13,7 @@ class RrdpRepositoryWriterTest extends PublicationServerBaseTest {
 
   val subject = new RrdpRepositoryWriter
 
-  val rootDir = Files.createTempDirectory(Paths.get("/tmp"),"test")
+  val rootDir = Files.createTempDirectory("test")
 
   test("should delete old snapshots") {
     val timestamp = System.currentTimeMillis()

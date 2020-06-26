@@ -26,7 +26,8 @@ object MassiveDeltaRemovalTest {
   val deadline = timeToRunTheTest.fromNow
   val deadlineDate: Date = new Date(System.currentTimeMillis() + deadline.timeLeft.toMillis)
 
-  val rootDir = Files.createTempDirectory(Paths.get("/tmp"),"test_pub_server_")
+  val rootDir = Files.createTempDirectory("test_pub_server_")
+  rootDir.toFile.deleteOnExit()
 
   val rootDirName = rootDir.toAbsolutePath.toString
   val theSessionId = UUID.randomUUID()

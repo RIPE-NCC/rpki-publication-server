@@ -44,9 +44,9 @@ class PublicationIntegrationTest
   }
 
   def serverConf() = {
-    val rsyncRootDir = Files.createTempDirectory(Paths.get("/tmp"), "test_pub_server_rsync_")
-    val storeDir = Files.createTempDirectory(Paths.get("/tmp"), "test_pub_server_store_")
-    val rrdpDir = Files.createTempDirectory(Paths.get("/tmp"), "test_pub_server_rrdp_")
+    val rsyncRootDir = Files.createTempDirectory( "test_pub_server_rsync_")
+    val storeDir = Files.createTempDirectory( "test_pub_server_store_")
+    val rrdpDir = Files.createTempDirectory( "test_pub_server_rrdp_")
     rsyncRootDir.toFile.deleteOnExit()
     storeDir.toFile.deleteOnExit()
     rrdpDir.toFile.deleteOnExit()    
