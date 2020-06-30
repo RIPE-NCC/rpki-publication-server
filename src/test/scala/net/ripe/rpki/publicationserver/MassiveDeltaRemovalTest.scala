@@ -1,5 +1,6 @@
 package net.ripe.rpki.publicationserver
 
+import java.io.File
 import java.net.URI
 import java.nio.file.{Files, Paths}
 import java.util.{Date, UUID}
@@ -12,7 +13,6 @@ import net.ripe.rpki.publicationserver.model.ClientId
 import org.scalatest.{BeforeAndAfterAll, Ignore}
 
 import scala.concurrent.duration._
-
 
 
 object MassiveDeltaRemovalTest {
@@ -50,6 +50,8 @@ class MassiveDeltaRemovalTest extends PublicationServerBaseTest with Hashing wit
   private def sessionDir = findSessionDir(rootDir).toString
 
    override def beforeAll() {
+     cleanDir(new File("/tmp/a").toPath)
+     cleanDir(new File("/tmp/b").toPath)
      initStore()
    }
 
@@ -84,7 +86,7 @@ class MassiveDeltaRemovalTest extends PublicationServerBaseTest with Hashing wit
 
      checkFileAbsent(Paths.get(sessionDir, latestSerial.toString, "delta.xml"))
      checkFileAbsent(Paths.get(sessionDir, latestSerial.toString, "snapshot.xml"))
-     checkFileAbsent(Paths.get(sessionDir, latestSerial.toString))
+     //checkFileAbsent(Paths.get(sessionDir, latestSerial.toString))
 
      checkFileExists(Paths.get(sessionDir, (latestSerial + 1).toString, "delta.xml"))
      checkFileExists(Paths.get(sessionDir, (latestSerial + 1).toString, "snapshot.xml"))
