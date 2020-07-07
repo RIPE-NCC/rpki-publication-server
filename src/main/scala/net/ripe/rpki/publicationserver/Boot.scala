@@ -82,15 +82,12 @@ class PublicationServerApp(conf: AppConfig, logger: Logger) extends RRDPService 
   }
 
   def shutdown() = {
-    //   println("before shutdown")
        Await.result(httpBinding, 10.seconds)            
             .terminate(hardDeadline = 3.seconds)
             .flatMap(_ => 
                 Await.result(httpsBinding, 10.seconds)            
                 .terminate(hardDeadline = 3.seconds))
             .flatMap(_ => system.terminate)
-      
-    //   println("after shutdown")
   }
 
   private def sslContext(): SSLContext = {
