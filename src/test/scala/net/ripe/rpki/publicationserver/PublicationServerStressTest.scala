@@ -11,37 +11,40 @@ import org.apache.commons.io.FileUtils
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import org.scalatest.BeforeAndAfterAll
 
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration._
 import scala.concurrent.{Await, Future, Promise}
 import scala.util.Try
+import java.nio.file.Files
 
 class PublicationServerStressTest extends PublicationServerBaseTest with ScalatestRouteTest with Hashing with BeforeAndAfterAll{
-  val conf = new AppConfig
-  def theStateActor = TestActorRef(new StateActor(conf, testMetrics))
+  
+    val rootDir = Files.createTempDirectory("test_pub_server_stress_test_")
 
-  lazy val publicationService = new PublicationService(conf, theStateActor)
+    val rootDirName = rootDir.toAbsolutePath.toString
 
-  val objectStore = ObjectStore.get
-
-  val listXml = getFile("/list.xml").mkString
-
-  before {
-    initStore()
-    val tmpDir = new File("tmp/b")  // The rsync basedir where the uri rsync://localcert.ripe.net/ is mapped to in reference.conf
-    if (tmpDir.exists()) {
-      FileUtils.deleteDirectory(tmpDir)
+    val conf = new AppConfig {
+        override lazy val unpublishedFileRetainPeriod = 1.second
+        override lazy val snapshotSyncDelay = 1.second
+        override lazy val rrdpRepositoryPath = rootDirName
     }
-  }
 
-  after {
-    cleanStore()
+    def theStateActor = TestActorRef(new StateActor(conf, testMetrics))
+
+    lazy val publicationService = new PublicationService(conf, theStateActor)    
+
+  override def beforeAll() {
+    conf.rsyncRepositoryMapping.foreach(z => cleanDir(z._2))           
+    initStore()
   }
 
   override def afterAll(): Unit = {
     TestKit.shutdownActorSystem(system)
+    cleanUp()
+    cleanDir(rootDir)
   }
 
   def publishAndRetrieve(clientId: ClientId, promise: Promise[Unit]) = {
+    val listXml = getFile("/list.xml").mkString
     val content = (1 to 20).map(UUID.randomUUID.toString.replace("-", "0")).mkString
     val uri = "rsync://localcert.ripe.net/" + clientId.value
     val expectedListResponse = listResponse(uri, hash(Base64(content)))

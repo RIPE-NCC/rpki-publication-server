@@ -13,22 +13,22 @@ import net.ripe.rpki.publicationserver.model.ClientId
 import org.scalatest.{BeforeAndAfterAll, Ignore}
 
 import scala.concurrent.duration._
+import scala.concurrent.Await
 
 
 object MassiveDeltaRemovalTest {
-
   val timeToRunTheTest: FiniteDuration = 5.seconds
   val deadline = timeToRunTheTest.fromNow
   val deadlineDate: Date = new Date(System.currentTimeMillis() + deadline.timeLeft.toMillis)
 
-  lazy val rootDir = Files.createTempDirectory("test_massive_delta_removal")
+  val rootDir = Files.createTempDirectory("test_massive_delta_removal_")
 
-  lazy val rootDirName = rootDir.toAbsolutePath.toString
+  val rootDirName = rootDir.toAbsolutePath.toString
   val theSessionId = UUID.randomUUID()
 
   lazy val conf = new AppConfig {
-    override lazy val unpublishedFileRetainPeriod = 1.millisecond
-    override lazy val snapshotSyncDelay = 1.millisecond
+    override lazy val unpublishedFileRetainPeriod = 1.second
+    override lazy val snapshotSyncDelay = 1.second
     override lazy val rrdpRepositoryPath = rootDirName
   }
 
@@ -49,14 +49,13 @@ class MassiveDeltaRemovalTest extends PublicationServerBaseTest with Hashing wit
 
   private def sessionDir = findSessionDir(rootDir).toString
 
-   override def beforeAll() {
-     cleanDir(new File("/tmp/a").toPath)
-     cleanDir(new File("/tmp/b").toPath)
-     initStore()
-   }
+  override def beforeAll() {
+    conf.rsyncRepositoryMapping.foreach(z => cleanDir(z._2))           
+    initStore()
+  }
 
   override def afterAll(): Unit = {
-    publicationService.system.terminate()
+    Await.ready(publicationService.system.terminate(), Duration.Inf)
     cleanUp()
     cleanDir(rootDir)
   }
