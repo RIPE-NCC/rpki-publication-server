@@ -24,8 +24,8 @@ object RepositoryStateTest {
   val theRsyncWriter = MockitoSugar.mock[RsyncRepositoryWriter]
 
   lazy val conf = new AppConfig {
-    override lazy val unpublishedFileRetainPeriod = 1.millisecond
-    override lazy val snapshotSyncDelay = 1.millisecond
+    override lazy val unpublishedFileRetainPeriod = 1.second
+    override lazy val snapshotSyncDelay = 1.second
     override lazy val rrdpRepositoryPath = rootDirName
   }
 }

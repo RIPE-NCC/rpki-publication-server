@@ -19,7 +19,7 @@ class RsyncTest extends PublicationServerBaseTest with ScalatestRouteTest with H
   val clientId = "1234"
 
   val conf = new AppConfig {
-    override lazy val snapshotSyncDelay = 1.millisecond
+    override lazy val snapshotSyncDelay = 1.second
   }
 
    def theStateActor = TestActorRef(new StateActor(conf, testMetrics))
