@@ -36,13 +36,11 @@ class StateActor(conf: AppConfig, metrics: Metrics)
   @throws[Exception](classOf[Exception])
   override def preStart() = {
     state = objectStore.getState    
-    accActor ! InitRepo(state)
-    
-    // println("just sent InitRepo")
+    accActor ! InitRepo(state)    
   }
 
   override def receive: Receive = {
-    case RawMessage(queryMessage@QueryMessage(_), clientId) =>
+    case RawMessage(queryMessage@QueryMessage(_), clientId) =>      
       processQueryMessage(queryMessage, clientId)
     case RawMessage(ListMessage(), clientId) =>
       processListMessage(clientId, None) // TODO ??? implement tags for list query
@@ -171,7 +169,7 @@ class StateActor(conf: AppConfig, metrics: Metrics)
     ReplyMsg(
       queryMessage.pdus.map {
         case PublishQ(uri, tag, _, _) => PublishR(uri, tag)
-        case WithdrawQ(uri, tag, _) => WithdrawR(uri, tag)
+        case WithdrawQ(uri, tag, _)   => WithdrawR(uri, tag)
       })
   }
 }

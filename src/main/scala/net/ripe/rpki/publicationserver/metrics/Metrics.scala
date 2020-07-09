@@ -22,6 +22,9 @@ import io.prometheus.client._
 object Metrics {
     var metrics : Map[CollectorRegistry, Metrics] = Map()
 
+    // this is to have sigleton behaviour for metrics, i.e.e
+    // only one object of 'Metrics' per object of 'CollectorRegistry'.
+    // In practice there will be only one, but it is useful for tests.
     def get(registry: CollectorRegistry) : Metrics = {
         synchronized {
             metrics.get(registry) match {
