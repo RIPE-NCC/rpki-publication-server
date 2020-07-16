@@ -11,6 +11,7 @@ import org.scalatest.{BeforeAndAfterAll, Ignore}
 import org.scalatest.mockito.MockitoSugar
 import akka.http.scaladsl.testkit.{RouteTestTimeout, ScalatestRouteTest}
 
+import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
@@ -55,9 +56,12 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
     cleanStore()
   }
 
-  override def afterAll() = {
+ override def afterAll(): Unit = {
+    cleanDir(rootDir)
     cleanUp()
   }
+
+
 
   test("should create snapshots and deltas") {
 

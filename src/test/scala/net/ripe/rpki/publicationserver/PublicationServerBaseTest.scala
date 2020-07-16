@@ -27,8 +27,8 @@ abstract class PublicationServerBaseTest extends FunSuite with BeforeAndAfter wi
 
   var tempXodusDir: File = _
 
-  def initStore() = {
-    tempXodusDir = Files.createTempDirectory("rpki-pub-server-test").toFile
+  def initStore(prefix: String = "") = {
+    tempXodusDir = Files.createTempDirectory(s"$prefix-rpki-pub-server-test").toFile
     XodusDB.reset()
     XodusDB.init(tempXodusDir.getAbsolutePath)
     deleteOnExit(tempXodusDir.toPath)

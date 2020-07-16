@@ -35,7 +35,7 @@ class RrdpFlusher(conf: AppConfig) extends Actor with Logging {
 
   private var serial = 1L
 
-  private val rrdpCleaner = actorOf(RrdpCleaner.props(conf))
+  val rrdpCleaner = actorOf(RrdpCleaner.props(conf))
 
   def throwFatalException = {
     logger.error("Error in repository init, bailing out")
@@ -49,6 +49,7 @@ class RrdpFlusher(conf: AppConfig) extends Actor with Logging {
       serial += 1
     case InitRepo(state) =>
       serial = 1L
+      logger.debug(s"Initializing repo, with state: $state") 
       scheduleRrdpRepositoryCleanup()
       initFS(state)
       serial += 1
@@ -56,6 +57,7 @@ class RrdpFlusher(conf: AppConfig) extends Actor with Logging {
 
 
   def scheduleRrdpRepositoryCleanup() = {
+    logger.debug("Clean up " + sessionId)
     val oldEnough = FileTime.from(Instant.now().minus(conf.unpublishedFileRetainPeriod.toSeconds, ChronoUnit.SECONDS))
     rrdpCleaner ! CleanUpRepoOldOnesNow(oldEnough, sessionId)
     scheduleCleanup(CleanUpRepo(sessionId))

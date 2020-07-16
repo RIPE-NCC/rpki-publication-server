@@ -7,7 +7,7 @@ import java.util.{Date, UUID}
 
 import akka.testkit.{TestActorRef, TestKit}
 import net.ripe.rpki.publicationserver.Binaries.{Base64, Bytes}
-import net.ripe.rpki.publicationserver.messaging.{Accumulator, RrdpFlusher}
+import net.ripe.rpki.publicationserver.messaging.{Accumulator, RrdpFlusher, RrdpCleaner}
 import net.ripe.rpki.publicationserver.metrics.Metrics
 import net.ripe.rpki.publicationserver.model.ClientId
 import org.scalatest.{BeforeAndAfterAll, Ignore}
@@ -38,29 +38,33 @@ object MassiveDeltaRemovalTest {
 class MassiveDeltaRemovalTest extends PublicationServerBaseTest with Hashing with BeforeAndAfterAll with Logging {
   import MassiveDeltaRemovalTest._
 
-  lazy val theRrdpFlusher = TestActorRef(new RrdpFlusher(conf))
-  lazy val theStateActor = TestActorRef(new StateActor(conf, mock[Metrics]) {
-    override val accActor = TestActorRef(new Accumulator(conf) {
-      override val rrdpFlusher = theRrdpFlusher
-    })
+  lazy val theRrdpCleaner = TestActorRef(new RrdpCleaner(conf))
+  lazy val theRrdpFlusher = TestActorRef(new RrdpFlusher(conf){
+    override val rrdpCleaner = theRrdpCleaner;
   })
+  lazy val accumulateActor = TestActorRef(new Accumulator(conf) { 
+    override val rrdpFlusher = theRrdpFlusher })
 
-  def publicationService = new PublicationService(conf, theStateActor)
+  lazy val theStateActor = TestActorRef(new StateActor(conf, mock[Metrics]) {
+    override val accActor = accumulateActor  })
+
+  lazy val publicationService = new PublicationService(conf, theStateActor)
 
   private def sessionDir = findSessionDir(rootDir).toString
 
   override def beforeAll() {
     conf.rsyncRepositoryMapping.foreach(z => cleanDir(z._2))           
-    initStore()
+    initStore("massive")
   }
 
   override def afterAll(): Unit = {
-    Await.ready(publicationService.system.terminate(), Duration.Inf)
+    cleanStore()
     cleanUp()
     cleanDir(rootDir)
   }
 
    test("should create snapshots after removing deltas") {
+
 
      val data = Bytes.fromBase64(Base64("AAAAAA=="))
      val uri = "rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"
@@ -88,7 +92,8 @@ class MassiveDeltaRemovalTest extends PublicationServerBaseTest with Hashing wit
      //checkFileAbsent(Paths.get(sessionDir, latestSerial.toString))
 
      checkFileExists(Paths.get(sessionDir, (latestSerial + 1).toString, "delta.xml"))
-     checkFileExists(Paths.get(sessionDir, (latestSerial + 1).toString, "snapshot.xml"))
+     checkFileExists(Paths.get(sessionDir, (latestSerial + 1).toString, "snapshot.xml")) 
+ 
    }
 
 }
