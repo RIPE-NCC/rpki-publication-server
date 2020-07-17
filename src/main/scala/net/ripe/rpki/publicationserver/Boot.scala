@@ -68,7 +68,7 @@ class PublicationServerApp(conf: AppConfig, logger: Logger) extends RRDPService 
 
     this.httpsBinding = Http().bindAndHandle(
       publicationService.publicationRoutes,
-      interface = "localhost",
+      interface = "::0",
       port = conf.publicationPort,
       connectionContext = ConnectionContext.https(sslContext()),
       settings = conf.publicationServerSettings.get      
@@ -76,7 +76,7 @@ class PublicationServerApp(conf: AppConfig, logger: Logger) extends RRDPService 
 
     this.httpBinding = Http().bindAndHandle(
       rrdpAndMonitoringRoutes ~ metricsApi.routes,
-      interface = "localhost",
+      interface = "::0",
       port = conf.rrdpPort
     )    
   }
