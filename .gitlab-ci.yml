@@ -1,0 +1,14 @@
+stages:
+  - build
+
+rpki-publication-server:
+  stage: build
+  image: $CI_REGISTRY/swe/gitlab-ci/sbt:1.3-2.12-jdk-8
+
+
+  script:
+    - sbt clean test universal:packageZipTarball 
+  artifacts:
+    paths:
+      - target/universal/rpki-publication-server-1.1-SNAPSHOT.tgz
+

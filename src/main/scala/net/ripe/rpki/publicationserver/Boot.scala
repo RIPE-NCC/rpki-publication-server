@@ -23,6 +23,10 @@ import io.prometheus.client.exporter.common.TextFormat
 import io.prometheus.client._
 
 import scala.concurrent.duration._
+import scala.concurrent.Await
+import scala.concurrent.Future
+import akka.http.scaladsl.Http.ServerBinding
+import java.{util => ju}
 
 
 
@@ -40,26 +44,29 @@ object Boot extends App {
 
 class PublicationServerApp(conf: AppConfig, logger: Logger) extends RRDPService {
     
-  def run() {
-    XodusDB.init(conf.storePath)
+  implicit val system = ActorSystem.create(Math.abs(new ju.Random().nextLong()).toString())
+  implicit val dispatcher = system.dispatcher
 
-    logger.info("Starting up the publication server ...")
+  var httpBinding: Future[ServerBinding] = _
+  var httpsBinding: Future[ServerBinding] = _
 
-    implicit val system = ActorSystem("0")
-    implicit val materializer = ActorMaterializer()
-    implicit val dispatcher = system.dispatcher
+  def run() {      
+    XodusDB.reset()
+    XodusDB.init(conf.storePath)    
+
+    logger.info("Starting up the publication server ...")    
 
     implicit val timeout = Timeout(5.seconds)
 
     val registry = CollectorRegistry.defaultRegistry
-    val metrics = new Metrics(registry)
+    val metrics = Metrics.get(registry)
     val metricsApi = new MetricsApi(registry)
 
     val stateActor: ActorRef = system.actorOf(StateActor.props(conf, metrics))
 
     val publicationService = new PublicationService(conf, stateActor)
 
-    Http().bindAndHandle(
+    this.httpsBinding = Http().bindAndHandle(
       publicationService.publicationRoutes,
       interface = "::0",
       port = conf.publicationPort,
@@ -67,11 +74,20 @@ class PublicationServerApp(conf: AppConfig, logger: Logger) extends RRDPService 
       settings = conf.publicationServerSettings.get      
     )
 
-    Http().bindAndHandle(
+    this.httpBinding = Http().bindAndHandle(
       rrdpAndMonitoringRoutes ~ metricsApi.routes,
       interface = "::0",
       port = conf.rrdpPort
-    )
+    )    
+  }
+
+  def shutdown() = {
+       Await.result(httpBinding, 10.seconds)            
+            .terminate(hardDeadline = 3.seconds)
+            .flatMap(_ => 
+                Await.result(httpsBinding, 10.seconds)            
+                .terminate(hardDeadline = 3.seconds))
+            .flatMap(_ => system.terminate)
   }
 
   private def sslContext(): SSLContext = {

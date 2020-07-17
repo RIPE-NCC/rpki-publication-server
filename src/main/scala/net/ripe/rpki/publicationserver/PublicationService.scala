@@ -112,15 +112,6 @@ class PublicationService
         stateActor ? RawMessage(ListMessage(), clientId)
     }
   }
-
-  private def checkContentType(header: HttpHeader): Option[ContentType] = header match {
-    case `Content-Type`(ct) =>
-      if (PublicationService.MediaTypeString != ct.mediaType.toString()) {
-        logger.warn("Request uses wrong media type: {}", ct.mediaType.toString())
-      }
-      Some(ct)
-    case _ => None
-  }
 }
 
 

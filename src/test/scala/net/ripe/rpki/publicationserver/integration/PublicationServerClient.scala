@@ -23,7 +23,6 @@ import akka.http.scaladsl.HttpExt
 class PublicationServerClient() {
 
   implicit val system = ActorSystem()
-  implicit val materializer = ActorMaterializer()
   implicit val executionContext = system.dispatcher
 
   private val publicationPort = 7766

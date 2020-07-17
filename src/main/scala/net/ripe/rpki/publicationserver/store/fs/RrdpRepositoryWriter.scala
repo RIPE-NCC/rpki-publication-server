@@ -9,6 +9,7 @@ import net.ripe.rpki.publicationserver.model.{Delta, Notification, ServerState, 
 
 import scala.util.{Failure, Try}
 import scala.xml.{Node, XML}
+import java.io.File
 
 class RrdpRepositoryWriter extends Logging {
 
@@ -23,12 +24,13 @@ class RrdpRepositoryWriter extends Logging {
 
   private val fileAttributes = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-r--r--"))
 
-  def writeNewState(rootDir: String, serverState: ServerState, newNotification: Notification, snapshot: Snapshot): Try[Option[FileTime]] =
+  def writeNewState(rootDir: String, serverState: ServerState, newNotification: Notification, snapshot: Snapshot): Try[Option[FileTime]] =    
     Try {
       writeSnapshot(rootDir, serverState, snapshot)
       writeNotification(rootDir, newNotification)
     }.recoverWith { case e: Exception =>
       logger.error("An error occurred, removing snapshot: ", e)
+      e.printStackTrace()
       deleteSnapshot(rootDir, serverState)
       Failure(e)
     }
@@ -68,10 +70,11 @@ class RrdpRepositoryWriter extends Logging {
   private def getRootFolder(rootDir: String): Path =
     Files.createDirectories(Paths.get(rootDir))
 
-  private def getStateDir(rootDir: String, sessionId: String, serial: Long): Path =
+  private def getStateDir(rootDir: String, sessionId: String, serial: Long): Path = {
     Files.createDirectories(Paths.get(rootDir, sessionId, String.valueOf(serial)))
+  }
 
-  def deleteSessionFile(rootDir: String, serverState: ServerState, name: String): Boolean = {
+  def deleteSessionFile(rootDir: String, serverState: ServerState, name: String): Boolean = {      
     val ServerState(sessionId, serial) = serverState
     Files.deleteIfExists(Paths.get(rootDir, sessionId.toString, serial.toString, name))
   }
@@ -84,8 +87,9 @@ class RrdpRepositoryWriter extends Logging {
     Files.walkFileTree(Paths.get(rootDir), new RemovingFileVisitor(timestamp, Paths.get(Rrdp.deltaFilename), latestSerial))
   }
 
-  def deleteSnapshot(rootDir: String, serverState: ServerState): Boolean =
+  def deleteSnapshot(rootDir: String, serverState: ServerState): Boolean = {
     deleteSessionFile(rootDir, serverState, Rrdp.snapshotFilename)
+  }
 
   def cleanUpEmptyDir(rootDir: String, serverState: ServerState): AnyVal = {
     val ServerState(sessionId, serial) = serverState

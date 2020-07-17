@@ -9,7 +9,7 @@ import io.prometheus.client.{CollectorRegistry, Histogram}
 
 import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver.messaging.Accumulator
-import net.ripe.rpki.publicationserver.messaging.Messages.{InitRepo, RawMessage, ValidatedMessage}
+import net.ripe.rpki.publicationserver.messaging.Messages.{InitRepo, RawMessage, ValidatedStateMessage}
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store.ObjectStore
 import net.ripe.rpki.publicationserver.store.ObjectStore.State
@@ -35,12 +35,12 @@ class StateActor(conf: AppConfig, metrics: Metrics)
 
   @throws[Exception](classOf[Exception])
   override def preStart() = {
-    state = objectStore.getState
-    accActor ! InitRepo(state)
+    state = objectStore.getState    
+    accActor ! InitRepo(state)    
   }
 
   override def receive: Receive = {
-    case RawMessage(queryMessage@QueryMessage(_), clientId) =>
+    case RawMessage(queryMessage@QueryMessage(_), clientId) =>      
       processQueryMessage(queryMessage, clientId)
     case RawMessage(ListMessage(), clientId) =>
       processListMessage(clientId, None) // TODO ??? implement tags for list query
@@ -70,7 +70,7 @@ class StateActor(conf: AppConfig, metrics: Metrics)
 
     replyStatus match {
       case _: ReplyMsg =>
-        accActor ! ValidatedMessage(queryMessage, state)
+        accActor ! ValidatedStateMessage(queryMessage, state)
       case e: ErrorMsg =>
         logger.warn(s"Error processing query from $clientId: ${e.error.message}")
     }
@@ -169,7 +169,7 @@ class StateActor(conf: AppConfig, metrics: Metrics)
     ReplyMsg(
       queryMessage.pdus.map {
         case PublishQ(uri, tag, _, _) => PublishR(uri, tag)
-        case WithdrawQ(uri, tag, _) => WithdrawR(uri, tag)
+        case WithdrawQ(uri, tag, _)   => WithdrawR(uri, tag)
       })
   }
 }

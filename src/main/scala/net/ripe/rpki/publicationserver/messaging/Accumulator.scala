@@ -22,12 +22,12 @@ class Accumulator(conf: AppConfig) extends Actor with Logging {
   private var latestState: ObjectStore.State = _
 
   override def receive: Receive = {
-    case vm@ValidatedMessage(m, state) =>
+    case vm@ValidatedStateMessage(m, state) =>
       rsyncFlusher ! vm
       messages += m
       latestState = state
       handleFlushing()
-    case ir: InitRepo =>
+    case ir: InitRepo =>    
       rrdpFlusher ! ir
       rsyncFlusher ! ir
   }

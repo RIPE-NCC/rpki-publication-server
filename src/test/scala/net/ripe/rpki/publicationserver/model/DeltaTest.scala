@@ -5,8 +5,9 @@ import java.util.UUID
 
 import net.ripe.rpki.publicationserver.Binaries.{Base64, Bytes}
 import net.ripe.rpki.publicationserver.{PublicationServerBaseTest, PublishQ, WithdrawQ}
+import org.scalatest._
 
-class DeltaTest extends PublicationServerBaseTest {
+class DeltaTest extends FunSuite with BeforeAndAfter with Matchers {
 
   test("should serialize to proper xml") {
     val sessionId = UUID.randomUUID()
@@ -25,7 +26,7 @@ class DeltaTest extends PublicationServerBaseTest {
     state.bytes should be(toBytes(xml))
   }
 
-  private def toBytes(s: String) = {
+  private def toBytes(s: String) =
     s.map(c => c.toByte).toArray
-  }
+  
 }

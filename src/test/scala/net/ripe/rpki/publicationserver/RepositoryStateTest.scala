@@ -3,21 +3,21 @@ package net.ripe.rpki.publicationserver
 import java.io.File
 import java.nio.file.{Files, Paths}
 
-import akka.testkit.TestActorRef
+import akka.testkit.{TestActorRef, TestKit}
 import net.ripe.rpki.publicationserver.Binaries.{Base64, Bytes}
 import net.ripe.rpki.publicationserver.store._
 import net.ripe.rpki.publicationserver.store.fs._
-import org.scalatest.BeforeAndAfterAll
+import org.scalatest.{BeforeAndAfterAll, Ignore}
 import org.scalatest.mockito.MockitoSugar
 import akka.http.scaladsl.testkit.{RouteTestTimeout, ScalatestRouteTest}
 
+import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
 object RepositoryStateTest {
-  val rootDir = Files.createTempDirectory(Paths.get("/tmp"),"test_pub_server_")
-  rootDir.toFile.deleteOnExit()
-  val rootDirName = rootDir.toString
+  lazy val rootDir = Files.createTempDirectory("test_repo_state")
+  lazy val rootDirName = rootDir.toString
 
   var retainPeriodOverride: Int = 1
 
@@ -25,8 +25,8 @@ object RepositoryStateTest {
   val theRsyncWriter = MockitoSugar.mock[RsyncRepositoryWriter]
 
   lazy val conf = new AppConfig {
-    override lazy val unpublishedFileRetainPeriod = 1.millisecond
-    override lazy val snapshotSyncDelay = 1.millisecond
+    override lazy val unpublishedFileRetainPeriod = 1.second
+    override lazy val snapshotSyncDelay = 1.second
     override lazy val rrdpRepositoryPath = rootDirName
   }
 }
@@ -40,21 +40,28 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
 
   implicit val customTimeout = RouteTestTimeout(6000.seconds)
 
-   lazy val theStateActor = TestActorRef(new StateActor(conf, testMetrics))
-   def publicationService = new PublicationService(conf, theStateActor)
+  lazy val theStateActor = TestActorRef(new StateActor(conf, testMetrics))
+  def publicationService = new PublicationService(conf, theStateActor)
 
+  deleteOnExit(rootDir)
+  
   before {
     initStore()
-    cleanDir(rootDir.toFile)
     serial = 1L
     theObjectStore.clear()
     theStateActor.underlyingActor.preStart()
   }
 
-  override def afterAll() = {
-    cleanDir(rootDir.toFile)
-    Files.deleteIfExists(rootDir)
+  after {
+    cleanStore()
   }
+
+ override def afterAll(): Unit = {
+    cleanDir(rootDir)
+    cleanUp()
+  }
+
+
 
   test("should create snapshots and deltas") {
 
@@ -85,10 +92,12 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
 
     val service = publicationService
 
+    checkFileExists(Paths.get(sessionDir))
     checkFileExists(Paths.get(sessionDir, "1", "snapshot.xml"))
 
     POST("/?clientId=1234", publishXml.mkString) ~> service.publicationRoutes ~> check { responseAs[String] }
 
+    checkFileExists(Paths.get(sessionDir, "2"))
     checkFileExists(Paths.get(sessionDir, "2", "snapshot.xml"))
     checkFileAbsent(Paths.get(sessionDir, "1", "snapshot.xml"))
 
@@ -156,16 +165,5 @@ class RepositoryStateTest extends PublicationServerBaseTest with ScalatestRouteT
           uri="$uri" hash="${hash.hash}"></withdraw>
         </msg>"""
 
-  private def cleanDir(dir: File) = {
-    def cleanDir_(file: File): Unit =
-      Option(file.listFiles).map(_.toList).getOrElse(Nil).foreach { f =>
-        if (f.isDirectory)
-          cleanDir_(f)
-        f.delete
-      }
-
-    if (dir.isDirectory)
-      cleanDir_(dir)
-  }
 
 }

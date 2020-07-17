@@ -81,7 +81,11 @@ import scala.sys.process._
 sourceGenerators in Compile += Def.task {
   val generatedFile = (sourceManaged in Compile).value / "net.ripe.rpki.publicationserver" / "GeneratedBuildInformation.scala"
   val now = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date())
-  val rev = Process("git rev-parse HEAD").!!.trim()
+  val rev = sys.env.get("CI_COMMIT_SHA") match {
+	case Some(sha) => sha
+	case None => "git rev-parse HEAD".!!.trim()
+  }
+
   val code = s"""package net.ripe.rpki.publicationserver
                 object GeneratedBuildInformation {
                 val version = "$buildNumber"

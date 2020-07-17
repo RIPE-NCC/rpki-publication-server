@@ -56,8 +56,9 @@ class RemovingFileVisitorTest extends PublicationServerBaseTest {
 
   test("should not remove old file in case it has passed serial number in it") {
     val file = {
-      val directory = Files.createTempDirectory("test")
-      directory.toFile.deleteOnExit()
+      val directory = Files.createTempDirectory("test_remove_visitor")
+      deleteOnExit(directory)
+
       Files.createDirectory(Paths.get(directory.toString, "1"))
       Files.createDirectory(Paths.get(directory.toString, "1", "snapshot.xml"))
     }
@@ -78,14 +79,14 @@ class RemovingFileVisitorTest extends PublicationServerBaseTest {
   }
 
   def tempDirectory: Path = {
-    val directory: Path = Files.createTempDirectory("test")
-    directory.toFile.deleteOnExit()
+    val directory: Path = Files.createTempDirectory("test_remove_dir")
+    deleteOnExit(directory)
     directory
   }
 
   def tempFile: Path = {
-    val file: Path = Files.createTempFile("test", "")
-    file.toFile.deleteOnExit()
+    val file: Path = Files.createTempFile("test_remove_file", "")
+    deleteOnExit(file)
     file
   }
 

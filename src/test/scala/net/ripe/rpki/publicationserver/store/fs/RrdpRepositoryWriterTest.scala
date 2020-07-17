@@ -4,15 +4,24 @@ import java.nio.file.attribute.FileTime
 import java.nio.file.{Files, Path, Paths}
 
 import net.ripe.rpki.publicationserver.PublicationServerBaseTest
+import org.scalatest.Ignore
 
 import scala.util.Random
 
 class RrdpRepositoryWriterTest extends PublicationServerBaseTest {
 
-  val subject = new RrdpRepositoryWriter
+  lazy val subject = new RrdpRepositoryWriter
 
-  val rootDir = Files.createTempDirectory(Paths.get("/tmp"),"test")
+  lazy val rootDir = Files.createTempDirectory("test_rrdp_writer")
+  deleteOnExit(rootDir)
 
+  before{
+    initStore()
+  }
+
+  after{
+    cleanStore()
+  }
   test("should delete old snapshots") {
     val timestamp = System.currentTimeMillis()
     val repoFiles = setupTestRepo(timestamp)

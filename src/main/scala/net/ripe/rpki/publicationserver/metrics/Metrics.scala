@@ -18,6 +18,26 @@ import java.io.StringWriter
 import io.prometheus.client.exporter.common.TextFormat
 import io.prometheus.client._
 
+
+object Metrics {
+    var metrics : Map[CollectorRegistry, Metrics] = Map()
+
+    // this is to have sigleton behaviour for metrics, i.e.e
+    // only one object of 'Metrics' per object of 'CollectorRegistry'.
+    // In practice there will be only one, but it is useful for tests.
+    def get(registry: CollectorRegistry) : Metrics = {
+        synchronized {
+            metrics.get(registry) match {
+                case None => 
+                    val m = new Metrics(registry)
+                    metrics = metrics + (registry -> m)
+                    m
+                case Some(m) => m
+            }
+        }
+    }
+}
+
 class Metrics(val registry: CollectorRegistry) {
 
   val countObjectOperations = Counter

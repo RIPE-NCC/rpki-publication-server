@@ -11,7 +11,7 @@ object Messages {
 
   case class RawMessage(message: net.ripe.rpki.publicationserver.Message, clientId: ClientId)
 
-  case class ValidatedMessage(queryMessage: QueryMessage, state: ObjectStore.State)
+  case class ValidatedStateMessage(queryMessage: QueryMessage, state: ObjectStore.State)
 
   case class BatchMessage(messages: Seq[QueryMessage], state: ObjectStore.State)
 

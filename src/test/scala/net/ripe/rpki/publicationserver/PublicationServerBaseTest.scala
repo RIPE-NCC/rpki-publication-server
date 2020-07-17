@@ -1,42 +1,68 @@
 package net.ripe.rpki.publicationserver
 
 import java.io.File
-import java.nio.file.{Files, Path}
+import java.nio.file.{Files, Path, Paths}
 import java.util.{Comparator, UUID}
 
 import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.model.{HttpMethods, HttpRequest}
+import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.testkit.TestKit.awaitCond
-import net.ripe.rpki.publicationserver.Binaries.{Base64, Bytes}
+import io.prometheus.client.CollectorRegistry
+import net.ripe.rpki.publicationserver.Binaries.Bytes
+import net.ripe.rpki.publicationserver.metrics.Metrics
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store.XodusDB
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfter, FunSuite, Matchers}
-import akka.http.scaladsl.testkit.ScalatestRouteTest
 
 import scala.concurrent.duration._
 import scala.io.Source
 import scala.util.Try
 import scala.xml.Elem
-import net.ripe.rpki.publicationserver.metrics.Metrics
-import io.prometheus.client.CollectorRegistry
 
 abstract class PublicationServerBaseTest extends FunSuite with BeforeAndAfter with Matchers with MockitoSugar with TestLogSetup with ScalatestRouteTest {
 
   protected def waitTime: FiniteDuration = 30.seconds
 
   var tempXodusDir: File = _
-  def initStore() = {
-    tempXodusDir = Files.createTempDirectory("rpki-pub-server-test").toFile
+
+  def initStore(prefix: String = "") = {
+    tempXodusDir = Files.createTempDirectory(s"$prefix-rpki-pub-server-test").toFile
+    XodusDB.reset()
     XodusDB.init(tempXodusDir.getAbsolutePath)
+    deleteOnExit(tempXodusDir.toPath)
+    tempXodusDir.deleteOnExit()
   }
 
-  lazy val testMetrics = new Metrics(CollectorRegistry.defaultRegistry)  
+  def testMetrics = Metrics.get(new CollectorRegistry(true));
 
   def cleanStore() = {
-    Files.walk(tempXodusDir.toPath)
-      .sorted(Comparator.reverseOrder())
-      .forEach(p => p.toFile.delete())
+    cleanDir(tempXodusDir.toPath)
+  }
+
+  def cleanDir(path: Path) = {
+    Try {
+      Files.walk(path)
+        .sorted(Comparator.reverseOrder())
+        .forEach(p => p.toFile.delete())
+    }
+  }
+
+  def deleteOnExit(path: Path): Unit ={
+    path.toFile.deleteOnExit()
+    Runtime.getRuntime.addShutdownHook(new Thread(new Runnable {
+      override def run(): Unit = cleanDir(path)
+    }))
+  }
+
+  def withTempDir[R](f : File => R) : R = {
+      val dir = Files.createTempDirectory("rpki-pub-server-test").toFile
+      try {        
+        f(dir)
+      } finally {
+        cleanDir(dir.toPath)
+      }      
   }
 
   def getFile(fileName: String) = Source.fromURL(getClass.getResource(fileName))

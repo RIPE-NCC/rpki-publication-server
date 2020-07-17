@@ -3,8 +3,9 @@ package net.ripe.rpki.publicationserver.model
 import java.util.UUID
 
 import net.ripe.rpki.publicationserver.{Hash, PublicationServerBaseTest}
+import org.scalatest._
 
-class NotificationTest extends PublicationServerBaseTest {
+class NotificationTest extends FunSuite with BeforeAndAfter with Matchers {
 
   test("should serialize a Notification to proper xml") {
     val snapshot = SnapshotLocator("rsync://bla", Hash("2a3s4v"))
@@ -20,4 +21,6 @@ class NotificationTest extends PublicationServerBaseTest {
                                   <delta serial="987" uri="rsync://deltabla" hash="1234sg"/>
                                 </notification>"""))
   }
+
+  def trim(s: String): String = s.filterNot(_.isWhitespace)
 }
