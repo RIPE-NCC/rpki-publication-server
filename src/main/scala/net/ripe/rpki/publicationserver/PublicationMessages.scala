@@ -16,6 +16,7 @@ object BaseError extends Enumeration {
   val NonMatchingHash = Value
   val CouldNotPersist = Value
   val InvalidBase64 = Value
+  val XmlSchemaValidationError = Value
 }
 
 case class BaseError(code: BaseError.Code, message: String)

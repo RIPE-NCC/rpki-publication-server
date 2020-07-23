@@ -1,0 +1,9 @@
+<msg
+    type="query"
+    version="3"
+    xmlns="http://www.hactrn.net/uris/rpki/publication-spec/">
+  <publish
+      uri="rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer">
+    BROKENBASE^$
+  </publish>
+</msg>

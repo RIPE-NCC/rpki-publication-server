@@ -12,7 +12,7 @@ object Store {
   val objectStore = ObjectStore.get
 }
 
-class PublicationServiceTest extends PublicationServerBaseTest with Hashing with BeforeAndAfterAll{
+class PublicationServiceTest extends PublicationServerBaseTest with Hashing with BeforeAndAfterAll {
 
   val theRsyncWriter = mock[RsyncRepositoryWriter]
   val conf = new AppConfig
@@ -219,6 +219,15 @@ class PublicationServiceTest extends PublicationServerBaseTest with Hashing with
   test("should leave POST requests to other paths unhandled") {
     Post("/kermit") ~> publicationService.publicationRoutes ~> check {
       handled should be(false)
+    }
+  }
+
+  test("should return <error ...> is base64 is invalid") {
+    val service = publicationService
+    POST("/?clientId=1234", getFile("/publishBrokenBase64.xml").mkString) ~> service.publicationRoutes ~> check {        
+      response.status.isSuccess should be(false)
+      val responseStr = responseAs[String]
+      responseStr should include("XML parsing/validation error: \"BROKENBASE")
     }
   }
 }

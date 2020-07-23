@@ -4,7 +4,6 @@ import java.io.ByteArrayInputStream
 
 import akka.actor._
 import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.headers.`Content-Type`
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.unmarshalling.Unmarshaller
 import akka.http.scaladsl.util.FastFuture
@@ -19,8 +18,9 @@ import net.ripe.rpki.publicationserver.parsing.PublicationMessageParser
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.io.{BufferedSource, Source}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 import akka.util.ByteString
+import com.ctc.wstx.exc.WstxValidationException
 
 object PublicationService {
     val MediaTypeString = "application/rpki-publication"
@@ -69,10 +69,32 @@ class PublicationService
     path("") {
       post {
         parameter("clientId") { clientId =>          
-            entity(as[BufferedSource]) { xmlMessage =>                
-              onComplete {
-                  processRequest(ClientId(clientId), msgParser.parse(xmlMessage))
-              } {
+            entity(as[BufferedSource]) { xmlMessage =>
+              val mainPipeline = onComplete {
+                try {
+                  val r = msgParser.parse(xmlMessage) match {
+                    case Right(request) =>
+                      processRequest(request, ClientId(clientId))
+                    case Left(msgError) =>
+                      Future {
+                        logger.warn("Error while handling request: {}", msgError)
+                        ErrorMsg(msgError)
+                      }
+                  }
+                  r.mapTo[Msg]
+                } catch {
+                  case e: Exception =>
+                    Future {
+                      ErrorMsg(BaseError(BaseError.XmlSchemaValidationError, s"XML parsing/validation error: " + e.getMessage))
+                    }
+                }
+              }
+
+              mainPipeline {
+                case Success(msg@ErrorMsg(BaseError(BaseError.XmlSchemaValidationError, message))) =>
+                  logger.error(s"Error parsing POST request with clientId=$clientId", message)
+                  complete(HttpResponse(status = 400, entity = HttpEntity(PublicationService.`rpki-publication`, msg.serialize)))
+
                 case Success(result) =>
                   val response = result.serialize
                   complete(HttpResponse(entity = HttpEntity(PublicationService.`rpki-publication`, response)))
@@ -89,19 +111,6 @@ class PublicationService
           }        
       }
     }
-
-  private def processRequest[T](clientId: ClientId, parsedMessage: Either[BaseError, T]): Future[Msg] = {
-    val response = parsedMessage match {
-      case Right(request) =>
-        processRequest(request, clientId)
-      case Left(msgError) =>
-        Future {
-          logger.warn("Error while handling request: {}", msgError)
-          ErrorMsg(msgError)
-        }
-    }
-    response.mapTo[Msg]
-  }
 
   private def processRequest[T](parsedMessage: T, clientId: ClientId) = {
     implicit val timeout = Timeout(61.seconds)
