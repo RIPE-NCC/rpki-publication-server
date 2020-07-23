@@ -20,7 +20,6 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.io.{BufferedSource, Source}
 import scala.util.{Failure, Success, Try}
 import akka.util.ByteString
-import com.ctc.wstx.exc.WstxValidationException
 
 object PublicationService {
     val MediaTypeString = "application/rpki-publication"
