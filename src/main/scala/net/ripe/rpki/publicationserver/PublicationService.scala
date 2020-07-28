@@ -84,7 +84,7 @@ class PublicationService
                 } catch {
                   case e: Exception =>
                     Future {
-                      ErrorMsg(BaseError(BaseError.XmlSchemaValidationError, s"XML parsing/validation error: " + e.getMessage))
+                      ErrorMsg(BaseError(BaseError.XmlSchemaValidationError, s"XML parsing/validation error: ${e.getMessage}"))
                     }
                 }
               }
@@ -121,5 +121,4 @@ class PublicationService
     }
   }
 }
-
 
