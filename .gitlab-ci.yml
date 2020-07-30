@@ -1,14 +1,87 @@
+image: "hseeberger/scala-sbt:8u252_1.3.13_2.13.3"
+
+variables:
+  SBT_VERSION: "0.13.9"
+  SBT_OPTS: "-Dsbt.global.base=sbt-cache/.sbtboot -Dsbt.boot.directory=sbt-cache/.boot -Dsbt.ivy.home=sbt-cache/.ivy"
+  TARBALL_NAME: rpki-publication-server-1.1-SNAPSHOT.tgz
+
+cache:
+  key: "$CI_BUILD_REF_NAME" # contains either the branch or the tag, so it's caching per branch
+  untracked: true
+  paths:
+    - "sbt-cache/.ivy/cache"
+    - "sbt-cache/.boot"
+    - "sbt-cache/.sbtboot"
+    - "sbt-cache/target"
+
 stages:
   - build
+  - deploy
 
 rpki-publication-server:
   stage: build
   image: $CI_REGISTRY/swe/gitlab-ci/sbt:1.3-2.12-jdk-8
 
-
   script:
     - sbt clean test universal:packageZipTarball 
   artifacts:
     paths:
-      - target/universal/rpki-publication-server-1.1-SNAPSHOT.tgz
+      - target/universal/${TARBALL_NAME}
 
+
+.deploy_template: &deploy_env
+  image: python:latest
+  stage: deploy
+  before_script:
+    - pip install awscli
+  script:
+    - mkdir ~/.aws/
+    - echo "[profile ${AWS_EB_PROFILE}]" > ~/.aws/config
+    - echo "  aws_access_key_id = ${AWS_ACCESS_KEY_ID}" >> ~/.aws/config
+    - echo "  aws_secret_access_key = ${AWS_SECRET_ACCESS_KEY}" >> ~/.aws/config
+    - cd ..
+    - git clone https://gitlab.ripe.net/rpki/rpki-aws-publication-server.git
+    - cd ./rpki-aws-publication-server
+    - >
+      TMPDIR="./target" ;
+      mkdir ${TMPDIR} ;
+      cp $TARBALL ${TMPDIR} ;
+      cd ${TMPDIR} ;
+      DIR_NAME=`echo $TARBALL_NAME | sed 's/.tgz//g' | sed 's/.tar.gz//g'` ;
+      tar xzf ${TARBALL_NAME} ;
+      cp -Rf "../src/main/resources/common/.ebextensions" "${DIR_NAME}" ;
+      cp -Rf ../src/main/resources/${LOCAL_PROFILE}/* "${DIR_NAME}" ;
+      chmod 400 $DIR_NAME/Procfile ${DIR_NAME}/*.ks ${DIR_NAME}/conf/*.conf ;
+      cd ${DIR_NAME} ;
+      zip -r rpki-aws-publication-server-1.01-SNAPSHOT.zip .ebextensions * ;
+      mv rpki-aws-publication-server-1.01-SNAPSHOT.zip .. ;
+      cd .. ;
+      rm -Rf ${TARBALL_NAME} ${DIR_NAME} ;
+    - eb deploy
+  when: manual
+
+
+prepdev:
+  stage: deploy
+  <<: *deploy_env
+  variables:
+    AWS_ACCESS_KEY_ID: "$PREPDEV_AWS_ACCESS_KEY_ID"
+    AWS_SECRET_ACCESS_KEY: "$PREPDEV_AWS_SECRET_ACCESS_KEY"
+    AWS_EB_PROFILE: "pub-server-prod"
+    LOCAL_PROFILE: "production"
+  environment:
+    name: prepdev
+
+
+production:
+  stage: deploy
+  <<: *deploy_env
+  variables:
+    AWS_ACCESS_KEY_ID: "$PRODUCTION_AWS_ACCESS_KEY_ID"
+    AWS_SECRET_ACCESS_KEY: "$PRODUCTION_AWS_SECRET_ACCESS_KEY"
+    AWS_EB_PROFILE: "pub-server"
+    LOCAL_PROFILE: "prepdev"
+  environment:
+    name: production
+  only:
+    - master
