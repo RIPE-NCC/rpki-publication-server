@@ -1,5 +1,6 @@
 stages:
   - build
+  - deploy
 
 rpki-publication-server:
   stage: build
@@ -11,4 +12,24 @@ rpki-publication-server:
   artifacts:
     paths:
       - target/universal/rpki-publication-server-1.1-SNAPSHOT.tgz
+
+docker-latest:
+  stage: release
+  image: docker:latest
+  needs:
+    - rpki-publication-server 
+  services:
+    - docker:dind
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - docker build --tag $CI_REGISTRY_IMAGE:latest .
+    - docker push $CI_REGISTRY_IMAGE:latest
+  when:
+    manual
+
+# will eventually enable this
+#  only:
+#    refs:
+#      - master@rpki/rpki-publication-server
 
