@@ -55,6 +55,7 @@ class PublicationServerApp(conf: AppConfig, logger: Logger) extends RRDPService 
     XodusDB.init(conf.storePath)    
 
     logger.info("Starting up the publication server ...")    
+    logger.info("Server address " + conf.serverAddress)
 
     implicit val timeout = Timeout(5.seconds)
 
@@ -68,7 +69,7 @@ class PublicationServerApp(conf: AppConfig, logger: Logger) extends RRDPService 
 
     this.httpsBinding = Http().bindAndHandle(
       publicationService.publicationRoutes,
-      interface = "::0",
+      interface = conf.serverAddress,
       port = conf.publicationPort,
       connectionContext = ConnectionContext.https(sslContext()),
       settings = conf.publicationServerSettings.get      
@@ -76,7 +77,7 @@ class PublicationServerApp(conf: AppConfig, logger: Logger) extends RRDPService 
 
     this.httpBinding = Http().bindAndHandle(
       rrdpAndMonitoringRoutes ~ metricsApi.routes,
-      interface = "::0",
+      interface = conf.serverAddress,
       port = conf.rrdpPort
     )    
   }
