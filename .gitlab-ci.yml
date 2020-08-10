@@ -14,7 +14,7 @@ rpki-publication-server:
       - target/universal/rpki-publication-server-1.1-SNAPSHOT.tgz
 
 docker-latest:
-  stage: release
+  stage: deploy 
   image: docker:latest
   needs:
     - rpki-publication-server 
