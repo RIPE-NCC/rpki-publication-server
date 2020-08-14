@@ -15,7 +15,7 @@ rpki-publication-server:
 .package_template: &package_env
   stage: package
   image: docker:latest
-  needs:
+  dependencies:
     - rpki-publication-server 
   services:
     - docker:dind
@@ -28,14 +28,17 @@ rpki-publication-server:
     manual
 
 package-dev:
+  allow_failure: true
   stage: package 
   <<: *package_env 
 
 package-prepdev:
+  allow_failure: true
   stage: package
   <<: *package_env 
 
 package-prod:
+  allow_failure: true
   stage: package
   <<: *package_env 
   only:
@@ -43,6 +46,7 @@ package-prod:
  
 # Once the above deploy target is build, these trigger will fire.
 trigger-aws-dev:
+  allow_failure: true
   stage: deploy
   variables:
     DEPLOY_TARGET: "dev"
@@ -53,6 +57,7 @@ trigger-aws-dev:
     branch:  gitlab-deployment-cross-project
 
 trigger-aws-prepdev:
+  allow_failure: true
   stage: deploy
   variables:
     DEPLOY_TARGET: "prepdev"
