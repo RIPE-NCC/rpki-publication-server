@@ -1,8 +1,3 @@
-stages:
- - build
- - package
- - deploy 
-
 rpki-publication-server:
   stage: build
   image: $CI_REGISTRY/swe/gitlab-ci/sbt:1.3-2.12-jdk-8
@@ -12,8 +7,8 @@ rpki-publication-server:
     paths:
       - target/universal/rpki-publication-server-1.1-SNAPSHOT.tgz
 
-.package_template: &package_env
-  stage: package
+.deploy_template: &deploy_env
+  stage: deploy
   image: docker:latest
   dependencies:
     - rpki-publication-server 
@@ -28,20 +23,20 @@ rpki-publication-server:
   when:
     manual
 
-package-dev:
-  allow_failure: true
-  stage: package 
-  <<: *package_env 
+deploy-dev:
+  variables:
+    DEPLOY_TARGET: "dev"
+  <<: *deploy_env 
 
-package-prepdev:
-  allow_failure: true
-  stage: package
-  <<: *package_env 
+deploy-prepdev:
+  variables:
+    DEPLOY_TARGET: "prepdev"
+  <<: *deploy_env 
 
-package-prod:
-  allow_failure: true
-  stage: package
-  <<: *package_env 
+deploy-prod:
+  variables:
+    DEPLOY_TARGET: "prod"
+  <<: *deploy_env 
   only:
     - master
 
