@@ -24,6 +24,7 @@ rpki-publication-server:
   script:
     - docker build --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA .
     - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+    - curl -X POST -F "token=$RPKI_AWS_TOKEN" -F "ref=$BRANCH_TARGET" -F "variables[DEPLOY_TARGET]=$DEPLOY_TARGET" -F "variables[IMAGE_TARGET]=$CI_COMMIT_SHA"  https://gitlab.ripe.net/api/v4/projects/149/trigger/pipeline
   when:
     manual
 
@@ -43,48 +44,4 @@ package-prod:
   <<: *package_env 
   only:
     - master
- 
-# Once the above deploy target is build, these trigger will fire.
-trigger-aws-dev:
-  allow_failure: true
-  stage: deploy
-  variables:
-    DEPLOY_TARGET: "dev"
-    IMAGE_TARGET: $CI_COMMIT_SHA
-  needs:
-    - package-dev
-  trigger: 
-    project: rpki/rpki-aws-publication-server
-    branch:  cross-project-specific-image
 
-trigger-aws-prepdev:
-  allow_failure: true
-  stage: deploy
-  variables:
-    DEPLOY_TARGET: "prepdev"
-    IMAGE_TARGET: $CI_COMMIT_SHA
-  needs:
-    - package-prepdev
-  trigger: 
-    project: rpki/rpki-aws-publication-server
-    branch:  cross-project-specific-image
-
-trigger-aws-prod:
-  allow_failure: true
-  stage: deploy
-  variables:
-    DEPLOY_TARGET: "prod"
-    IMAGE_TARGET: $CI_COMMIT_SHA
-  needs:
-    - package-prod
-  trigger: 
-    project: rpki/rpki-aws-publication-server
-  only:
-    - master
-
-curl-test:
-  stage: deploy
-  script:
-    - "curl -X POST -F token=$AWS_TOKEN -F ref=cross-project-specific-image variables[DEPLOY_TARGET]=dev variables[IMAGE_TARGET]=latest  https://gitlab.ripe.net/api/v4/projects/149/trigger/pipeline"
-  when:
-    manual
