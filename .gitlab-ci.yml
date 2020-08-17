@@ -82,3 +82,9 @@ trigger-aws-prod:
   only:
     - master
 
+curl-test:
+  stage: deploy
+  script:
+    - "curl -X POST -F token=$AWS_TOKEN -F ref=cross-project-specific-image variables[DEPLOY_TARGET]=dev variables[IMAGE_TARGET]=latest  https://gitlab.ripe.net/api/v4/projects/149/trigger/pipeline"
+  when:
+    manual
