@@ -55,7 +55,7 @@ trigger-aws-dev:
     - package-dev
   trigger: 
     project: rpki/rpki-aws-publication-server
-    branch:  gitlab-deployment-cross-project
+    branch:  cross-project-specific-image
 
 trigger-aws-prepdev:
   allow_failure: true
@@ -67,4 +67,4 @@ trigger-aws-prepdev:
     - package-prepdev
   trigger: 
     project: rpki/rpki-aws-publication-server
-    branch:  gitlab-deployment-cross-project
+    branch:  cross-project-specific-image
