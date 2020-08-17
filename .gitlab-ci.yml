@@ -22,8 +22,8 @@ rpki-publication-server:
   before_script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
-    - docker build --tag $CI_REGISTRY_IMAGE:latest .
-    - docker push $CI_REGISTRY_IMAGE:latest
+    - docker build --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA .
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
   when:
     manual
 
@@ -50,6 +50,7 @@ trigger-aws-dev:
   stage: deploy
   variables:
     DEPLOY_TARGET: "dev"
+    IMAGE_TARGET: $CI_COMMIT_SHA
   needs:
     - package-dev
   trigger: 
@@ -61,6 +62,7 @@ trigger-aws-prepdev:
   stage: deploy
   variables:
     DEPLOY_TARGET: "prepdev"
+    IMAGE_TARGET: $CI_COMMIT_SHA
   needs:
     - package-prepdev
   trigger: 
