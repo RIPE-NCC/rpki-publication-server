@@ -19,7 +19,6 @@ rpki-publication-server:
   script:
     - docker build --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA .
     - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
-    - curl -X POST -F "token=$RPKI_AWS_TOKEN" -F "ref=$BRANCH_TARGET" -F "variables[DEPLOY_TARGET]=$DEPLOY_TARGET" -F "variables[IMAGE_TARGET]=$CI_COMMIT_SHA"  https://gitlab.ripe.net/api/v4/projects/149/trigger/pipeline
   when:
     manual
 
@@ -27,16 +26,21 @@ deploy-dev:
   variables:
     DEPLOY_TARGET: "dev"
   <<: *deploy_env 
+  script:
+  - curl -X POST -F "token=$RPKI_AWS_TOKEN" -F "ref=$BRANCH_TARGET" -F "variables[DEPLOY_TARGET]=$DEPLOY_TARGET" -F "variables[IMAGE_TARGET]=$CI_COMMIT_SHA"  https://gitlab.ripe.net/api/v4/projects/149/trigger/pipeline
 
 deploy-prepdev:
   variables:
     DEPLOY_TARGET: "prepdev"
   <<: *deploy_env 
+  script:
+  - curl -X POST -F "token=$RPKI_AWS_TOKEN" -F "ref=$BRANCH_TARGET" -F "variables[DEPLOY_TARGET]=$DEPLOY_TARGET" -F "variables[IMAGE_TARGET]=$CI_COMMIT_SHA"  https://gitlab.ripe.net/api/v4/projects/149/trigger/pipeline
 
 deploy-prod:
   variables:
     DEPLOY_TARGET: "prod"
   <<: *deploy_env 
+  script:
+  - curl -X POST -F "token=$RPKI_AWS_TOKEN" -F "ref=$BRANCH_TARGET" -F "variables[DEPLOY_TARGET]=$DEPLOY_TARGET" -F "variables[IMAGE_TARGET]=$CI_COMMIT_SHA"  https://gitlab.ripe.net/api/v4/projects/149/trigger/pipeline
   only:
     - master
-
