@@ -68,3 +68,17 @@ trigger-aws-prepdev:
   trigger: 
     project: rpki/rpki-aws-publication-server
     branch:  cross-project-specific-image
+
+trigger-aws-prod:
+  allow_failure: true
+  stage: deploy
+  variables:
+    DEPLOY_TARGET: "prod"
+    IMAGE_TARGET: $CI_COMMIT_SHA
+  needs:
+    - package-prod
+  trigger: 
+    project: rpki/rpki-aws-publication-server
+  only:
+    - master
+
