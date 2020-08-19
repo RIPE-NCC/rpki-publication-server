@@ -25,11 +25,6 @@ rpki-publication-server:
   when:
     manual
 
-deploy-dev:
-  variables:
-    DEPLOY_TARGET: "dev"
-  <<: *deploy_env 
-
 deploy-prepdev:
   variables:
     DEPLOY_TARGET: "prepdev"
