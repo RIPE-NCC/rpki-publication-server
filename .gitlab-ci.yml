@@ -20,7 +20,7 @@ rpki-publication-server:
   script:
     - docker build --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA .
     - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
-    - curl -X POST -F "token=$RPKI_AWS_TOKEN" -F "ref=$BRANCH_TARGET" -F "variables[DEPLOY_TARGET]=$DEPLOY_TARGET" -F "variables[IMAGE_TARGET]=$CI_COMMIT_SHA"  https://gitlab.ripe.net/api/v4/projects/149/trigger/pipeline
+    - curl -X POST -F "token=$RPKI_AWS_TOKEN" -F "ref=$BRANCH_TARGET" -F "variables[DEPLOY_TARGET]=$DEPLOY_TARGET" -F "variables[IMAGE_TARGET]=$CI_COMMIT_SHA"  "$AWS_PIPELINE_TRIGGER"
 
   when:
     manual
