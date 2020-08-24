@@ -6,13 +6,13 @@ CREATE TABLE IF NOT EXISTS objects (
     content BYTEA NOT NULL    
 );
 
-
-CREATE TABLE IF NOT EXISTS objects_urls (
+CREATE TABLE IF NOT EXISTS object_urls (
     url TEXT PRIMARY KEY,
     object_id BIGINT NOT NULL,
+    client_id TEXT NOT NULL,
     CONSTRAINT fk_objects_urls_to_object
       FOREIGN KEY(object_id) 
-	  REFERENCES objects(id)
+	  REFERENCES objects(id) ON DELETE CASCADE
 );
 
 CREATE UNIQUE INDEX idx_objects_hash ON objects(hash);

@@ -40,8 +40,6 @@ class ObjectStore extends Hashing with Logging {
     })
   }
 
-  private type StoredTuple = (String, String, String, String)
-
   private def insert(txn: StoreTransaction, obj: RRDPObject): Unit = {
     val (bytes, hash, uri, clientId) = obj
     val e = txn.newEntity("object")

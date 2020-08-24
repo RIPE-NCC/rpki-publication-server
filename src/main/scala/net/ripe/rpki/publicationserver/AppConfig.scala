@@ -51,7 +51,12 @@ class AppConfig {
   lazy val publicationServerTrustStoreLocation = getConfig.getString("publication.server.truststore.location")
   lazy val publicationServerTrustStorePassword = getConfig.getString("publication.server.truststore.password")
   lazy val storePath = getConfig.getString("xodus.path")
-
+  lazy val pgConfig = PgConfig(
+                        getConfig.getString("postgresql.url"),
+                        getConfig.getString("postgresql.user"),
+                        getConfig.getString("postgresql.password")
+                    )      
+  
   def snapshotUrl(serverState: ServerState) = {
     val ServerState(sessionId, serial) = serverState
     rrdpRepositoryUri + "/" + sessionId + "/" + serial + "/snapshot.xml"
@@ -61,6 +66,8 @@ class AppConfig {
 
   def deltaUrl(sessionId: UUID, serial: Long) = rrdpRepositoryUri + "/" + sessionId + "/" + serial + "/delta.xml"
 }
+
+case class PgConfig(url: String, user: String, password: String)
 
 object AppConfig {
   lazy val config : Config = ConfigFactory.load()
