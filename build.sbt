@@ -18,7 +18,7 @@ parallelExecution in Test := false
 
 fork in run := true
 
-javaOptions in run ++= Seq("-Xmx2G", "-XX:+UseConcMarkSweepGC")
+javaOptions in run ++= Seq("-Xmx2G")
 
 enablePlugins(JavaServerAppPackaging, UniversalDeployPlugin)
 enablePlugins(DockerPlugin)
