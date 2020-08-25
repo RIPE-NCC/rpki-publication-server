@@ -112,7 +112,7 @@ class PublicationService
     }
 
   private def processRequest[T](parsedMessage: T, clientId: ClientId) = {
-    implicit val timeout = Timeout(61.seconds)
+    implicit val timeout: Timeout = Timeout(61.seconds)
     parsedMessage match {
       case queryMessage@QueryMessage(_) =>
         stateActor ? RawMessage(queryMessage, clientId)

@@ -1,19 +1,17 @@
 package net.ripe.rpki.publicationserver
 
-import java.io.File
 import java.net.URI
 import java.nio.file.{Files, Paths}
 import java.util.{Date, UUID}
 
-import akka.testkit.{TestActorRef, TestKit}
+import akka.testkit.TestActorRef
 import net.ripe.rpki.publicationserver.Binaries.{Base64, Bytes}
-import net.ripe.rpki.publicationserver.messaging.{Accumulator, RrdpFlusher, RrdpCleaner}
+import net.ripe.rpki.publicationserver.messaging.{Accumulator, RrdpCleaner, RrdpFlusher}
 import net.ripe.rpki.publicationserver.metrics.Metrics
 import net.ripe.rpki.publicationserver.model.ClientId
-import org.scalatest.{BeforeAndAfterAll, Ignore}
+import org.scalatest.BeforeAndAfterAll
 
 import scala.concurrent.duration._
-import scala.concurrent.Await
 
 
 object MassiveDeltaRemovalTest {
