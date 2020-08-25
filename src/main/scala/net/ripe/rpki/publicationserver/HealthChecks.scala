@@ -2,12 +2,12 @@ package net.ripe.rpki.publicationserver
 
 import java.net.InetAddress
 
-import net.ripe.rpki.publicationserver.store.ObjectStore
+import net.ripe.rpki.publicationserver.store.postresql.PgStore
 import spray.json._
 
 import scala.util.Try
 
-class HealthChecks {
+class HealthChecks(val appConfig: AppConfig) {
 
   case class BuildInformation(buildNumber: String, buildTimestamp: String, revisionNumber: String, host: String, memory : Memory)
   object BuildInformation
@@ -24,7 +24,7 @@ class HealthChecks {
     implicit val healthFormat = jsonFormat2(Health.apply)
   }
 
-  val objectStore = ObjectStore.get
+  val objectStore = PgStore.get(appConfig)
 
   import HealthChecksJsonProtocol._
 

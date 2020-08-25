@@ -50,9 +50,11 @@ class PublicationServerApp(conf: AppConfig, logger: Logger) extends RRDPService 
   var httpBinding: Future[ServerBinding] = _
   var httpsBinding: Future[ServerBinding] = _
 
+  val healthChecks = new HealthChecks(conf)
+
   def run() {      
-    XodusDB.reset()
-    XodusDB.init(conf.storePath)    
+//    XodusDB.reset()
+//    XodusDB.init(conf.storePath)
 
     logger.info("Starting up the publication server ...")    
     logger.info("Server address " + conf.serverAddress)

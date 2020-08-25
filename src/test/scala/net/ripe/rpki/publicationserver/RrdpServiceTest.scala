@@ -1,10 +1,8 @@
 package net.ripe.rpki.publicationserver
 
-import akka.actor.ActorRefFactory
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 
 class RrdpServiceTest extends PublicationServerBaseTest with ScalatestRouteTest with RRDPService  {
-
 
   trait Context {
     def actorRefFactory = system
@@ -16,4 +14,6 @@ class RrdpServiceTest extends PublicationServerBaseTest with ScalatestRouteTest 
       response should include ("buildNumber")
     }
   }
+
+  override def healthChecks: HealthChecks = ???
 }

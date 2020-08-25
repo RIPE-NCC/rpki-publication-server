@@ -19,7 +19,7 @@ import akka.http.scaladsl.server.directives.ContentTypeResolver
 trait RRDPService extends RepositoryPath {
   val oneDayInSeconds: Long = 24 * 60 * 60
 
-  val healthChecks: HealthChecks = wire[HealthChecks]
+  def healthChecks: HealthChecks
 
   val rrdpContentType = ContentType(MediaTypes.`application/xhtml+xml`, HttpCharsets.`US-ASCII`)
 

@@ -2,16 +2,13 @@ package net.ripe.rpki.publicationserver.store.postresql
 
 import java.net.URI
 
-import com.softwaremill.macwire._
 import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store.ObjectStore
-import scalikejdbc.{DB, DBSession, NoExtractor, SQL, scalikejdbcSQLInterpolationImplicitDef}
+import scalikejdbc.{ConnectionPool, ConnectionPoolSettings, DB, DBSession, NoExtractor, SQL, scalikejdbcSQLInterpolationImplicitDef}
 
-class PgStore extends Hashing with Logging {
-
-  lazy val conf: AppConfig = wire[AppConfig]
+class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
 
   type RRDPObject = (Bytes, Hash, URI, ClientId)
 
@@ -91,7 +88,7 @@ class PgStore extends Hashing with Logging {
       .toMap
   }
 
-  def applyChangesSQL(changeSet: QueryMessage, clientId: ClientId): Unit = {
+  def applyChanges(changeSet: QueryMessage, clientId: ClientId): Unit = {
     val sqls = changeSet.pdus.map {
         case WithdrawQ(_, _, hash) =>
           getDeleteSql(hash)
@@ -113,6 +110,27 @@ class PgStore extends Hashing with Logging {
 
 object PgStore {
   type State = Map[URI, (Bytes, Hash, ClientId)]
+
+  var pgStore : PgStore = _
+
+  def get(config: AppConfig): PgStore = synchronized {
+    if (pgStore == null) {
+      val pgConfig = config.pgConfig
+
+      val settings = ConnectionPoolSettings(
+        initialSize = 5,
+        maxSize = 20,
+        connectionTimeoutMillis = 3000L,
+        validationQuery = "select 1")
+
+      ConnectionPool.add('defaultPool,
+        pgConfig.url, pgConfig.user, pgConfig.password, settings)
+
+      pgStore = new PgStore(pgConfig)
+    }
+    pgStore
+  }
+
 }
 
 

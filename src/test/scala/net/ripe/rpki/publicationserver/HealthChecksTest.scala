@@ -1,15 +1,18 @@
 package net.ripe.rpki.publicationserver
 
 import net.ripe.rpki.publicationserver.store.ObjectStore
+import net.ripe.rpki.publicationserver.store.postresql.PgStore
 import org.mockito.Mockito._
 import spray.json._
 
 class HealthChecksTest extends PublicationServerBaseTest {
 
   val theObjectStore = mock[ObjectStore](RETURNS_SMART_NULLS)
+  val thePgStore = mock[PgStore](RETURNS_SMART_NULLS)
+  val appConfig = mock[AppConfig](RETURNS_SMART_NULLS)
 
-  val healthChecks = new HealthChecks() {
-    override val objectStore = theObjectStore
+  val healthChecks = new HealthChecks(appConfig) {
+    override val objectStore = thePgStore
   }
 
   test("should return build info and database connectivity in json format") {
