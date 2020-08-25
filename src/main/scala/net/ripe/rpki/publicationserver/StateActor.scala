@@ -2,16 +2,14 @@ package net.ripe.rpki.publicationserver
 
 import java.net.URI
 
-import akka.actor.{Actor, Props, Status}
 import akka.actor.{Actor, OneForOneStrategy, Props, Status, SupervisorStrategy}
-import io.prometheus.client.{CollectorRegistry, Histogram}
 import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver.messaging.Accumulator
 import net.ripe.rpki.publicationserver.messaging.Messages.{InitRepo, RawMessage, ValidatedStateMessage}
+import net.ripe.rpki.publicationserver.metrics.Metrics
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store.ObjectStore
 import net.ripe.rpki.publicationserver.store.ObjectStore.State
-import net.ripe.rpki.publicationserver.metrics.Metrics
 import net.ripe.rpki.publicationserver.store.postresql.PgStore
 
 object StateActor {
@@ -21,7 +19,7 @@ object StateActor {
 class StateActor(conf: AppConfig, metrics: Metrics) 
     extends Actor with Hashing with Logging {
 
-  lazy val objectStore = PgStore.get(conf)
+  lazy val objectStore = PgStore.get(conf.pgConfig)
 
   var state: ObjectStore.State = _
 

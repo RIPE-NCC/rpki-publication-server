@@ -1,21 +1,12 @@
 package net.ripe.rpki.publicationserver.integration
 
-import java.net.URL
-
-import akka.testkit.{TestActorRef, TestKit}
-import net.ripe.rpki.publicationserver.Binaries.{Base64, Bytes}
-import net.ripe.rpki.publicationserver.store.ObjectStore
-import net.ripe.rpki.publicationserver.store.fs.RsyncRepositoryWriter
-import net.ripe.rpki.publicationserver.PublicationServerBaseTest
-import net.ripe.rpki.publicationserver.AppConfig
-import net.ripe.rpki.publicationserver.Hashing
-import org.slf4j.LoggerFactory
-import net.ripe.rpki.publicationserver.PublicationServerApp
-import java.nio.file._
 import java.net.URI
+import java.nio.file._
 
-import akka.http.scaladsl.model.MediaType
-import akka.http.scaladsl.model.HttpCharsets
+import akka.testkit.TestKit
+import net.ripe.rpki.publicationserver.Binaries.{Base64, Bytes}
+import net.ripe.rpki.publicationserver.{AppConfig, Hashing, PublicationServerApp, PublicationServerBaseTest}
+import org.slf4j.LoggerFactory
 
 class PublicationIntegrationTest
     extends PublicationServerBaseTest

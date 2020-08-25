@@ -15,53 +15,54 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
   def getInsertSql(obj: RRDPObject): SQL[Nothing, NoExtractor] = {
     val (bytes, hash, uri, clientId) = obj
     sql"""
-        WITH
-          existing AS (
-            SELECT id FROM objects
-            WHERE hash = ${hash}
-          ),
-          inserted AS (
-            INSERT INTO objects (hash, content)
-            SELECT ${hash}, ${bytes}
-            WHERE NOT EXISTS (SELECT * FROM existing)
-            RETURNING id
-          )
-          INSERT INTO object_urls
-          SELECT ${uri}, id, ${clientId}
-          FROM (
-            SELECT id FROM inserted
-            UNION ALL
-            SELECT id FROM existing
-          )
-        """
+      WITH
+        existing AS (
+          SELECT id FROM objects
+          WHERE hash = ${hash}
+        ),
+        inserted AS (
+          INSERT INTO objects (hash, content)
+          SELECT ${hash}, ${bytes}
+          WHERE NOT EXISTS (SELECT * FROM existing)
+          RETURNING id
+        )
+        INSERT INTO object_urls
+        SELECT ${uri}, id, ${clientId}
+        FROM (
+          SELECT id FROM inserted
+          UNION ALL
+          SELECT id FROM existing
+        )
+    """
   }
 
   def getUpdateSql(oldHash: String, obj: RRDPObject): SQL[Nothing, NoExtractor] = {
     val (bytes, newHash, uri, clientId) = obj
     sql"""
-        WITH
-          old AS (
-            DELETE FROM objects
-            WHERE hash = ${oldHash}
-            RETURNING id
-          ),
-          existing AS (
-            SELECT id FROM objects
-            WHERE hash = ${newHash}
-          ),
-          new AS (
-            INSERT INTO objects (hash, content)
-            SELECT ${newHash}, ${bytes}
-            WHERE NOT EXISTS (SELECT * FROM existing)
-            RETURNING id
-          )
-          INSERT INTO object_urls
-          SELECT ${uri}, id, ${clientId}
-          FROM (
-            SELECT id FROM inserted
-            UNION ALL
-            SELECT id FROM existing
-          )"""
+      WITH
+        old AS (
+          DELETE FROM objects
+          WHERE hash = ${oldHash}
+          RETURNING id
+        ),
+        existing AS (
+          SELECT id FROM objects
+          WHERE hash = ${newHash}
+        ),
+        new AS (
+          INSERT INTO objects (hash, content)
+          SELECT ${newHash}, ${bytes}
+          WHERE NOT EXISTS (SELECT * FROM existing)
+          RETURNING id
+        )
+        INSERT INTO object_urls
+        SELECT ${uri}, id, ${clientId}
+        FROM (
+          SELECT id FROM inserted
+          UNION ALL
+          SELECT id FROM existing
+        )
+    """
   }
 
   private def getDeleteSql(hash: String) : SQL[Nothing, NoExtractor] = {
@@ -89,23 +90,36 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
   }
 
   def applyChanges(changeSet: QueryMessage, clientId: ClientId): Unit = {
-    val sqls = changeSet.pdus.map {
-        case WithdrawQ(_, _, hash) =>
-          getDeleteSql(hash)
-        case PublishQ(uri, _, None, bytes) =>
-          val h = hash(bytes)
-          getInsertSql((bytes, h, uri, clientId))
-        case PublishQ(uri, _, Some(oldHash), bytes) =>
-          val h = hash(bytes)
-          getUpdateSql(oldHash, (bytes, h, uri, clientId))
-      }
+    val toSql: QueryPdu => SQL[Nothing, NoExtractor] = {
+      case WithdrawQ(_, _, hash) =>
+        getDeleteSql(hash)
+      case PublishQ(uri, _, None, bytes) =>
+        val h = hash(bytes)
+        getInsertSql((bytes, h, uri, clientId))
+      case PublishQ(uri, _, Some(oldHash), bytes) =>
+        val h = hash(bytes)
+        getUpdateSql(oldHash, (bytes, h, uri, clientId))
+    }
 
     DB.localTx { implicit session =>
-      sqls.foreach(_.execute())
+      changeSet.pdus.foreach { pdu =>
+        toSql(pdu).execute()
+      }
     }
   }
 
-  def check() = ()
+  def check() = {
+    val z = DB.localTx { implicit session =>
+      sql"SELECT 1".map(_.int(1)).single().apply()
+    }
+    z match {
+      case None =>
+        throw new Exception("Something is really wrong with the database")
+      case Some(i) if i != 1 =>
+        throw new Exception(s"Something is really wrong with the database, returned $i instead of 1")
+      case _ => ()
+    }
+  }
 }
 
 object PgStore {
@@ -113,17 +127,15 @@ object PgStore {
 
   var pgStore : PgStore = _
 
-  def get(config: AppConfig): PgStore = synchronized {
+  def get(pgConfig: PgConfig): PgStore = synchronized {
     if (pgStore == null) {
-      val pgConfig = config.pgConfig
-
       val settings = ConnectionPoolSettings(
         initialSize = 5,
         maxSize = 20,
         connectionTimeoutMillis = 3000L,
         validationQuery = "select 1")
 
-      ConnectionPool.add('defaultPool,
+      ConnectionPool.singleton(
         pgConfig.url, pgConfig.user, pgConfig.password, settings)
 
       pgStore = new PgStore(pgConfig)

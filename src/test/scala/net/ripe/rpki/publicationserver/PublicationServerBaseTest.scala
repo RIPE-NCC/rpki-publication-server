@@ -27,6 +27,8 @@ abstract class PublicationServerBaseTest extends FunSuite with BeforeAndAfter wi
 
   var tempXodusDir: File = _
 
+  val pgTestConfig = PgConfig(url = "jdbc:postgresql://localhost:5432/pubserver_test", user = "pubserver", password = "pubserver")
+
   def initStore(prefix: String = "") = {
     tempXodusDir = Files.createTempDirectory(s"$prefix-rpki-pub-server-test").toFile
     XodusDB.reset()

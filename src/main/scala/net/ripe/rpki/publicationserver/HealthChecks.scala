@@ -24,7 +24,7 @@ class HealthChecks(val appConfig: AppConfig) {
     implicit val healthFormat = jsonFormat2(Health.apply)
   }
 
-  val objectStore = PgStore.get(appConfig)
+  lazy val objectStore = PgStore.get(appConfig.pgConfig)
 
   import HealthChecksJsonProtocol._
 
