@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE TABLE IF NOT EXISTS objects (
     id BIGSERIAL PRIMARY KEY,    
-    hash CHAR(32) NOT NULL,
+    hash CHAR(64) NOT NULL,
     content BYTEA NOT NULL    
 );
 
@@ -16,5 +16,6 @@ CREATE TABLE IF NOT EXISTS object_urls (
 );
 
 CREATE UNIQUE INDEX idx_objects_hash ON objects(hash);
+CREATE INDEX idx_object_urls_client_id ON object_urls(client_id);
 
 COMMIT;

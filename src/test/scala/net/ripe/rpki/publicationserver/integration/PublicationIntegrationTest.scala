@@ -5,7 +5,8 @@ import java.nio.file._
 
 import akka.testkit.TestKit
 import net.ripe.rpki.publicationserver.Binaries.{Base64, Bytes}
-import net.ripe.rpki.publicationserver.{AppConfig, Hashing, PublicationServerApp, PublicationServerBaseTest}
+import net.ripe.rpki.publicationserver.store.postresql.PgStore
+import net.ripe.rpki.publicationserver.{AppConfig, Hashing, PgConfig, PublicationServerApp, PublicationServerBaseTest}
 import org.slf4j.LoggerFactory
 
 class PublicationIntegrationTest
@@ -17,14 +18,14 @@ class PublicationIntegrationTest
 
   override def beforeAll = {
 
-    initStore()
-
     val logger = LoggerFactory.getLogger(this.getClass)
 
     val rsyncRootDir = Files.createTempDirectory( "test_pub_server_rsync_")
     val storeDir = Files.createTempDirectory("test_pub_server_store_")
     deleteOnExit(rsyncRootDir)
     deleteOnExit(storeDir)
+
+    PgStore.get(pgTestConfig).clear()
 
     val conf = new AppConfig {
       override lazy val rsyncRepositoryMapping = Map(
@@ -38,6 +39,7 @@ class PublicationIntegrationTest
         "./src/test/resources/certificates/serverKeyStore.ks"
       override lazy val publicationServerTrustStorePassword = "123456"
       override lazy val publicationServerKeyStorePassword = "123456"
+      override lazy val pgConfig = pgTestConfig
     }
     server = new PublicationServerApp(conf, logger)
     server.run()

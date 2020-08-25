@@ -13,55 +13,60 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
   type RRDPObject = (Bytes, Hash, URI, ClientId)
 
   def getInsertSql(obj: RRDPObject): SQL[Nothing, NoExtractor] = {
-    val (bytes, hash, uri, clientId) = obj
+    val (Bytes(bytes), Hash(hashStr), uri, ClientId(clientId)) = obj
     sql"""
       WITH
         existing AS (
           SELECT id FROM objects
-          WHERE hash = ${hash}
+          WHERE hash = ${hashStr}
         ),
         inserted AS (
           INSERT INTO objects (hash, content)
-          SELECT ${hash}, ${bytes}
+          SELECT ${hashStr}, ${bytes}
           WHERE NOT EXISTS (SELECT * FROM existing)
           RETURNING id
         )
         INSERT INTO object_urls
-        SELECT ${uri}, id, ${clientId}
+        SELECT ${uri.toString}, z.id, ${clientId}
         FROM (
           SELECT id FROM inserted
           UNION ALL
           SELECT id FROM existing
-        )
+        ) AS z
     """
   }
 
   def getUpdateSql(oldHash: String, obj: RRDPObject): SQL[Nothing, NoExtractor] = {
-    val (bytes, newHash, uri, clientId) = obj
+    val (Bytes(bytes), Hash(newHashStr), uri, ClientId(clientId)) = obj
     sql"""
       WITH
-        old AS (
+        old_ignored AS (
           DELETE FROM objects
           WHERE hash = ${oldHash}
           RETURNING id
         ),
         existing AS (
           SELECT id FROM objects
-          WHERE hash = ${newHash}
+          WHERE hash = ${newHashStr}
         ),
-        new AS (
+        new_object AS (
           INSERT INTO objects (hash, content)
-          SELECT ${newHash}, ${bytes}
+          SELECT ${newHashStr}, ${bytes}
           WHERE NOT EXISTS (SELECT * FROM existing)
           RETURNING id
-        )
-        INSERT INTO object_urls
-        SELECT ${uri}, id, ${clientId}
-        FROM (
-          SELECT id FROM inserted
+        ),
+        new_object_id AS (
+          SELECT id FROM new_object
           UNION ALL
           SELECT id FROM existing
         )
+        INSERT INTO object_urls
+        SELECT ${uri.toString}, z.id, ${clientId}
+        FROM new_object_id AS z
+        ON CONFLICT (url) DO
+            UPDATE SET
+              object_id = (SELECT id FROM new_object_id),
+              client_id = ${clientId}
     """
   }
 
@@ -69,7 +74,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
     sql"""DELETE FROM objects WHERE hash = ${hash}"""
   }
 
-  def clear(implicit session: DBSession): Unit = {
+  def clear(): Unit = DB.localTx { implicit session =>
     sql"DELETE FROM objects".update.apply()
   }
 
@@ -101,10 +106,15 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
         getUpdateSql(oldHash, (bytes, h, uri, clientId))
     }
 
-    DB.localTx { implicit session =>
-      changeSet.pdus.foreach { pdu =>
-        toSql(pdu).execute()
+    try {
+      DB.localTx { implicit session =>
+        changeSet.pdus.foreach { pdu =>
+          toSql(pdu).execute().apply()
+        }
       }
+    } catch {
+      case e: Exception =>
+        e.printStackTrace()
     }
   }
 
