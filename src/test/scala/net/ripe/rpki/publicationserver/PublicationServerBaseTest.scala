@@ -1,7 +1,7 @@
 package net.ripe.rpki.publicationserver
 
 import java.io.File
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, Path}
 import java.util.{Comparator, UUID}
 
 import akka.http.scaladsl.model.headers.RawHeader
@@ -12,7 +12,6 @@ import io.prometheus.client.CollectorRegistry
 import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver.metrics.Metrics
 import net.ripe.rpki.publicationserver.model.ClientId
-import net.ripe.rpki.publicationserver.store.XodusDB
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfter, FunSuite, Matchers}
 
@@ -28,14 +27,6 @@ abstract class PublicationServerBaseTest extends FunSuite with BeforeAndAfter wi
   var tempXodusDir: File = _
 
   val pgTestConfig = PgConfig(url = "jdbc:postgresql://localhost:5432/pubserver_test", user = "pubserver", password = "pubserver")
-
-  def initStore(prefix: String = "") = {
-    tempXodusDir = Files.createTempDirectory(s"$prefix-rpki-pub-server-test").toFile
-    XodusDB.reset()
-    XodusDB.init(tempXodusDir.getAbsolutePath)
-    deleteOnExit(tempXodusDir.toPath)
-    tempXodusDir.deleteOnExit()
-  }
 
   def testMetrics = Metrics.get(new CollectorRegistry(true));
 

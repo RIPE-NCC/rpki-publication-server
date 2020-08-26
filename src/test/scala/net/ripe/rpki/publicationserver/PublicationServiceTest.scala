@@ -2,9 +2,8 @@ package net.ripe.rpki.publicationserver
 
 import java.net.URI
 
-import akka.testkit.{TestActorRef, TestKit}
+import akka.testkit.TestActorRef
 import net.ripe.rpki.publicationserver.Binaries.{Base64, Bytes}
-import net.ripe.rpki.publicationserver.store.ObjectStore
 import net.ripe.rpki.publicationserver.store.fs.RsyncRepositoryWriter
 import net.ripe.rpki.publicationserver.store.postresql.PgStore
 import org.scalatest.BeforeAndAfterAll
@@ -12,13 +11,15 @@ import org.scalatest.BeforeAndAfterAll
 
 class PublicationServiceTest extends PublicationServerBaseTest with Hashing with BeforeAndAfterAll {
 
-  val theRsyncWriter = mock[RsyncRepositoryWriter]
-  val conf = new AppConfig
+  private val theRsyncWriter = mock[RsyncRepositoryWriter]
+  private val conf = new AppConfig() {
+    override lazy val pgConfig = pgTestConfig
+  }
   
   def theStateActor = TestActorRef(new StateActor(conf, testMetrics))
   def publicationService = new PublicationService(conf, theStateActor)
 
-  val objectStore = PgStore.get(pgTestConfig)
+  private val objectStore = PgStore.get(pgTestConfig)
 
   before {
     objectStore.clear()

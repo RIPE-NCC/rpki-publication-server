@@ -7,7 +7,6 @@ import java.nio.file.FileSystems
 import akka.testkit.TestActorRef
 import net.ripe.rpki.publicationserver.Binaries.{Base64, Bytes}
 import net.ripe.rpki.publicationserver.model.ClientId
-import net.ripe.rpki.publicationserver.store.ObjectStore
 import org.apache.commons.io.FileUtils
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import net.ripe.rpki.publicationserver.store.postresql.PgStore
