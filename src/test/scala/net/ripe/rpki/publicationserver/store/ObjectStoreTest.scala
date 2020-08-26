@@ -5,20 +5,16 @@ import java.net.URI
 import net.ripe.rpki.publicationserver.Binaries.{Base64, Bytes}
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.model.ClientId
-import org.scalatest.Ignore
+import net.ripe.rpki.publicationserver.store.postresql.PgStore
 
 import scala.util.{Failure, Success, Try}
 
 class ObjectStoreTest extends PublicationServerBaseTest with Hashing {
 
-  val objectStore: ObjectStore = ObjectStore.get
+  private val objectStore = PgStore.get(pgTestConfig)
 
   before {
-    initStore()
-  }
-
-  after {
-    cleanStore()
+    objectStore.clear()
   }
 
   private val uri: URI = new URI("rsync://host.com/path")

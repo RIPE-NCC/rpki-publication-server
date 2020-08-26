@@ -39,10 +39,6 @@ abstract class PublicationServerBaseTest extends FunSuite with BeforeAndAfter wi
 
   def testMetrics = Metrics.get(new CollectorRegistry(true));
 
-  def cleanStore() = {
-    cleanDir(tempXodusDir.toPath)
-  }
-
   def cleanDir(path: Path) = {
     Try {
       Files.walk(path)

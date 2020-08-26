@@ -47,7 +47,6 @@ class PublicationIntegrationTest
   }
 
   override def afterAll(): Unit = {
-    cleanStore()
     TestKit.shutdownActorSystem(client.system)
     TestKit.shutdownActorSystem(server.system)
   }

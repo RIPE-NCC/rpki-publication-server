@@ -1,12 +1,15 @@
 BEGIN;
 
-CREATE TABLE IF NOT EXISTS objects (
+DROP TABLE IF EXISTS object_urls;
+DROP TABLE IF EXISTS objects;
+
+CREATE TABLE objects (
     id BIGSERIAL PRIMARY KEY,    
     hash CHAR(64) NOT NULL,
     content BYTEA NOT NULL    
 );
 
-CREATE TABLE IF NOT EXISTS object_urls (
+CREATE TABLE object_urls (
     url TEXT PRIMARY KEY,
     object_id BIGINT NOT NULL,
     client_id TEXT NOT NULL,

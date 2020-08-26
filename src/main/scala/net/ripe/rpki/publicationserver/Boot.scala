@@ -2,31 +2,22 @@ package net.ripe.rpki.publicationserver
 
 import java.io.FileInputStream
 import java.security.KeyStore
+import java.{util => ju}
 
-import akka.actor.{ActorRef, ActorSystem, OneForOneStrategy, SupervisorStrategy}
-import akka.http.scaladsl.Http
+import akka.actor.{ActorRef, ActorSystem}
+import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.server.Directives._
-import akka.stream.ActorMaterializer
+import akka.http.scaladsl.{ConnectionContext, Http}
 import akka.util.Timeout
 import com.softwaremill.macwire._
-import com.softwaremill.macwire.akkasupport._
-import com.typesafe.sslconfig.akka.AkkaSSLConfig
-import akka.http.scaladsl.{ConnectionContext, HttpsConnectionContext, Http}
+import io.prometheus.client._
 import javax.net.ssl._
 import net.ripe.logging.SysStreamsLogger
-import net.ripe.rpki.publicationserver.store.XodusDB
 import net.ripe.rpki.publicationserver.metrics._
-import org.slf4j.{LoggerFactory, Logger}
-import akka.pattern.ask
+import org.slf4j.{Logger, LoggerFactory}
 
-import io.prometheus.client.exporter.common.TextFormat
-import io.prometheus.client._
-
+import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
-import scala.concurrent.Await
-import scala.concurrent.Future
-import akka.http.scaladsl.Http.ServerBinding
-import java.{util => ju}
 
 
 

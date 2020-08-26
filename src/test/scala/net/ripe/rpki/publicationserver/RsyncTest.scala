@@ -10,6 +10,7 @@ import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store.ObjectStore
 import org.apache.commons.io.FileUtils
 import akka.http.scaladsl.testkit.ScalatestRouteTest
+import net.ripe.rpki.publicationserver.store.postresql.PgStore
 
 import scala.concurrent.duration._
 
@@ -24,18 +25,15 @@ class RsyncTest extends PublicationServerBaseTest with ScalatestRouteTest with H
 
    def theStateActor = TestActorRef(new StateActor(conf, testMetrics))
    def publicationService = new PublicationService(conf, theStateActor)
-  
+
+  private val objectStore = PgStore.get(pgTestConfig)
+
   before {
-    initStore()
-    ObjectStore.get.clear()
+    objectStore.clear()
     val tmpDir = new File(rsyncDir)
     if (tmpDir.exists()) {
       FileUtils.deleteDirectory(tmpDir)
     }
-  }
-
-  after {
-    cleanStore()
   }
 
   test("should publish the contents in the publication request to the correct rsync folder") {
