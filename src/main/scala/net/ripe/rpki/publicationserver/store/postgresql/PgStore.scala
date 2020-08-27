@@ -6,11 +6,17 @@ import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store.ObjectStore
-import scalikejdbc.{ConnectionPool, ConnectionPoolSettings, DB, DBSession, NoExtractor, SQL, scalikejdbcSQLInterpolationImplicitDef}
+import scalikejdbc.{ConnectionPool, ConnectionPoolSettings, DB, DBSession, IsolationLevel, NoExtractor, SQL, scalikejdbcSQLInterpolationImplicitDef}
 
 class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
 
   type RRDPObject = (Bytes, Hash, URI, ClientId)
+
+  def inTx[T](f : DBSession => T) : T= {
+    DB(ConnectionPool.borrow())
+      .isolationLevel(IsolationLevel.Serializable)
+      .localTx(f)
+  }
 
   def getInsertSql(obj: RRDPObject): SQL[Nothing, NoExtractor] = {
     val (Bytes(bytes), Hash(hashStr), uri, ClientId(clientId)) = obj
@@ -106,20 +112,15 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
         getUpdateSql(oldHash, (bytes, h, uri, clientId))
     }
 
-    try {
-      DB.localTx { implicit session =>
-        changeSet.pdus.foreach { pdu =>
-          toSql(pdu).execute().apply()
-        }
+    inTx { implicit session =>
+      changeSet.pdus.foreach { pdu =>
+        toSql(pdu).execute().apply()
       }
-    } catch {
-      case e: Exception =>
-        e.printStackTrace()
     }
   }
 
   def check() = {
-    val z = DB.localTx { implicit session =>
+    val z = inTx { implicit session =>
       sql"SELECT 1".map(_.int(1)).single().apply()
     }
     z match {
