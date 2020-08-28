@@ -12,72 +12,26 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
 
   type RRDPObject = (Bytes, Hash, URI, ClientId)
 
+  case class DbVersion(value: Long)
+
   def inTx[T](f : DBSession => T) : T= {
     DB(ConnectionPool.borrow())
       .isolationLevel(IsolationLevel.Serializable)
       .localTx(f)
   }
 
-  def getInsertSql(obj: RRDPObject): SQL[Nothing, NoExtractor] = {
-    val (Bytes(bytes), Hash(hashStr), uri, ClientId(clientId)) = obj
-    sql"""
-      WITH
-        existing AS (
-          SELECT id FROM objects
-          WHERE hash = ${hashStr}
-        ),
-        inserted AS (
-          INSERT INTO objects (hash, content)
-          SELECT ${hashStr}, ${bytes}
-          WHERE NOT EXISTS (SELECT * FROM existing)
-          RETURNING id
-        )
-        INSERT INTO object_urls
-        SELECT ${uri.toString}, z.id, ${clientId}
-        FROM (
-          SELECT id FROM inserted
-          UNION ALL
-          SELECT id FROM existing
-        ) AS z
-    """
+  def getInsertSql(obj: RRDPObject, dbVersion: DbVersion): SQL[Nothing, NoExtractor] = {
+    val (Bytes(bytes), _, uri, ClientId(clientId)) = obj
+    sql"SELECT create_object(${dbVersion.value}, ${bytes},  ${uri.toString}, ${clientId})"
   }
 
-  def getUpdateSql(oldHash: String, obj: RRDPObject): SQL[Nothing, NoExtractor] = {
-    val (Bytes(bytes), Hash(newHashStr), uri, ClientId(clientId)) = obj
-    sql"""
-      WITH
-        old_ignored AS (
-          DELETE FROM objects
-          WHERE hash = ${oldHash}
-          RETURNING id
-        ),
-        existing AS (
-          SELECT id FROM objects
-          WHERE hash = ${newHashStr}
-        ),
-        new_object AS (
-          INSERT INTO objects (hash, content)
-          SELECT ${newHashStr}, ${bytes}
-          WHERE NOT EXISTS (SELECT * FROM existing)
-          RETURNING id
-        ),
-        new_object_id AS (
-          SELECT id FROM new_object
-          UNION ALL
-          SELECT id FROM existing
-        )
-        INSERT INTO object_urls
-        SELECT ${uri.toString}, z.id, ${clientId}
-        FROM new_object_id AS z
-        ON CONFLICT (url) DO
-            UPDATE SET
-              object_id = (SELECT id FROM new_object_id),
-              client_id = ${clientId}
-    """
+  def getUpdateSql(oldHash: String, obj: RRDPObject, dbVersion: DbVersion): SQL[Nothing, NoExtractor] = {
+    val (Bytes(bytes), _, uri, ClientId(clientId)) = obj
+    sql"SELECT replace_object(${dbVersion.value}, ${bytes}, ${oldHash}, ${uri.toString}, ${clientId})"
   }
 
-  private def getDeleteSql(hash: String) : SQL[Nothing, NoExtractor] = {
-    sql"""DELETE FROM objects WHERE hash = ${hash}"""
+  private def getDeleteSql(hash: String, clientId: ClientId, dbVersion: DbVersion) : SQL[Nothing, NoExtractor] = {
+    sql"SELECT delete_object(${dbVersion.value}, ${hash}, ${clientId.value})"
   }
 
   def clear(): Unit = DB.localTx { implicit session =>
@@ -101,20 +55,28 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
   }
 
   def applyChanges(changeSet: QueryMessage, clientId: ClientId): Unit = {
-    val toSql: QueryPdu => SQL[Nothing, NoExtractor] = {
-      case WithdrawQ(_, _, hash) =>
-        getDeleteSql(hash)
-      case PublishQ(uri, _, None, bytes) =>
-        val h = hash(bytes)
-        getInsertSql((bytes, h, uri, clientId))
-      case PublishQ(uri, _, Some(oldHash), bytes) =>
-        val h = hash(bytes)
-        getUpdateSql(oldHash, (bytes, h, uri, clientId))
+    def toSql(pdu: QueryPdu, version: DbVersion) = {
+      pdu match {
+        case WithdrawQ(_, _, hash) =>
+          getDeleteSql(hash, clientId, version)
+        case PublishQ(uri, _, None, bytes) =>
+          val h = hash(bytes)
+          getInsertSql((bytes, h, uri, clientId), version)
+        case PublishQ(uri, _, Some(oldHash), bytes) =>
+          val h = hash(bytes)
+          getUpdateSql(oldHash, (bytes, h, uri, clientId), version)
+      }
     }
 
     inTx { implicit session =>
+      val version = sql"SELECT last_pending_version()"
+        .map(rs => rs.long(1))
+        .single()
+        .apply()
+        .map(DbVersion)
+        .get
       changeSet.pdus.foreach { pdu =>
-        toSql(pdu).execute().apply()
+        toSql(pdu, version).execute().apply()
       }
     }
   }

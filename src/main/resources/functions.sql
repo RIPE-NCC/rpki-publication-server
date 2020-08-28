@@ -75,11 +75,12 @@ $body$
     LANGUAGE plpgsql;
 
 
--- Add object, corresponds to
+-- Add an object, corresponds to
+-- <publish> without hash to replace.
 CREATE OR REPLACE FUNCTION create_object(version_ BIGINT,
                                          bytes_ BYTEA,
                                          url_ TEXT,
-                                         client_id_ TEXT) RETURNS VOID AS
+                                         client_id_ TEXT) RETURNS CHAR(64) AS
 $body$
 DECLARE
     existing_object_id BIGINT;
@@ -113,12 +114,97 @@ BEGIN
     INSERT INTO object_urls(url, object_id, client_id)
     VALUES (url_, existing_object_id, client_id_);
 
-    INSERT INTO object_log(version, object_id, operation, hash)
-    VALUES (version_, existing_object_id, 'INS', hash_);
+    INSERT INTO object_log(version, object_id, operation)
+    VALUES (version_, existing_object_id, 'INS');
+
+    RETURN hash_;
 END
 $body$
     LANGUAGE plpgsql;
 
+
+--
+-- Replace an object, corresponds to <publish hash="...">
+--
+CREATE OR REPLACE FUNCTION replace_object(version_ BIGINT,
+                                         bytes_ BYTEA,
+                                         hash_to_replace CHAR(64),
+                                         url_ TEXT,
+                                         client_id_ TEXT) RETURNS CHAR(64) AS
+$body$
+DECLARE
+    existing_object_id BIGINT;
+    existing_client_id TEXT;
+    hash_              CHAR(64);
+BEGIN
+    SELECT encode(sha256(bytes_), 'hex') INTO hash_;
+
+    SELECT o.id, ou.client_id
+    INTO existing_object_id, existing_client_id
+    FROM objects o
+    INNER JOIN object_urls ou ON ou.object_id = o.id
+    WHERE o.hash = hash_to_replace;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Tried to replace object that doesn''t exist % ', url_ ;
+    ELSE
+        -- NOTE: reference in object_urls will be removed by the cascading constraint
+        DELETE FROM objects WHERE hash = hash_to_replace;
+    END IF;
+
+    IF existing_client_id IS NOT NULL AND existing_client_id <> client_id_ THEN
+        RAISE EXCEPTION 'Tried to replace object of a different client % ', url_ ;
+    ELSE
+        WITH z AS (
+            INSERT INTO objects (hash, content) VALUES (hash_, bytes_)
+                RETURNING id
+        )
+        SELECT id
+        INTO existing_object_id
+        FROM z;
+    END IF;
+
+    INSERT INTO object_urls(url, object_id, client_id)
+    VALUES (url_, existing_object_id, client_id_);
+
+    INSERT INTO object_log(version, object_id, operation, old_hash)
+    VALUES (version_, existing_object_id, 'UPD', hash_to_replace);
+
+    RETURN hash_;
+END
+$body$
+    LANGUAGE plpgsql;
+
+
+-- Replace an object, corresponds to
+-- <publish> without hash to replace.
+CREATE OR REPLACE FUNCTION delete_object(version_ BIGINT,
+                                         hash_to_delete CHAR(64),
+                                         client_id_ TEXT) RETURNS VOID AS
+$body$
+DECLARE
+    existing_object_id BIGINT;
+    existing_client_id TEXT;
+    existing_url TEXT;
+BEGIN
+    SELECT o.id, ou.client_id, ou.url
+    INTO existing_object_id, existing_client_id, existing_url
+    FROM objects o
+    INNER JOIN object_urls ou ON ou.object_id = o.id
+    WHERE o.hash = hash_to_delete;
+
+    IF existing_client_id IS NOT NULL AND existing_client_id <> client_id_ THEN
+        RAISE EXCEPTION 'Tried to delete object of a different client % ', existing_url ;
+    ELSE
+        -- NOTE: reference in object_urls will be removed by the cascading constraint
+        DELETE FROM objects WHERE hash = hash_to_delete;
+    END IF;
+
+    INSERT INTO object_log(version, operation, old_hash)
+    VALUES (version_, 'DEL', hash_to_delete);
+END
+$body$
+    LANGUAGE plpgsql;
 
 
 -- Auxiliary functions for client_id lock

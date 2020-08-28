@@ -37,7 +37,7 @@ CREATE TABLE object_log
     version   BIGINT,
     object_id BIGINT,
     operation CHAR(3)  NOT NULL,
-    hash      CHAR(64) NOT NULL,
+    old_hash  CHAR(64),
     CHECK (operation IN ('INS', 'UPD', 'DEL')),
     CONSTRAINT fk_object_log_to_version
         FOREIGN KEY (version)
