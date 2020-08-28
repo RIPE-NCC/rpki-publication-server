@@ -39,9 +39,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
   }
 
   def getState: ObjectStore.State = DB.localTx { implicit session =>
-    sql"""SELECT hash, url, client_id, content
-         FROM objects o
-         INNER JOIN object_urls ou ON ou.object_id = o.id"""
+    sql"SELECT * FROM current_state"
       .map { rs =>
         val hash = Hash(rs.string(1))
         val uri = URI.create(rs.string(2))

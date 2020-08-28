@@ -94,16 +94,16 @@ class StateActor(conf: AppConfig, metrics: Metrics)
   private def applyDelete(state: State, uri: URI, hashToReplace: String): Either[ReportError, State] = {
     state.get(uri) match {
       case Some((_, Hash(foundHash), _)) =>
-        if (foundHash.toUpperCase == hashToReplace.toUpperCase) {
-          logger.debug(s"Deleting $uri with hash ${foundHash.toUpperCase}")
+        if (foundHash.toLowerCase == hashToReplace.toLowerCase) {
+          logger.debug(s"Deleting $uri with hash ${foundHash.toLowerCase}")
           metrics.withdrawnObject()
           Right(state - uri)
         } else {
             metrics.failedToDelete()
             Left(ReportError(BaseError.NonMatchingHash,
                 Some(s"Cannot withdraw the object [$uri], hash doesn't match, " +
-                    s"passed ${hashToReplace.toUpperCase}, " +
-                    s"but existing one is ${foundHash.toUpperCase}.")))
+                    s"passed ${hashToReplace.toLowerCase}, " +
+                    s"but existing one is ${foundHash.toLowerCase}.")))
         }
       case None =>
         metrics.failedToDelete()
@@ -118,7 +118,7 @@ class StateActor(conf: AppConfig, metrics: Metrics)
                            newBytes: Bytes): Either[ReportError, State] = {
     state.get(uri) match {
       case Some((_, Hash(foundHash), _)) =>
-        if (foundHash.toUpperCase == hashToReplace.toUpperCase) {
+        if (foundHash.toLowerCase == hashToReplace.toLowerCase) {
           val newHash = hash(newBytes)
           logger.debug(s"Replacing $uri with hash $foundHash -> $newHash")
           // one added one deleted
@@ -129,8 +129,8 @@ class StateActor(conf: AppConfig, metrics: Metrics)
             metrics.failedToReplace()
             Left(ReportError(BaseError.NonMatchingHash,
                 Some(s"Cannot republish the object [$uri], " +
-                  s"hash doesn't match, passed ${hashToReplace.toUpperCase}, " +
-                  s"but existing one is ${foundHash.toUpperCase}.")))
+                  s"hash doesn't match, passed ${hashToReplace.toLowerCase}, " +
+                  s"but existing one is ${foundHash.toLowerCase}.")))
         }
       case None =>
         Left(ReportError(BaseError.NoObjectToUpdate, Some(s"No object [$uri] has been found.")))

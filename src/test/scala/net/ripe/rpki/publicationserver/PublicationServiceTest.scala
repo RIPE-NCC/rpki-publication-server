@@ -105,7 +105,7 @@ class PublicationServiceTest extends PublicationServerBaseTest with Hashing with
     }
   }
 
-  test("should return an ok response for a valid replace request (hash casing problem)") {
+  test("should return an ok response for a valid replace request (hash causing problem)") {
     val service = publicationService
 
     val uri = new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer")

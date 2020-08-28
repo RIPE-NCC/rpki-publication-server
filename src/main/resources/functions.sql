@@ -183,6 +183,12 @@ $body$
     LANGUAGE plpgsql;
 
 
+CREATE OR REPLACE VIEW current_state AS
+SELECT LOWER(hash), url, client_id, content
+FROM objects o
+INNER JOIN object_urls ou ON ou.object_id = o.id;
+
+
 -- Auxiliary functions for client_id lock
 CREATE OR REPLACE FUNCTION acquire_client_id_lock(client_id_ TEXT) RETURNS VOID AS
 $$
