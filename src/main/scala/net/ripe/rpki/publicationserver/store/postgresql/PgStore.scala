@@ -76,11 +76,15 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
       changeSet.pdus.foreach {
         case WithdrawQ(uri, _, hash) =>
           executeSql(
-            getDeleteSql(uri, hash, clientId), metrics.withdrawnObject(), metrics.failedToDelete())
+            getDeleteSql(uri, hash, clientId),
+            metrics.withdrawnObject(),
+            metrics.failedToDelete())
         case PublishQ(uri, _, None, bytes) =>
           val h = hash(bytes)
           executeSql(
-            getInsertSql((bytes, h, uri, clientId)), metrics.publishedObject(), metrics.failedToAdd())
+            getInsertSql((bytes, h, uri, clientId)),
+            metrics.publishedObject(),
+            metrics.failedToAdd())
         case PublishQ(uri, _, Some(oldHash), bytes) =>
           val h = hash(bytes)
           executeSql(getUpdateSql(oldHash, (bytes, h, uri, clientId)),
