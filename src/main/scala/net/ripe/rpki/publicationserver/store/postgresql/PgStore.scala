@@ -4,34 +4,36 @@ import java.net.URI
 
 import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver._
-import net.ripe.rpki.publicationserver.model.ClientId
+import net.ripe.rpki.publicationserver.metrics.Metrics
+import net.ripe.rpki.publicationserver.model.{ClientId, RRDPObject}
 import net.ripe.rpki.publicationserver.store.ObjectStore
+import org.json4s._
+import org.json4s.native.JsonMethods._
 import scalikejdbc.{ConnectionPool, ConnectionPoolSettings, DB, DBSession, IsolationLevel, NoExtractor, SQL, scalikejdbcSQLInterpolationImplicitDef}
+
+
+class RollbackException(val error: BaseError) extends Exception
 
 class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
 
-  type RRDPObject = (Bytes, Hash, URI, ClientId)
-
-  case class DbVersion(value: Long)
-
-  def inTx[T](f : DBSession => T) : T= {
+  def inTx[T](f: DBSession => T): T = {
     DB(ConnectionPool.borrow())
-      .isolationLevel(IsolationLevel.Serializable)
+      .isolationLevel(IsolationLevel.RepeatableRead)
       .localTx(f)
   }
 
-  def getInsertSql(obj: RRDPObject, dbVersion: DbVersion): SQL[Nothing, NoExtractor] = {
+  def getInsertSql(obj: RRDPObject) = {
     val (Bytes(bytes), _, uri, ClientId(clientId)) = obj
-    sql"SELECT create_object(${dbVersion.value}, ${bytes},  ${uri.toString}, ${clientId})"
+    sql"SELECT create_object(${bytes},  ${uri.toString}, ${clientId})"
   }
 
-  def getUpdateSql(oldHash: String, obj: RRDPObject, dbVersion: DbVersion): SQL[Nothing, NoExtractor] = {
+  def getUpdateSql(oldHash: String, obj: RRDPObject) = {
     val (Bytes(bytes), _, uri, ClientId(clientId)) = obj
-    sql"SELECT replace_object(${dbVersion.value}, ${bytes}, ${oldHash}, ${uri.toString}, ${clientId})"
+    sql"SELECT replace_object(${bytes}, ${oldHash}, ${uri.toString}, ${clientId})"
   }
 
-  private def getDeleteSql(hash: String, clientId: ClientId, dbVersion: DbVersion) : SQL[Nothing, NoExtractor] = {
-    sql"SELECT delete_object(${dbVersion.value}, ${hash}, ${clientId.value})"
+  private def getDeleteSql(uri: URI, hash: String, clientId: ClientId) = {
+    sql"SELECT delete_object(${uri.toString}, ${hash}, ${clientId.value})"
   }
 
   def clear(): Unit = DB.localTx { implicit session =>
@@ -52,29 +54,41 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
       .toMap
   }
 
-  def applyChanges(changeSet: QueryMessage, clientId: ClientId): Unit = {
-    def toSql(pdu: QueryPdu, version: DbVersion) = {
-      pdu match {
-        case WithdrawQ(_, _, hash) =>
-          getDeleteSql(hash, clientId, version)
-        case PublishQ(uri, _, None, bytes) =>
-          val h = hash(bytes)
-          getInsertSql((bytes, h, uri, clientId), version)
-        case PublishQ(uri, _, Some(oldHash), bytes) =>
-          val h = hash(bytes)
-          getUpdateSql(oldHash, (bytes, h, uri, clientId), version)
+  implicit val formats = org.json4s.DefaultFormats
+
+  def applyChanges(changeSet: QueryMessage, clientId: ClientId, metrics: Metrics): Unit = {
+
+    def executeSql(sql: SQL[Nothing, NoExtractor], onSuccess: => Unit, onFailure: => Unit)(implicit session: DBSession): Unit = {
+      val r = sql.map(_.string(1)).single().apply()
+      r match {
+        case None =>
+          onSuccess
+        case Some(json) =>
+          onFailure
+          val error = parse(json).extract[BaseError]
+          throw new RollbackException(error)
       }
     }
 
     inTx { implicit session =>
-      val version = sql"SELECT last_pending_version()"
-        .map(rs => rs.long(1))
-        .single()
-        .apply()
-        .map(DbVersion)
-        .get
-      changeSet.pdus.foreach { pdu =>
-        toSql(pdu, version).execute().apply()
+      sql"SELECT acquire_client_id_lock(${clientId.value})".execute().apply()
+
+      changeSet.pdus.foreach {
+        case WithdrawQ(uri, _, hash) =>
+          executeSql(
+            getDeleteSql(uri, hash, clientId), metrics.withdrawnObject(), metrics.failedToDelete())
+        case PublishQ(uri, _, None, bytes) =>
+          val h = hash(bytes)
+          executeSql(
+            getInsertSql((bytes, h, uri, clientId)), metrics.publishedObject(), metrics.failedToAdd())
+        case PublishQ(uri, _, Some(oldHash), bytes) =>
+          val h = hash(bytes)
+          executeSql(getUpdateSql(oldHash, (bytes, h, uri, clientId)),
+            {
+              metrics.withdrawnObject();
+              metrics.publishedObject()
+            },
+            metrics.failedToReplace())
       }
     }
   }
@@ -91,11 +105,18 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
       case _ => ()
     }
   }
+
+  def list(clientId: ClientId) = inTx { implicit session =>
+    sql"""SELECT url, hash
+           FROM current_state
+           WHERE client_id = ${clientId.value}"""
+      .map(rs => (rs.string(1), rs.string(2)))
+      .list
+      .apply
+  }
 }
 
 object PgStore {
-  type State = Map[URI, (Bytes, Hash, ClientId)]
-
   var pgStore : PgStore = _
 
   def get(pgConfig: PgConfig): PgStore = synchronized {
@@ -115,5 +136,6 @@ object PgStore {
   }
 
 }
+
 
 

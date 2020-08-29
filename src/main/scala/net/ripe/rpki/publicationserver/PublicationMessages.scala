@@ -5,22 +5,7 @@ import java.net.URI
 import com.google.common.xml.XmlEscapers
 import net.ripe.rpki.publicationserver.Binaries.Bytes
 
-object BaseError extends Enumeration {
-  type Code = Value
-  val NoMsgElement = Value
-  val ParseError = Value
-  val WrongQueryType = Value
-  val HashForInsert = Value
-  val NoObjectToUpdate = Value
-  val NoObjectForWithdraw = Value
-  val NonMatchingHash = Value
-  val CouldNotPersist = Value
-  val InvalidBase64 = Value
-  val XmlSchemaValidationError = Value
-}
-
-case class BaseError(code: BaseError.Code, message: String)
-
+case class BaseError(code: String, message: String)
 
 sealed trait Message
 
@@ -47,7 +32,7 @@ case class WithdrawR(uri: URI, tag: Option[String]) extends ReplyPdu
 
 case class ListR(uri: URI, hash: String, tag: Option[String]) extends ReplyPdu
 
-case class ReportError(code: BaseError.Code, message: Option[String]) extends ReplyPdu
+case class ReportError(code: String, message: Option[String]) extends ReplyPdu
 
 object MsgType extends Enumeration {
   type MsgType = Value

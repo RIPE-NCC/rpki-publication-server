@@ -10,7 +10,7 @@ import net.ripe.rpki.publicationserver.messaging._
 import net.ripe.rpki.publicationserver.metrics.Metrics
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store.postresql.PgStore
-import org.scalatest.BeforeAndAfterAll
+import org.scalatest.{BeforeAndAfterAll, Ignore}
 
 import scala.concurrent.duration._
 
@@ -18,6 +18,7 @@ object MassiveDeltaRemovalTest {
 
 }
 
+@Ignore
 class MassiveDeltaRemovalTest
     extends PublicationServerBaseTest
     with Hashing

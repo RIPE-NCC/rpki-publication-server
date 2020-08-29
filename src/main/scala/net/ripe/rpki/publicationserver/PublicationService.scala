@@ -84,13 +84,13 @@ class PublicationService
                 } catch {
                   case e: Exception =>
                     Future {
-                      ErrorMsg(BaseError(BaseError.XmlSchemaValidationError, s"XML parsing/validation error: ${e.getMessage}"))
+                      ErrorMsg(BaseError("xml_error", s"XML parsing/validation error: ${e.getMessage}"))
                     }
                 }
               }
 
               mainPipeline {
-                case Success(msg@ErrorMsg(BaseError(BaseError.XmlSchemaValidationError, message))) =>
+                case Success(msg@ErrorMsg(BaseError("xml_error", message))) =>
                   logger.error(s"Error parsing POST request with clientId=$clientId", message)
                   complete(HttpResponse(status = 400, entity = HttpEntity(PublicationService.`rpki-publication`, msg.serialize)))
 

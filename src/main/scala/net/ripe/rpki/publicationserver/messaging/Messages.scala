@@ -4,7 +4,7 @@ import java.nio.file.attribute.FileTime
 import java.util.UUID
 
 import net.ripe.rpki.publicationserver.QueryMessage
-import net.ripe.rpki.publicationserver.model.ClientId
+import net.ripe.rpki.publicationserver.model.{ClientId, DbVersion}
 import net.ripe.rpki.publicationserver.store.ObjectStore
 
 object Messages {
@@ -24,5 +24,12 @@ object Messages {
   case class CleanUpRepo(sessionId: UUID)
 
   case class CleanUpRepoOldOnesNow(timestamp: FileTime, sessionId: UUID)
+
+
+  case class InitRepository()
+
+  case class UpdateRepository(version: DbVersion)
+
+
 }
 

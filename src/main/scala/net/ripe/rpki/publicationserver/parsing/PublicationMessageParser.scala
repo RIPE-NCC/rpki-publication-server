@@ -19,13 +19,13 @@ class PublicationMessageParser extends MessageParser[Message] {
     @tailrec
     def parseNext(lastAttributes: Map[String, String], lastText: String, pdus: Seq[QueryPdu]): Either[BaseError, Message] = {
       if (!parser.hasNext) {
-        Left(BaseError(BaseError.NoMsgElement, "The request does not contain a complete msg element"))
+        Left(BaseError("xml_error", "The request does not contain a complete msg element"))
       } else {
         parser.next match {
 
           case ElementStart(label, attrs) =>
             if (label.equalsIgnoreCase("msg") && !MsgType.query.toString.equalsIgnoreCase(attrs("type")))
-              Left(BaseError(BaseError.WrongQueryType, "Messages of type " + attrs("type") + " are not accepted"))
+              Left(BaseError("xml_error", "Messages of type " + attrs("type") + " are not accepted"))
             else
               parseNext(attrs, "", pdus)
 
@@ -42,7 +42,7 @@ class PublicationMessageParser extends MessageParser[Message] {
                   Right(pdu)
                 } catch {
                   case _: Exception =>
-                    Left(ErrorMessage(BaseError(BaseError.InvalidBase64, s"Invalid base64 representation for the object ${lastAttributes("uri")}")))
+                    Left(ErrorMessage(BaseError("xml_error", s"Invalid base64 representation for the object ${lastAttributes("uri")}")))
                 }
 
               case "withdraw" =>

@@ -24,7 +24,7 @@ class ObjectStoreTest extends PublicationServerBaseTest with Hashing {
     val bytes = Bytes(Array(0x01, 0x02, 0x03))
     val changeSet = QueryMessage(Seq(PublishQ(uri, Some("tag"), hash = None, bytes)))
 
-    Try(objectStore.applyChanges(changeSet, clientId)) match {
+    Try(objectStore.applyChanges(changeSet, clientId, testMetrics)) match {
       case Failure(e) => println(e)
       case Success(_) => ()
     }
@@ -40,10 +40,10 @@ class ObjectStoreTest extends PublicationServerBaseTest with Hashing {
     val bytesA = Bytes.fromBase64(Base64("AABBCC=="))
     val bytesB = Bytes.fromBase64(Base64("BBBBAA=="))
     val changeSet = QueryMessage(Seq(PublishQ(uri, tag=None, hash=None, bytesA)))
-    objectStore.applyChanges(changeSet, clientId)
+    objectStore.applyChanges(changeSet, clientId, testMetrics)
 
     val replaceSet = QueryMessage(Seq(PublishQ(uri, tag=None, Some(hash(bytesA).hash), bytesB)))
-    objectStore.applyChanges(replaceSet, clientId)
+    objectStore.applyChanges(replaceSet, clientId, testMetrics)
 
     val obj = objectStore.getState.get(uri)
     obj should be(defined)
@@ -60,7 +60,7 @@ class ObjectStoreTest extends PublicationServerBaseTest with Hashing {
       PublishQ(uri, tag=None, hash=None, bytesA),
       PublishQ(uri, tag=None, Some(hash(bytesA).hash), bytesB)
     ))
-    objectStore.applyChanges(changeSet, clientId)
+    objectStore.applyChanges(changeSet, clientId, testMetrics)
 
     val obj = objectStore.getState.get(uri)
     obj should be(defined)
@@ -71,10 +71,10 @@ class ObjectStoreTest extends PublicationServerBaseTest with Hashing {
     val clientId = ClientId("client1")
 
     val changeSet = QueryMessage(Seq(PublishQ(uri, tag=None, hash=None, Bytes.fromBase64(Base64("AABBCC==")))))
-    objectStore.applyChanges(changeSet, clientId)
+    objectStore.applyChanges(changeSet, clientId, testMetrics)
 
     val withdrawSet = QueryMessage(Seq(WithdrawQ(uri, tag=None, hash(Base64("AABBCC==")).hash)))
-    objectStore.applyChanges(withdrawSet, clientId)
+    objectStore.applyChanges(withdrawSet, clientId, testMetrics)
 
     val obj = objectStore.getState.get(uri)
     obj should not be defined
@@ -87,7 +87,7 @@ class ObjectStoreTest extends PublicationServerBaseTest with Hashing {
       QueryMessage(Seq(
         PublishQ(uri, tag = None, hash = None, Bytes.fromBase64(Base64("AABBCC=="))),
         WithdrawQ(uri, tag = None, hash(Base64("AABBCC==")).hash)
-      )), clientId)
+      )), clientId, testMetrics)
 
     val obj = objectStore.getState.get(uri)
     obj should not be defined

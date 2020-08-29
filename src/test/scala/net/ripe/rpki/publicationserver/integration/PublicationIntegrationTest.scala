@@ -72,7 +72,7 @@ class PublicationIntegrationTest
     }
 
     val responseError = client.publish("client1", url, "babababa")
-    responseError should include(s"""Tried to insert existing object [$url].""")
+    responseError should include(s"""An object is already present at this URI [$url].""")
 
     forMetrics { metrics =>
         metrics should include("""rpkipublicationserver_object_operations_total{operation="publish",} 1.0""")
@@ -98,7 +98,7 @@ class PublicationIntegrationTest
     // try to use wrong hash for withdrawing
     val wrongHash = hash(Base64(generateSomeBase64())).hash
     val w = client.withdraw(clientId, url, wrongHash)
-    w should include(s"""<report_error error_code="NonMatchingHash">""")
+    w should include(s"""<report_error error_code="no_object_matching_hash">""")
     w should include(s"""Cannot withdraw the object [${url}], hash doesn't match, passed ${wrongHash}, but existing one is $hashStr""")
 
     forMetrics { metrics =>
@@ -119,7 +119,7 @@ class PublicationIntegrationTest
 
     // try to withdraw the second time
     client.withdraw(clientId, url, hashStr) should
-        include(s"""No object [$url] found.""")
+        include(s"""There is no object present at this URI [$url].""")
 
     forMetrics { metrics =>
         metrics should include("""rpkipublicationserver_object_operations_total{operation="publish",} 2.0""")
@@ -144,7 +144,7 @@ class PublicationIntegrationTest
     val newBase64 = generateSomeBase64()
     val wrongHash = hash(Base64(generateSomeBase64)).hash
     val response = client.publish(clientId, url, wrongHash, newBase64)
-    response should include(s"""<report_error error_code="NonMatchingHash">""")
+    response should include(s"""<report_error error_code="no_object_matching_hash">""")
     response should include(s"""Cannot republish the object [${url}], hash doesn't match, passed ${wrongHash}, but existing one is $hashStr""")
 
     forMetrics { metrics =>
