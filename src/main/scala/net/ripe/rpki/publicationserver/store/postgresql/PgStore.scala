@@ -22,22 +22,10 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
       .localTx(f)
   }
 
-  def getInsertSql(obj: RRDPObject) = {
-    val (Bytes(bytes), _, uri, ClientId(clientId)) = obj
-    sql"SELECT create_object(${bytes},  ${uri.toString}, ${clientId})"
-  }
-
-  def getUpdateSql(oldHash: String, obj: RRDPObject) = {
-    val (Bytes(bytes), _, uri, ClientId(clientId)) = obj
-    sql"SELECT replace_object(${bytes}, ${oldHash}, ${uri.toString}, ${clientId})"
-  }
-
-  private def getDeleteSql(uri: URI, hash: String, clientId: ClientId) = {
-    sql"SELECT delete_object(${uri.toString}, ${hash}, ${clientId.value})"
-  }
-
   def clear(): Unit = DB.localTx { implicit session =>
     sql"DELETE FROM objects".update.apply()
+    sql"DELETE FROM object_log".update.apply()
+    sql"DELETE FROM versions".update.apply()
   }
 
   def getState: ObjectStore.State = DB.localTx { implicit session =>
@@ -71,23 +59,24 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
     }
 
     inTx { implicit session =>
+      // Apply all modification while holding a lock on the client ID
+      // (which most often is the CA owning the objects)
       sql"SELECT acquire_client_id_lock(${clientId.value})".execute().apply()
 
       changeSet.pdus.foreach {
         case WithdrawQ(uri, _, hash) =>
           executeSql(
-            getDeleteSql(uri, hash, clientId),
+            sql"SELECT delete_object(${uri.toString}, ${hash}, ${clientId.value})",
             metrics.withdrawnObject(),
             metrics.failedToDelete())
-        case PublishQ(uri, _, None, bytes) =>
-          val h = hash(bytes)
+        case PublishQ(uri, _, None, Bytes(bytes)) =>
           executeSql(
-            getInsertSql((bytes, h, uri, clientId)),
+              sql"SELECT create_object(${bytes},  ${uri.toString}, ${clientId.value})",
             metrics.publishedObject(),
             metrics.failedToAdd())
-        case PublishQ(uri, _, Some(oldHash), bytes) =>
-          val h = hash(bytes)
-          executeSql(getUpdateSql(oldHash, (bytes, h, uri, clientId)),
+        case PublishQ(uri, _, Some(oldHash), Bytes(bytes)) =>
+          executeSql(
+            sql"SELECT replace_object(${bytes}, ${oldHash}, ${uri.toString}, ${clientId.value})",
             {
               metrics.withdrawnObject();
               metrics.publishedObject()
