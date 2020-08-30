@@ -15,14 +15,14 @@ case class Snapshot(serverState: ServerState, pdus: Seq[(Bytes, URI)]) extends H
   private[model] def serialize = {
     val ServerState(sessionId, serial) = serverState
     val stream = new ByteArrayOutputStream()
-    Dump.streamChars(s"""<snapshot version="1" session_id="$sessionId" serial="$serial" xmlns="http://www.ripe.net/rpki/rrdp">\n""", stream)
+    IOStream.string(s"""<snapshot version="1" session_id="$sessionId" serial="$serial" xmlns="http://www.ripe.net/rpki/rrdp">\n""", stream)
     pdus.foreach { pdu =>
       val (bytes, uri) = pdu
-      Dump.streamChars(s"""<publish uri="${attr(uri.toASCIIString)}">""", stream)
-      Dump.streamChars(Bytes.toBase64(bytes).value, stream)
-      Dump.streamChars("</publish>\n", stream)
+      IOStream.string(s"""<publish uri="${attr(uri.toASCIIString)}">""", stream)
+      IOStream.string(Bytes.toBase64(bytes).value, stream)
+      IOStream.string("</publish>\n", stream)
     }
-    Dump.streamChars("</snapshot>", stream)
+    IOStream.string("</snapshot>", stream)
     stream.toByteArray
   }
 

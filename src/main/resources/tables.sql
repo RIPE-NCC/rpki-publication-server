@@ -26,9 +26,15 @@ CREATE TABLE object_log
 (
     id        BIGSERIAL PRIMARY KEY,
     operation CHAR(3) NOT NULL,
+    url       TEXT NOT NULL,
     old_hash  CHAR(64),
     content   BYTEA,
-    CHECK (operation IN ('INS', 'UPD', 'DEL'))
+    CHECK (operation IN ('INS', 'UPD', 'DEL')),
+    CHECK (
+        operation = 'INS' AND old_hash IS NULL AND content IS NOT NULL OR
+        operation = 'UPD' AND old_hash IS NOT NULL AND content IS NOT NULL OR
+        operation = 'DEL' AND old_hash IS NOT NULL AND content IS NULL
+    )
 );
 
 CREATE TABLE versions

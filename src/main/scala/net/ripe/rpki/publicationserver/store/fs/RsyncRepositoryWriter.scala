@@ -44,7 +44,7 @@ class RsyncRepositoryWriter(conf: AppConfig) extends Logging {
       case WithdrawQ(uri, _, _) =>
         removeFile(uri)
       case unknown =>
-        throw new UnsupportedOperationException(s"Unknown PDU in ValidatedMessage: $unknown")
+        throw new UnsupportedOperationException(s"Unknown PDU in QueryMessage: $unknown")
     }
   }
 

@@ -65,8 +65,7 @@ CREATE OR REPLACE FUNCTION create_object(bytes_ BYTEA,
                                          client_id_ TEXT) RETURNS JSON AS
 $body$
 DECLARE
-    existing_object_id BIGINT;
-    hash_              CHAR(64);
+    hash_ CHAR(64);
 BEGIN
 
     IF EXISTS (SELECT * FROM object_urls WHERE url = url_) THEN
@@ -78,8 +77,8 @@ BEGIN
 
     PERFORM merge_object(bytes_, hash_, url_, client_id_);
 
-    INSERT INTO object_log (operation, content)
-    VALUES ('INS', bytes_);
+    INSERT INTO object_log (operation, url, content)
+    VALUES ('INS', url_, bytes_);
         
     RETURN NULL;    
 END
@@ -130,8 +129,8 @@ BEGIN
     SELECT LOWER(encode(sha256(bytes_), 'hex')) INTO hash_;
     PERFORM merge_object(bytes_, hash_, url_, client_id_);
 
-    INSERT INTO object_log(operation, old_hash, content)
-    VALUES ('UPD', hash_to_replace, bytes_);
+    INSERT INTO object_log(operation, url, old_hash, content)
+    VALUES ('UPD', url_, hash_to_replace, bytes_);
 
     RETURN NULL;
 
@@ -176,8 +175,8 @@ BEGIN
     -- NOTE: reference in object_urls will be removed by the cascading constraint
     DELETE FROM objects WHERE hash = LOWER(hash_to_delete);
 
-    INSERT INTO object_log(operation, old_hash)
-    VALUES ('DEL', hash_to_delete);
+    INSERT INTO object_log(operation, url, old_hash)
+    VALUES ('DEL', url_, hash_to_delete);
 
     RETURN NULL;
 END
@@ -189,7 +188,26 @@ $body$
 CREATE OR REPLACE VIEW current_state AS
 SELECT LOWER(hash) as hash, url, client_id, content
 FROM objects o
-         INNER JOIN object_urls ou ON ou.object_id = o.id;
+INNER JOIN object_urls ou ON ou.object_id = o.id
+ORDER BY url;
+
+CREATE OR REPLACE VIEW latest_delta AS
+WITH log AS (
+    SELECT id, operation, url, old_hash, content
+    FROM object_log o
+)
+SELECT *
+FROM log
+WHERE NOT EXISTS(
+        SELECT * FROM versions
+    )
+   OR id > (
+    SELECT last_log_entry_id
+    FROM versions
+    ORDER BY id DESC
+    LIMIT 1)
+ORDER BY id ASC;
+
 
 
 CREATE OR REPLACE FUNCTION freeze_version() RETURNS VOID AS
@@ -229,88 +247,5 @@ BEGIN
 END
 $body$
     LANGUAGE plpgsql;
-
-
--- Kept here just for convenience
-
--- CREATE OR REPLACE FUNCTION close_pending_version() RETURNS BIGINT AS
--- $body$
--- BEGIN
---     PERFORM lock_versions();
---
---     UPDATE versions
---     SET state = 'generating'
---     WHERE state = 'pending';
---
---     INSERT INTO versions(version, session_id, state, serial)
---     SELECT version + 1, session_id, 'pending', serial + 1
---     FROM versions
---     ORDER BY version DESC
---     LIMIT 1;
---
---     PERFORM unlock_versions();
--- END
--- $body$
---     LANGUAGE plpgsql;
-
-
--- CREATE OR REPLACE FUNCTION last_pending_version() RETURNS BIGINT AS
--- $body$
--- DECLARE
---     the_version    BIGINT;
---     the_serial     BIGINT;
---     the_session_id TEXT;
--- BEGIN
---     PERFORM lock_versions();
---
---     SELECT version
---     INTO the_version
---     FROM versions
---     WHERE state = 'pending';
---
---     IF NOT FOUND THEN
---         SELECT version + 1, session_id, serial
---         INTO the_version, the_session_id, the_serial
---         FROM versions
---         ORDER BY version DESC
---         LIMIT 1;
---
---         IF FOUND THEN
---             INSERT INTO versions(version, session_id, state, serial)
---             VALUES (the_version, the_session_id, 'pending', the_serial + 1);
---         ELSE
---             -- generate a random UUID (without PG extensions)
---             the_version = 1;
---             INSERT INTO versions(version, session_id, state, serial)
---             VALUES (the_version, uuid_in(md5(random()::TEXT || clock_timestamp()::TEXT)::CSTRING), 'pending', 1);
---         END IF;
---     END IF;
---
---     PERFORM unlock_versions();
---
---     RETURN the_version;
--- END
--- $body$
---     LANGUAGE plpgsql;
-
-
--- CREATE OR REPLACE FUNCTION mark_pending_as_generated() RETURNS VOID AS
--- $body$
--- BEGIN
---     PERFORM lock_versions();
---
---     WITH generated_version AS (
---         UPDATE versions SET state = 'generated'
---             WHERE state = 'pending'
---             RETURNING version
---     )
---     DELETE FROM object_log
---     WHERE version IN (SELECT version FROM generated_version);
---
---     PERFORM unlock_versions();
--- END
--- $body$
---     LANGUAGE plpgsql;
-
 
 COMMIT;

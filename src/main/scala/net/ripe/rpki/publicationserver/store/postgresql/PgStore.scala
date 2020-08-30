@@ -5,7 +5,7 @@ import java.net.URI
 import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.metrics.Metrics
-import net.ripe.rpki.publicationserver.model.{ClientId, RRDPObject}
+import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store.ObjectStore
 import org.json4s._
 import org.json4s.native.JsonMethods._
@@ -40,6 +40,27 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
       .list
       .apply
       .toMap
+  }
+
+  def readState(f: (URI, Hash, Bytes) => Unit)(implicit session: DBSession) = {
+    sql"SELECT url, hash, content FROM current_state"
+      .foreach { rs =>
+        val uri = URI.create(rs.string(1))
+        val hash = Hash(rs.string(2))
+        val bytes = Bytes.fromStream(rs.binaryStream(3))
+        f(uri, hash, bytes)
+      }
+  }
+
+  def readLatestDelta(f: (String, URI, Option[Hash], Option[Bytes]) => Unit)(implicit session: DBSession) = {
+    sql"SELECT operation, url, old_hash, content FROM latest_delta"
+      .foreach { rs =>
+        val operation = rs.string(1)
+        val uri = URI.create(rs.string(2))
+        val oldHash = rs.stringOpt(3).map(Hash)
+        val bytes = rs.binaryStreamOpt(4).map(Bytes.fromStream)
+        f(operation, uri, oldHash, bytes)
+      }
   }
 
   implicit val formats = org.json4s.DefaultFormats

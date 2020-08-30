@@ -16,20 +16,20 @@ case class Delta(sessionId: UUID, serial: Long, pdus: Seq[QueryPdu], whenToDelet
 
   private def serialize: Array[Byte] = {
     val stream = new ByteArrayOutputStream()
-    Dump.streamChars(s"""<delta version="1" session_id="$sessionId" serial="$serial" xmlns="http://www.ripe.net/rpki/rrdp">\n""", stream)
+    IOStream.string(s"""<delta version="1" session_id="$sessionId" serial="$serial" xmlns="http://www.ripe.net/rpki/rrdp">\n""", stream)
     pdus.foreach {
       case PublishQ(uri, _, None, bytes) =>
-        Dump.streamChars(s"""<publish uri="${attr(uri.toASCIIString)}">""", stream)
-        Dump.streamChars(Bytes.toBase64(bytes).value, stream)
-        Dump.streamChars("</publish>\n", stream)
+        IOStream.string(s"""<publish uri="${attr(uri.toASCIIString)}">""", stream)
+        IOStream.string(Bytes.toBase64(bytes).value, stream)
+        IOStream.string("</publish>\n", stream)
       case PublishQ(uri, _, Some(hash), bytes) =>
-        Dump.streamChars(s"""<publish uri="${attr(uri.toASCIIString)}" hash="$hash">""", stream)
-        Dump.streamChars(Bytes.toBase64(bytes).value, stream)
-        Dump.streamChars("</publish>\n", stream)
+        IOStream.string(s"""<publish uri="${attr(uri.toASCIIString)}" hash="$hash">""", stream)
+        IOStream.string(Bytes.toBase64(bytes).value, stream)
+        IOStream.string("</publish>\n", stream)
       case WithdrawQ(uri, _, hash) =>
-        Dump.streamChars(s"""<withdraw uri="${attr(uri.toASCIIString)}" hash="$hash"/>\n""", stream)
+        IOStream.string(s"""<withdraw uri="${attr(uri.toASCIIString)}" hash="$hash"/>\n""", stream)
     }
-    Dump.streamChars("</delta>", stream)
+    IOStream.string("</delta>", stream)
     stream.toByteArray
   }
 }
