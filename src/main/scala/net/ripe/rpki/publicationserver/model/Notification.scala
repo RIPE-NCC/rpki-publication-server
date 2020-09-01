@@ -41,4 +41,14 @@ object Notification extends Hashing {
     Notification(sessionId, serial, snapshotLocator, deltaLocators)
   }
 
+  def create(conf: AppConfig, sessionId: String, serial: Long, snapshotHash: Hash, deltas: Seq[(Long, Hash)]): Notification = {
+    val sessionUuid = UUID.fromString(sessionId)
+    val snapshotLocator = SnapshotLocator(conf.snapshotUrl(sessionId, serial), snapshotHash)
+    val deltaLocators = deltas.sortBy(-_._1).map { d =>
+      val (serial, hash) = d
+      DeltaLocator(serial, conf.deltaUrl(sessionUuid, serial), hash)
+    }.seq
+    Notification(sessionUuid, serial, snapshotLocator, deltaLocators)
+  }
+
 }

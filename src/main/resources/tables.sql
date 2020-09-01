@@ -26,15 +26,15 @@ CREATE TABLE object_log
 (
     id        BIGSERIAL PRIMARY KEY,
     operation CHAR(3) NOT NULL,
-    url       TEXT NOT NULL,
+    url       TEXT    NOT NULL,
     old_hash  CHAR(64),
     content   BYTEA,
     CHECK (operation IN ('INS', 'UPD', 'DEL')),
     CHECK (
-        operation = 'INS' AND old_hash IS NULL AND content IS NOT NULL OR
-        operation = 'UPD' AND old_hash IS NOT NULL AND content IS NOT NULL OR
-        operation = 'DEL' AND old_hash IS NOT NULL AND content IS NULL
-    )
+            operation = 'INS' AND old_hash IS NULL AND content IS NOT NULL OR
+            operation = 'UPD' AND old_hash IS NOT NULL AND content IS NOT NULL OR
+            operation = 'DEL' AND old_hash IS NOT NULL AND content IS NULL
+        )
 );
 
 CREATE TABLE versions
@@ -42,7 +42,19 @@ CREATE TABLE versions
     id                BIGSERIAL PRIMARY KEY,
     session_id        TEXT   NOT NULL,
     serial            BIGINT,
-    last_log_entry_id BIGINT NOT NULL
+    last_log_entry_id BIGINT NOT NULL,
+    snapshot_hash     CHAR(64),
+    delta_hash        CHAR(64),
+    snapshot_size     BIGINT,
+    delta_size        BIGINT,
+    CHECK (
+            delta_size IS NULL AND delta_hash IS NULL OR
+            delta_size IS NOT NULL AND delta_size IS NOT NULL
+        ),
+    CHECK (
+            snapshot_hash IS NULL AND snapshot_size IS NULL AND
+            snapshot_hash IS NOT NULL AND snapshot_size IS NOT NULL
+        )
 );
 
 CREATE UNIQUE INDEX idx_objects_hash ON objects (hash);

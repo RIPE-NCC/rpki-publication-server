@@ -1,8 +1,8 @@
 package net.ripe.rpki.publicationserver.model
 
-import java.io.OutputStream
+import net.ripe.rpki.publicationserver.repository.HashingSizedStream
 
 object IOStream {
-  def string(s: String, stream: OutputStream): Unit =
+  def string(s: String, stream: HashingSizedStream): Unit =
     stream.write(s.getBytes("US-ASCII"))
 }

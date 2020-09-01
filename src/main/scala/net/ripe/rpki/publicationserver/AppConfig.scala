@@ -62,6 +62,9 @@ class AppConfig {
     rrdpRepositoryUri + "/" + sessionId + "/" + serial + "/snapshot.xml"
   }
 
+  def snapshotUrl(sessionId: String, serial: Long) =
+    rrdpRepositoryUri + "/" + sessionId + "/" + serial + "/snapshot.xml"
+
   def deltaUrl(delta: Delta) : String = deltaUrl(delta.sessionId, delta.serial)
 
   def deltaUrl(sessionId: UUID, serial: Long) = rrdpRepositoryUri + "/" + sessionId + "/" + serial + "/delta.xml"

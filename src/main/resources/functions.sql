@@ -18,25 +18,19 @@ $$ LANGUAGE SQL;
 -- table is modified
 CREATE OR REPLACE FUNCTION lock_versions() RETURNS VOID AS
 $$
-SELECT pg_advisory_lock(9999);
+SELECT pg_advisory_xact_lock(999999);
 $$ LANGUAGE SQL;
-
-CREATE OR REPLACE FUNCTION unlock_versions() RETURNS VOID AS
-$$
-SELECT pg_advisory_unlock(9999);
-$$ LANGUAGE SQL;
-
 
 
 -- Reusable part of both create and replace
 -- 
-CREATE OR REPLACE FUNCTION merge_object(bytes_ BYTEA, 
-                                        hash_ CHAR(64), 
-                                        url_ TEXT, 
+CREATE OR REPLACE FUNCTION merge_object(bytes_ BYTEA,
+                                        hash_ CHAR(64),
+                                        url_ TEXT,
                                         client_id_ TEXT) RETURNS VOID AS
 $body$
 BEGIN
-    WITH 
+    WITH
         existing AS (
             SELECT id FROM objects WHERE hash = hash_
         ),
@@ -52,7 +46,7 @@ BEGIN
             SELECT id FROM existing
             UNION ALL
             SELECT id FROM inserted
-        ) AS z; 
+        ) AS z;
 END
 $body$
 LANGUAGE plpgsql;
@@ -79,8 +73,8 @@ BEGIN
 
     INSERT INTO object_log (operation, url, content)
     VALUES ('INS', url_, bytes_);
-        
-    RETURN NULL;    
+
+    RETURN NULL;
 END
 $body$
     LANGUAGE plpgsql;
@@ -101,9 +95,9 @@ DECLARE
     existing_hash      CHAR(64);
 BEGIN
 
-    SELECT o.hash, o.id, ou.client_id 
+    SELECT o.hash, o.id, ou.client_id
     INTO existing_hash, existing_object_id, existing_client_id
-    FROM objects o 
+    FROM objects o
     INNER JOIN object_urls ou ON ou.object_id = o.id
     WHERE ou.url = url_;
 
@@ -118,7 +112,7 @@ BEGIN
                                     url_, hash_to_replace, existing_hash));
     END IF;
 
-    IF existing_client_id <> client_id_ THEN 
+    IF existing_client_id <> client_id_ THEN
         RETURN json_build_object('code', 'permission_failure', 'message',
                                  format('Not allowed to update an object of another client [%s].', url_));
     END IF;
@@ -140,7 +134,7 @@ $body$
 
 
 -- Delete an object, corresponds to <withdraw hash="...">.
-CREATE OR REPLACE FUNCTION delete_object(url_ TEXT, 
+CREATE OR REPLACE FUNCTION delete_object(url_ TEXT,
                                          hash_to_delete CHAR(64),
                                          client_id_ TEXT) RETURNS JSON AS
 $body$
@@ -150,9 +144,9 @@ DECLARE
     existing_hash      CHAR(64);
 BEGIN
 
-    SELECT o.hash, o.id, ou.client_id 
+    SELECT o.hash, o.id, ou.client_id
     INTO existing_hash, existing_object_id, existing_client_id
-    FROM objects o 
+    FROM objects o
     INNER JOIN object_urls ou ON ou.object_id = o.id
     WHERE ou.url = url_;
 
@@ -161,13 +155,13 @@ BEGIN
                                  format('There is no object present at this URI [%s].', url_));
     END IF;
 
-    IF existing_hash <> hash_to_delete THEN 
+    IF existing_hash <> hash_to_delete THEN
         RETURN json_build_object('code', 'no_object_matching_hash', 'message',
                                  format('Cannot withdraw the object [%s], hash doesn''t match, ' ||
                                  'passed %s, but existing one is %s', url_, hash_to_delete, existing_hash));
     END IF;
 
-    IF existing_client_id <> client_id_ THEN 
+    IF existing_client_id <> client_id_ THEN
         RETURN json_build_object('code', 'permission_failure', 'message',
                                  format('Not allowed to delete an object of another client [%s].', url_));
     END IF;
@@ -191,6 +185,7 @@ FROM objects o
 INNER JOIN object_urls ou ON ou.object_id = o.id
 ORDER BY url;
 
+
 CREATE OR REPLACE VIEW latest_delta AS
 WITH log AS (
     SELECT id, operation, url, old_hash, content
@@ -209,12 +204,32 @@ WHERE NOT EXISTS(
 ORDER BY id ASC;
 
 
+-- Return del
+CREATE OR REPLACE VIEW reasonable_deltas AS
+WITH latest_version AS (
+    SELECT *
+    FROM versions
+    ORDER BY id DESC
+    LIMIT 1
+)
+SELECT z.*
+FROM (SELECT v.*,
+             SUM(delta_size) OVER (ORDER BY id DESC) AS total_delta_size
+      FROM versions v
+     ) AS z,
+     latest_version
+WHERE total_delta_size <= latest_version.snapshot_size
+ORDER BY z.id DESC;
 
+
+-- Create another entry in the versions table, either the
+-- next version (and the next serial) in the same session
+-- or generate a new session id if the table is empty.
 CREATE OR REPLACE FUNCTION freeze_version() RETURNS VOID AS
 $body$
 BEGIN
-    PERFORM lock_versions();
-
+    -- NOTE This one is safe from race conditions only if
+    -- lock_versions is called before in the same transaction.
     IF EXISTS(SELECT * FROM versions) THEN
         -- create a new session-id+serial entry only in case there are
         -- new entries in the log since the last session-id+serial.
@@ -243,7 +258,6 @@ BEGIN
         LIMIT 1;
     END IF;
 
-    PERFORM unlock_versions();
 END
 $body$
     LANGUAGE plpgsql;

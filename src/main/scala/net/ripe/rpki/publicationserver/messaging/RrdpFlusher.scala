@@ -2,7 +2,7 @@ package net.ripe.rpki.publicationserver.messaging
 
 import java.nio.file.attribute.FileTime
 import java.time.Instant
-import java.time.temporal.{ChronoUnit, TemporalUnit}
+import java.time.temporal.ChronoUnit
 import java.util.{Date, UUID}
 
 import akka.actor.{Actor, Props}
@@ -14,8 +14,6 @@ import net.ripe.rpki.publicationserver.store.fs.RrdpRepositoryWriter
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
 import scala.util.{Failure, Success, Try}
 
 object RrdpFlusher {

@@ -63,6 +63,45 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
       }
   }
 
+  def getCurrentSessionInfo(implicit session: DBSession) = {
+    sql"""SELECT session_id, serial
+          FROM versions
+          ORDER BY id DESC LIMIT 1"""
+      .map(rs => (rs.string(1), rs.long(2)))
+      .single()
+      .apply()
+  }
+
+  def getReasonableDeltas(sessionId: String)(implicit session: DBSession) = {
+    sql"""SELECT serial, delta_hash
+          FROM reasonable_deltas
+          WHERE session_id = ${sessionId}
+          ORDER BY serial DESC LIMIT 1"""
+      .map { rs =>
+        (rs.long(1), Hash(rs.string(2)))
+      }
+      .list()
+      .apply()
+  }
+
+  def updateSnapshotInfo(sessionId: String, serial: Long, hash: Hash, size: Long)(implicit session: DBSession): Unit = {
+    sql"""UPDATE versions SET
+            snapshot_hash = ${hash.hash},
+            snapshot_size = ${size}
+          WHERE session_id = ${sessionId} AND serial = ${serial}"""
+      .execute()
+      .apply()
+  }
+
+  def updateDeltaInfo(sessionId: String, serial: Long, hash: Hash, size: Long)(implicit session: DBSession): Unit = {
+    sql"""UPDATE versions SET
+            delta_hash = ${hash.hash},
+            delta_size = ${size}
+          WHERE session_id = ${sessionId} AND serial = ${serial}"""
+      .execute()
+      .apply()
+  }
+
   implicit val formats = org.json4s.DefaultFormats
 
   def applyChanges(changeSet: QueryMessage, clientId: ClientId, metrics: Metrics): Unit = {
@@ -105,6 +144,14 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
             metrics.failedToReplace())
       }
     }
+  }
+
+  def lockVersions(implicit session: DBSession) = {
+    sql"SELECT lock_versions()".execute().apply()
+  }
+
+  def freezeVersion(implicit session: DBSession) = {
+    sql"SELECT freeze_version()".execute().apply()
   }
 
   def check() = {

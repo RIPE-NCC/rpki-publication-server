@@ -77,7 +77,7 @@ class RsyncRepositoryWriter(conf: AppConfig) extends Logging {
     }
   }
 
-  private def writeFile(uri: URI, bytes: Bytes): Unit = {
+  def writeFile(uri: URI, bytes: Bytes): Unit = {
     val fsLocation = resolvePath(uri)
 
     val stagingDir: Path = stagingDirFor(fsLocation.base)
@@ -91,7 +91,7 @@ class RsyncRepositoryWriter(conf: AppConfig) extends Logging {
     logger.debug(s"Written $targetFile")
   }
 
-  private def removeFile(uri: URI): Unit = {
+  def removeFile(uri: URI): Unit = {
     val target = onlineFileFor(resolvePath(uri))
     if (Files.deleteIfExists(target)) logger.info(s"Deleted $target")
     else logger.warn(s"File to delete ($target) does not exist")
