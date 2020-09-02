@@ -41,18 +41,18 @@ CREATE TABLE versions
 (
     id                BIGSERIAL PRIMARY KEY,
     session_id        TEXT   NOT NULL,
-    serial            BIGINT,
+    serial            BIGINT NOT NULL,
     last_log_entry_id BIGINT NOT NULL,
     snapshot_hash     CHAR(64),
     delta_hash        CHAR(64),
     snapshot_size     BIGINT,
     delta_size        BIGINT,
-    CHECK (
+    CONSTRAINT delta_field_in_sync CHECK (
             delta_size IS NULL AND delta_hash IS NULL OR
-            delta_size IS NOT NULL AND delta_size IS NOT NULL
+            delta_size IS NOT NULL AND delta_hash IS NOT NULL
         ),
-    CHECK (
-            snapshot_hash IS NULL AND snapshot_size IS NULL AND
+    CONSTRAINT snapshot_field_in_sync CHECK (
+            snapshot_hash IS NULL AND snapshot_size IS NULL OR
             snapshot_hash IS NOT NULL AND snapshot_size IS NOT NULL
         )
 );

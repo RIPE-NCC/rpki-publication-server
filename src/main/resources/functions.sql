@@ -178,7 +178,6 @@ $body$
     LANGUAGE plpgsql;
 
 
-
 CREATE OR REPLACE VIEW current_state AS
 SELECT LOWER(hash) as hash, url, client_id, content
 FROM objects o
@@ -186,25 +185,21 @@ INNER JOIN object_urls ou ON ou.object_id = o.id
 ORDER BY url;
 
 
-CREATE OR REPLACE VIEW latest_delta AS
-WITH log AS (
-    SELECT id, operation, url, old_hash, content
-    FROM object_log o
-)
-SELECT *
-FROM log
-WHERE NOT EXISTS(
-        SELECT * FROM versions
-    )
-   OR id > (
-    SELECT last_log_entry_id
+CREATE OR REPLACE VIEW deltas AS
+WITH framed_version AS (
+    SELECT session_id,
+           serial,
+           last_log_entry_id,
+           COALESCE(lag(last_log_entry_id, 1) OVER (ORDER BY id), 0) AS previous_log_entry_id
     FROM versions
-    ORDER BY id DESC
-    LIMIT 1)
+)
+SELECT id, operation, url, old_hash, content, session_id, serial
+FROM object_log ol
+         INNER JOIN framed_version ON
+    ol.id <= last_log_entry_id AND ol.id > previous_log_entry_id
 ORDER BY id ASC;
 
 
--- Return del
 CREATE OR REPLACE VIEW reasonable_deltas AS
 WITH latest_version AS (
     SELECT *
@@ -218,18 +213,20 @@ FROM (SELECT v.*,
       FROM versions v
      ) AS z,
      latest_version
-WHERE total_delta_size <= latest_version.snapshot_size
+WHERE z.session_id = latest_version.session_id
+AND total_delta_size <= latest_version.snapshot_size
 ORDER BY z.id DESC;
 
 
 -- Create another entry in the versions table, either the
 -- next version (and the next serial) in the same session
 -- or generate a new session id if the table is empty.
-CREATE OR REPLACE FUNCTION freeze_version() RETURNS VOID AS
+CREATE OR REPLACE FUNCTION freeze_version() RETURNS
+    TABLE(session_id TEXT, serial BIGINT, updated BOOLEAN) AS
 $body$
 BEGIN
     -- NOTE This one is safe from race conditions only if
-    -- lock_versions is called before in the same transaction.
+    -- lock_versions is called beforehands in the same transaction.
     IF EXISTS(SELECT * FROM versions) THEN
         -- create a new session-id+serial entry only in case there are
         -- new entries in the log since the last session-id+serial.
@@ -248,16 +245,54 @@ BEGIN
         WHERE ol.id > v.last_log_entry_id
         ORDER BY ol.id DESC
         LIMIT 1;
-    ELSE
-        -- create a completely new version entry from object_log
+
+--         RETURN QUERY
+--             SELECT session_id, serial
+--             FROM versions
+--             ORDER BY id DESC
+--             LIMIT 1;
+
+    ELSEIF EXISTS(SELECT * FROM object_log) THEN
+        -- create a new version entry from object_log
         -- (if there's anything new in the object_log)
         INSERT INTO versions (session_id, serial, last_log_entry_id)
         SELECT uuid_in(md5(random()::TEXT || clock_timestamp()::TEXT)::CSTRING), 1, id
         FROM object_log
         ORDER BY id DESC
         LIMIT 1;
+    ELSE
+        -- this can happen on a completely empty database, not log, no versions
+        -- just initialise with something reasonable
+        INSERT INTO versions (session_id, serial, last_log_entry_id)
+        VALUES (uuid_in(md5(random()::TEXT || clock_timestamp()::TEXT)::CSTRING), 1, 0);
+
     END IF;
 
+    RETURN QUERY
+        SELECT *
+        FROM versions
+        ORDER BY id DESC
+        LIMIT 1;
+END
+$body$
+    LANGUAGE plpgsql;
+
+
+-- Delete versions that
+-- a) have different session id than the latest version
+-- b) are not reasonable to keep, i.e. total size of deltas in the session
+-- becomes bigger than the snapshot size
+CREATE OR REPLACE FUNCTION delete_old_versions() RETURNS SETOF versions AS
+$body$
+BEGIN
+    --
+    DELETE FROM object_log
+    WHERE id < (SELECT MIN(last_log_entry_id) FROM reasonable_deltas);
+
+    RETURN QUERY
+        DELETE FROM versions
+            WHERE id NOT IN (SELECT id FROM reasonable_deltas)
+            RETURNING *;
 END
 $body$
     LANGUAGE plpgsql;

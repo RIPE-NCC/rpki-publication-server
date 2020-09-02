@@ -28,7 +28,7 @@ abstract class PublicationServerBaseTest extends FunSuite with BeforeAndAfter wi
 
   val pgTestConfig = PgConfig(url = "jdbc:postgresql://localhost:5432/pubserver_test", user = "pubserver", password = "pubserver")
 
-  def testMetrics = Metrics.get(new CollectorRegistry(true));
+  implicit lazy val testMetrics = Metrics.get(new CollectorRegistry(true));
 
   def cleanDir(path: Path) = {
     Try {

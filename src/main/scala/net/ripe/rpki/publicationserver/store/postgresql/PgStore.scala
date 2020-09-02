@@ -42,6 +42,21 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
       .toMap
   }
 
+  def getLog = DB.localTx { implicit session =>
+    sql"""SELECT operation, url, old_hash, content
+         FROM object_log
+         ORDER BY id ASC"""
+      .map { rs =>
+        val operation = rs.string(1)
+        val uri = URI.create(rs.string(2))
+        val hash = rs.stringOpt(3).map(Hash)
+        val bytes = Bytes.fromStream(rs.binaryStream(4))
+        (operation, uri, hash, bytes)
+      }
+      .list
+      .apply
+  }
+
   def readState(f: (URI, Hash, Bytes) => Unit)(implicit session: DBSession) = {
     sql"SELECT url, hash, content FROM current_state"
       .foreach { rs =>
@@ -52,8 +67,10 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
       }
   }
 
-  def readLatestDelta(f: (String, URI, Option[Hash], Option[Bytes]) => Unit)(implicit session: DBSession) = {
-    sql"SELECT operation, url, old_hash, content FROM latest_delta"
+  def readDelta(sessionId: String, serial: Long)(f: (String, URI, Option[Hash], Option[Bytes]) => Unit)(implicit session: DBSession) = {
+    sql"""SELECT operation, url, old_hash, content
+         FROM deltas
+         WHERE session_id = ${sessionId} AND serial = ${serial}"""
       .foreach { rs =>
         val operation = rs.string(1)
         val uri = URI.create(rs.string(2))
@@ -104,7 +121,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
 
   implicit val formats = org.json4s.DefaultFormats
 
-  def applyChanges(changeSet: QueryMessage, clientId: ClientId, metrics: Metrics): Unit = {
+  def applyChanges(changeSet: QueryMessage, clientId: ClientId)(implicit metrics: Metrics): Unit = {
 
     def executeSql(sql: SQL[Nothing, NoExtractor], onSuccess: => Unit, onFailure: => Unit)(implicit session: DBSession): Unit = {
       val r = sql.map(_.string(1)).single().apply()
@@ -151,7 +168,11 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
   }
 
   def freezeVersion(implicit session: DBSession) = {
-    sql"SELECT freeze_version()".execute().apply()
+    sql"SELECT session_id, serial FROM freeze_version()"
+      .map(rs => (rs.string(1), rs.long(2)))
+      .single()
+      .apply()
+      .get
   }
 
   def check() = {

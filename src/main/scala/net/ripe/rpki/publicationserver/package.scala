@@ -10,5 +10,5 @@ package object publicationserver {
     val repositoryPath = wire[AppConfig].rrdpRepositoryPath
   }
 
-  def testMetrics = new Metrics(CollectorRegistry.defaultRegistry)
+//  def testMetrics = new Metrics(CollectorRegistry.defaultRegistry)
 }
