@@ -27,19 +27,20 @@ import scala.concurrent.Await
 import scala.concurrent.Future
 import akka.http.scaladsl.Http.ServerBinding
 import java.{util => ju}
+import java.io.IOException
+import scala.util.{Failure,Success,Try}
 
 
 
 object Boot extends App {
+  def setupLogging(conf: AppConfig) = {
+    System.setProperty("LOG_FILE", conf.locationLogfile)
+    LoggerFactory.getLogger(this.getClass)
+  }
+
   lazy val conf = wire[AppConfig]
   lazy val logger = setupLogging(conf)
   new PublicationServerApp(conf, logger).run()
-
-  def setupLogging(conf: AppConfig) = {
-    System.setProperty("LOG_FILE", conf.locationLogfile)
-    SysStreamsLogger.bindSystemStreams()
-    LoggerFactory.getLogger(this.getClass)
-  }
 }
 
 class PublicationServerApp(conf: AppConfig, logger: Logger) extends RRDPService {
@@ -67,11 +68,22 @@ class PublicationServerApp(conf: AppConfig, logger: Logger) extends RRDPService 
 
     val publicationService = new PublicationService(conf, stateActor)
 
+    val https: HttpsConnectionContext = {
+      val connectionContext = Try(ConnectionContext.https(sslContext()));
+      connectionContext match {
+        case Success(v) => v
+        case Failure(e) =>
+          logger.error("Error while creating SSL context, exiting", e)
+          // EX_DATAERR (65) The input data was incorrect in some way.
+          sys.exit(65)
+      }
+    }
+
     this.httpsBinding = Http().bindAndHandle(
       publicationService.publicationRoutes,
       interface = conf.serverAddress,
       port = conf.publicationPort,
-      connectionContext = ConnectionContext.https(sslContext()),
+      connectionContext = https,
       settings = conf.publicationServerSettings.get      
     )
 
@@ -93,11 +105,11 @@ class PublicationServerApp(conf: AppConfig, logger: Logger) extends RRDPService 
 
   private def sslContext(): SSLContext = {
     val sslContext = SSLContext.getInstance("TLS")
-    sslContext.init(getKeyManagers, getTrustManagers(conf), null)
+    sslContext.init(getKeyManagers, getTrustManagers, null)
     sslContext
   }  
 
-  private def getTrustManagers(conf: AppConfig): Array[TrustManager] = {
+  private def getTrustManagers: Array[TrustManager] = {
     if (conf.publicationServerTrustStoreLocation.isEmpty) {
       logger.info(
         "publication.server.truststore.location is not set, skipping truststore init"

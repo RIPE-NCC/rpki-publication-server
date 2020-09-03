@@ -1,0 +1,6 @@
+.metals
+target
+log
+store
+publication-server-test.log*
+Dockerfile
