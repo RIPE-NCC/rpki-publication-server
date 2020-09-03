@@ -43,10 +43,7 @@ class PublicationServerApp(conf: AppConfig, logger: Logger) extends RRDPService 
 
   val healthChecks = new HealthChecks(conf)
 
-  def run() {      
-//    XodusDB.reset()
-//    XodusDB.init(conf.storePath)
-
+  def run() {
     logger.info("Starting up the publication server ...")    
     logger.info("Server address " + conf.serverAddress)
 
@@ -56,9 +53,7 @@ class PublicationServerApp(conf: AppConfig, logger: Logger) extends RRDPService 
     val metrics = Metrics.get(registry)
     val metricsApi = new MetricsApi(registry)
 
-    val stateActor: ActorRef = system.actorOf(StateActor.props(conf, metrics))
-
-    val publicationService = new PublicationService(conf, stateActor)
+    val publicationService = new PublicationService(conf, metrics)
 
     this.httpsBinding = Http().bindAndHandle(
       publicationService.publicationRoutes,

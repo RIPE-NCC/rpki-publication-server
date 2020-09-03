@@ -2,7 +2,6 @@ package net.ripe.rpki.publicationserver
 
 import java.net.URI
 
-import akka.testkit.TestActorRef
 import net.ripe.rpki.publicationserver.Binaries.{Base64, Bytes}
 import net.ripe.rpki.publicationserver.store.postresql.PgStore
 import org.scalatest.BeforeAndAfterAll
@@ -13,9 +12,8 @@ class PublicationServiceTest extends PublicationServerBaseTest with Hashing with
   private val conf = new AppConfig() {
     override lazy val pgConfig = pgTestConfig
   }
-  
-  def theStateActor = TestActorRef(new StateActor(conf, testMetrics))
-  def publicationService = new PublicationService(conf, theStateActor)
+
+  def publicationService = new PublicationService(conf, testMetrics)
 
   private val objectStore = PgStore.get(pgTestConfig)
 
