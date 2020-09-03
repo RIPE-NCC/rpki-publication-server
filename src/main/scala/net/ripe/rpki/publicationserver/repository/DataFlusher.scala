@@ -84,15 +84,20 @@ class DataFlusher(conf: AppConfig) extends Hashing with Formatting with Logging 
       }
     }
 
+  // Write snapshot, i.e. the current state of the dataset into RRDP snapshot.xml file
+  // and in rsync repository at the same time.
   def writeSnapshot(sessionId: String, serial: Long, writeRsync: Boolean, snapshotOs: HashingSizedStream)(implicit session: DBSession) = {
     IOStream.string(s"""<snapshot version="1" session_id="$sessionId" serial="$serial" xmlns="http://www.ripe.net/rpki/rrdp">\n""", snapshotOs)
-    pgStore.readState { (uri, _, bytes) =>
-      writeObjectToSnapshotFile(uri, bytes, snapshotOs)
-
-      // TODO This is not enough, there must be logic similar to
-      // RsyncRepositoryWriter.writeSnapshot
-      if (writeRsync) {
-        rsyncWriter.writeFile(uri, bytes)
+    if (writeRsync) {
+      val directoryMapping = rsyncWriter.startSnapshot
+      pgStore.readState { (uri, _, bytes) =>
+        writeObjectToSnapshotFile(uri, bytes, snapshotOs)
+        rsyncWriter.writeSnapshotFile(uri, bytes, directoryMapping)
+      }
+      rsyncWriter.promoteAllStagingToOnline(directoryMapping)
+    } else {
+      pgStore.readState { (uri, _, bytes) =>
+        writeObjectToSnapshotFile(uri, bytes, snapshotOs)
       }
     }
     IOStream.string("</snapshot>\n", snapshotOs)
@@ -107,24 +112,6 @@ class DataFlusher(conf: AppConfig) extends Hashing with Formatting with Logging 
       }
     }
     IOStream.string("</delta>\n", deltaOs)
-  }
-
-  def withDbVersion[T](f: (String, Long, DBSession) => T) = {
-    pgStore.inRepeatableReadTx { implicit session =>
-      pgStore.lockVersions
-      pgStore.getCurrentSessionInfo match {
-        case None =>
-          pgStore.freezeVersion
-          pgStore.getCurrentSessionInfo match {
-            case None =>
-              throw new Exception("Something is very wrong with the versions table")
-            case Some((sessionId, serial)) =>
-              f(sessionId, serial, session)
-          }
-        case Some((sessionId, serial)) =>
-          f(sessionId, serial, session)
-      }
-    }
   }
 
   def deltaStream(sessionId: String, serial: Long): HashingSizedStream =
@@ -171,13 +158,13 @@ class DataFlusher(conf: AppConfig) extends Hashing with Formatting with Logging 
     IOStream.string("</publish>\n", stream)
   }
 
-  def withOS(createOS: => HashingSizedStream)(f : HashingSizedStream => Unit) = {
-    val os = createOS
+  def withOS(createStream: => HashingSizedStream)(f : HashingSizedStream => Unit) = {
+    val stream = createStream
     try {
-      f(os)
-      os.info
+      f(stream)
+      stream.info
     } finally {
-      os.close()
+      stream.close()
     }
   }
 

@@ -11,17 +11,21 @@ import net.ripe.rpki.publicationserver._
 
 class DataFlusherTest  extends PublicationServerBaseTest with Hashing {
 
-  val rsyncRootDir = Files.createTempDirectory( "test_pub_server_rsync_")
+  val rsyncRootDir1 = Files.createTempDirectory( "test_pub_server_rsync_")
+  val rsyncRootDir2 = Files.createTempDirectory( "test_pub_server_rsync_")
+
   val rrdpRootDfir = Files.createTempDirectory( "test_pub_server_rrdp_")
   val pgStore = PgStore.get(pgTestConfig)
 
-  val urlPrefix = "rsync://host.com"
+  val urlPrefix1 = "rsync://host1.com"
+  val urlPrefix2 = "rsync://host2.com"
 
   private val conf = new AppConfig() {
     override lazy val pgConfig = pgTestConfig
     override lazy val rrdpRepositoryPath = rrdpRootDfir.toAbsolutePath.toString
     override lazy val rsyncRepositoryMapping = Map(
-      URI.create(urlPrefix) -> rsyncRootDir
+      URI.create(urlPrefix1) -> rsyncRootDir1,
+      URI.create(urlPrefix2) -> rsyncRootDir2
     )
   }
 
@@ -93,8 +97,8 @@ class DataFlusherTest  extends PublicationServerBaseTest with Hashing {
 
     val clientId = ClientId("client1")
 
-    val uri1 = new URI(urlPrefix + "/path1")
-    val uri2 = new URI(urlPrefix + "/path2")
+    val uri1 = new URI(urlPrefix1 + "/path1")
+    val uri2 = new URI(urlPrefix2 + "/path2")
 
     val (bytes1, base64_1) = TestBinaries.generateObject()
     val (bytes2, base64_2) = TestBinaries.generateObject()
@@ -135,8 +139,8 @@ class DataFlusherTest  extends PublicationServerBaseTest with Hashing {
 
     val clientId = ClientId("client1")
 
-    val uri1 = new URI(urlPrefix + "/path1")
-    val uri2 = new URI(urlPrefix + "/path2")
+    val uri1 = new URI(urlPrefix1 + "/path1")
+    val uri2 = new URI(urlPrefix2 + "/path2")
     val (bytes1, base64_1) = TestBinaries.generateObject()
     val (bytes2, base64_2) = TestBinaries.generateObject()
 
@@ -182,9 +186,9 @@ class DataFlusherTest  extends PublicationServerBaseTest with Hashing {
 
     val clientId = ClientId("client1")
 
-    val uri1 = new URI(urlPrefix + "/path1")
-    val uri2 = new URI(urlPrefix + "/path2")
-    val uri3 = new URI(urlPrefix + "/path3")
+    val uri1 = new URI(urlPrefix1 + "/path1")
+    val uri2 = new URI(urlPrefix1 + "/path2")
+    val uri3 = new URI(urlPrefix2 + "/path3")
     // generate some bigger objects so that the size of the snapshot would be big
     val (bytes1, base64_1) = TestBinaries.generateObject(1000)
     val (bytes2, base64_2) = TestBinaries.generateObject(500)
@@ -249,8 +253,8 @@ class DataFlusherTest  extends PublicationServerBaseTest with Hashing {
 
     val clientId = ClientId("client1")
 
-    val uri1 = new URI(urlPrefix + "/path1")
-    val uri2 = new URI(urlPrefix + "/path2")
+    val uri1 = new URI(urlPrefix1 + "/path1")
+    val uri2 = new URI(urlPrefix2 + "/path2")
     val (bytes1, base64_1) = TestBinaries.generateObject(1000)
     val (bytes2, base64_2) = TestBinaries.generateObject(500)
     val changeSet = QueryMessage(Seq(
@@ -312,8 +316,8 @@ class DataFlusherTest  extends PublicationServerBaseTest with Hashing {
 
     val clientId = ClientId("client1")
 
-    val uri1 = new URI(urlPrefix + "/path1")
-    val uri2 = new URI(urlPrefix + "/path2")
+    val uri1 = new URI(urlPrefix1 + "/path1")
+    val uri2 = new URI(urlPrefix2 + "/path2")
 
     val (bytes1, base64_1) = TestBinaries.generateObject()
     val (bytes2, base64_2) = TestBinaries.generateObject()
@@ -354,9 +358,9 @@ class DataFlusherTest  extends PublicationServerBaseTest with Hashing {
 
     val clientId = ClientId("client1")
 
-    val uri1 = new URI(urlPrefix + "/path1")
-    val uri2 = new URI(urlPrefix + "/path2")
-    val uri3 = new URI(urlPrefix + "/path3")
+    val uri1 = new URI(urlPrefix1 + "/path1")
+    val uri2 = new URI(urlPrefix1 + "/path2")
+    val uri3 = new URI(urlPrefix2 + "/path3")
 
     val (bytes1, base64_1) = TestBinaries.generateObject(1000)
     val (bytes2, base64_2) = TestBinaries.generateObject(200)
@@ -414,8 +418,8 @@ class DataFlusherTest  extends PublicationServerBaseTest with Hashing {
 
     val clientId = ClientId("client1")
 
-    val uri1 = new URI(urlPrefix + "/path1")
-    val uri2 = new URI(urlPrefix + "/path2")
+    val uri1 = new URI(urlPrefix1 + "/path1")
+    val uri2 = new URI(urlPrefix2 + "/path2")
 
     val (bytes1, base64_1) = TestBinaries.generateObject()
     val (bytes2, base64_2) = TestBinaries.generateObject()
@@ -483,9 +487,6 @@ class DataFlusherTest  extends PublicationServerBaseTest with Hashing {
     trim(generatedNotification) should be(trim(expected))
     bytes
   }
-
-
-
 
 
 }

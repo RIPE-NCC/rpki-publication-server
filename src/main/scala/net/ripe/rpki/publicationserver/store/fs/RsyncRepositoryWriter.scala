@@ -23,6 +23,7 @@ class RsyncRepositoryWriter(conf: AppConfig) extends Logging {
 
   logger.info(s"Using following URL mapping:\n${conf.rsyncRepositoryMapping}")
 
+
   def writeSnapshot(state: ObjectStore.State): Unit = {
     groupByBaseDir(state).foreach { case (baseDir, objects) =>
       val tempRepoDir = createTempRepoDir(baseDir)
@@ -76,6 +77,25 @@ class RsyncRepositoryWriter(conf: AppConfig) extends Logging {
     case None => throw new IllegalArgumentException(s"Unable to map URI to filesystem location: $uri")
     }
   }
+
+  def startSnapshot: Map[Path, Path] =
+    conf.rsyncRepositoryMapping.map {
+      case (_, baseDir) => (baseDir, createTempRepoDir(baseDir))
+    }
+
+  def writeSnapshotFile(uri: URI, bytes: Bytes, tempDirs: Map[Path, Path]): Unit = {
+    val RsyncFsLocation(base, relative) = resolvePath(uri)
+    writeObjectUnderDir(bytes, tempDirs(base), relative)
+  }
+
+  def promoteAllStagingToOnline(tempDirs: Map[Path, Path]) =
+    tempDirs.foreach { case (_, tmpDir) =>
+      try {
+        promoteStagingToOnline(tmpDir)
+      } finally {
+        FileUtils.deleteDirectory(tmpDir.toFile)
+      }
+    }
 
   def writeFile(uri: URI, bytes: Bytes): Unit = {
     val fsLocation = resolvePath(uri)
