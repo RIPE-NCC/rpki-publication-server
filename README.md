@@ -74,6 +74,7 @@ Running the docker container
 ----------------------------
 
 ```
+docker build . -t rpki-publication-server
 docker run -it \
   -p 7766:7766 \
   -p 7788:7788 \
@@ -82,7 +83,7 @@ docker run -it \
   -e TRUSTSTORE_PATH=/conf/ssl/serverTrustStore.ks \
   -e KEYSTORE_PASSWORD="123456" \
   -e TRUSTSTORE_PASSWORD="123456" \
-  --rm <image_name>
+  --rm rpki-publication-server
 ```
 
 #### Environment variables
