@@ -25,8 +25,11 @@ class DataFlusher(conf: AppConfig) extends Hashing with Formatting with Logging 
 
   // Write initial state of the database into RRDP and rsync repositories
   // Do not change anything in the DB here.
-  def initFS() = pgStore.inTx { implicit session =>
+  def initFS() = pgStore.inRepeatableReadTx { implicit session =>
     pgStore.lockVersions
+
+    val thereAreChangesSinceTheLastFreeze = pgStore.changesExist
+
     val (sessionId, latestSerial) = pgStore.freezeVersion
     val (snapshotHash, snapshotSize) =
       withOS(snapshotStream(sessionId, latestSerial)) { snapshotOs =>
@@ -34,44 +37,51 @@ class DataFlusher(conf: AppConfig) extends Hashing with Formatting with Logging 
       }
     pgStore.updateSnapshotInfo(sessionId, latestSerial, snapshotHash, snapshotSize)
 
-    val (latestDeltaHash, latestDeltaSize) =
-      withOS(deltaStream(sessionId, latestSerial)) { deltaOs =>
-        writeDelta(sessionId, latestSerial, false, deltaOs)
-      }
-    pgStore.updateDeltaInfo(sessionId, latestSerial, latestDeltaHash, latestDeltaSize)
+    if (thereAreChangesSinceTheLastFreeze) {
+      val (latestDeltaHash, latestDeltaSize) =
+        withOS(deltaStream(sessionId, latestSerial)) { deltaOs =>
+          writeDelta(sessionId, latestSerial, false, deltaOs)
+        }
+      pgStore.updateDeltaInfo(sessionId, latestSerial, latestDeltaHash, latestDeltaSize)
+    }
 
+    // After version free this list of deltas contains the latest one as well
+    // so it is correct to use it for the notifications.xml
     val deltas = pgStore.getReasonableDeltas(sessionId)
+
     deltas.filter(_._1 != latestSerial).foreach { case (serial, _) =>
       withOS(deltaStream(sessionId, serial)) { deltaOs =>
         writeDelta(sessionId, serial, false, deltaOs)
       }
     }
 
-    val notification = Notification.create(conf, sessionId, latestSerial,
-      snapshotHash, Seq((latestSerial, latestDeltaHash)) ++ deltas)
+    val notification = Notification.create(conf, sessionId, latestSerial, snapshotHash, deltas)
     rrdpWriter.writeNotification(conf.rrdpRepositoryPath, notification)
   }
 
   // Write current state of the database into RRDP snapshot and delta and rsync repositories
-  def updateFS = pgStore.inTx { implicit session =>
+  def updateFS() = pgStore.inRepeatableReadTx { implicit session =>
       pgStore.lockVersions
-      val (sessionId, serial) = pgStore.freezeVersion
 
-      val (snapshotHash, snapshotSize) =
-        withOS(snapshotStream(sessionId, serial)) { snapshotOs =>
-          writeSnapshot(sessionId, serial, false, snapshotOs)
-        }
-      val (deltaHash, deltaSize) =
-        withOS(deltaStream(sessionId, serial)) { deltaOs =>
-          writeDelta(sessionId, serial, true, deltaOs)
-        }
+      if (pgStore.changesExist) {
+        val (sessionId, serial) = pgStore.freezeVersion
 
-      pgStore.updateDeltaInfo(sessionId, serial, deltaHash, deltaSize)
-      pgStore.updateSnapshotInfo(sessionId, serial, snapshotHash, snapshotSize)
+        val (snapshotHash, snapshotSize) =
+          withOS(snapshotStream(sessionId, serial)) { snapshotOs =>
+            writeSnapshot(sessionId, serial, false, snapshotOs)
+          }
+        val (deltaHash, deltaSize) =
+          withOS(deltaStream(sessionId, serial)) { deltaOs =>
+            writeDelta(sessionId, serial, true, deltaOs)
+          }
 
-      val deltas = pgStore.getReasonableDeltas(sessionId)
-      val notification = Notification.create(conf, sessionId, serial, snapshotHash, deltas)
-      rrdpWriter.writeNotification(conf.rrdpRepositoryPath, notification)
+        pgStore.updateDeltaInfo(sessionId, serial, deltaHash, deltaSize)
+        pgStore.updateSnapshotInfo(sessionId, serial, snapshotHash, snapshotSize)
+
+        val deltas = pgStore.getReasonableDeltas(sessionId)
+        val notification = Notification.create(conf, sessionId, serial, snapshotHash, deltas)
+        rrdpWriter.writeNotification(conf.rrdpRepositoryPath, notification)
+      }
     }
 
   def writeSnapshot(sessionId: String, serial: Long, writeRsync: Boolean, snapshotOs: HashingSizedStream)(implicit session: DBSession) = {
@@ -100,7 +110,7 @@ class DataFlusher(conf: AppConfig) extends Hashing with Formatting with Logging 
   }
 
   def withDbVersion[T](f: (String, Long, DBSession) => T) = {
-    pgStore.inTx { implicit session =>
+    pgStore.inRepeatableReadTx { implicit session =>
       pgStore.lockVersions
       pgStore.getCurrentSessionInfo match {
         case None =>
@@ -133,6 +143,8 @@ class DataFlusher(conf: AppConfig) extends Hashing with Formatting with Logging 
       case ("INS", Some(b)) => rsyncWriter.writeFile(uri, b)
       case ("UPD", Some(b)) => rsyncWriter.writeFile(uri, b)
       case ("DEL", _)       => rsyncWriter.removeFile(uri)
+      case anythingElse =>
+        logger.error(s"Log contains invalid row ${anythingElse}")
     }
 
   private def writeObjectToSnapshotFile(uri: URI, bytes: Bytes, stream: HashingSizedStream): Unit =

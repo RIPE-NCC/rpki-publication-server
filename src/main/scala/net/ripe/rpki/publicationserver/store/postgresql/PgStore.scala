@@ -16,7 +16,7 @@ class RollbackException(val error: BaseError) extends Exception
 
 class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
 
-  def inTx[T](f: DBSession => T): T = {
+  def inRepeatableReadTx[T](f: DBSession => T): T = {
     DB(ConnectionPool.borrow())
       .isolationLevel(IsolationLevel.RepeatableRead)
       .localTx(f)
@@ -93,7 +93,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
     sql"""SELECT serial, delta_hash
           FROM reasonable_deltas
           WHERE session_id = ${sessionId}
-          ORDER BY serial DESC LIMIT 1"""
+          ORDER BY serial DESC"""
       .map { rs =>
         (rs.long(1), Hash(rs.string(2)))
       }
@@ -135,7 +135,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
       }
     }
 
-    inTx { implicit session =>
+    inRepeatableReadTx { implicit session =>
       // Apply all modification while holding a lock on the client ID
       // (which most often is the CA owning the objects)
       sql"SELECT acquire_client_id_lock(${clientId.value})".execute().apply()
@@ -175,8 +175,16 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
       .get
   }
 
+  def changesExist(implicit session: DBSession) = {
+    sql"SELECT changes_exist()"
+      .map(rs => rs.boolean(1))
+      .single()
+      .apply()
+      .get
+  }
+
   def check() = {
-    val z = inTx { implicit session =>
+    val z = inRepeatableReadTx { implicit session =>
       sql"SELECT 1".map(_.int(1)).single().apply()
     }
     z match {
@@ -188,7 +196,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
     }
   }
 
-  def list(clientId: ClientId) = inTx { implicit session =>
+  def list(clientId: ClientId) = inRepeatableReadTx { implicit session =>
     sql"""SELECT url, hash
            FROM current_state
            WHERE client_id = ${clientId.value}"""

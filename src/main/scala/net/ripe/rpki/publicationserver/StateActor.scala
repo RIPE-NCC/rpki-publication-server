@@ -14,7 +14,7 @@ object StateActor {
   def props(conf: AppConfig, metrics: Metrics): Props = Props(new StateActor(conf, metrics))
 }
 
-class StateActor(conf: AppConfig, metrics: Metrics) 
+class StateActor(conf: AppConfig, metrics: Metrics)
     extends Actor with Hashing with Logging {
 
   lazy val objectStore = PgStore.get(conf.pgConfig)
@@ -44,7 +44,8 @@ class StateActor(conf: AppConfig, metrics: Metrics)
   private def processQueryMessage(queryMessage: QueryMessage, clientId: ClientId): Unit = {
 
     val replyStatus = try {
-      objectStore.applyChanges(queryMessage, clientId, metrics)
+      implicit val m = metrics
+      objectStore.applyChanges(queryMessage, clientId)
       convertToReply(queryMessage)
     } catch {
       case e: RollbackException => ErrorMsg(e.error)

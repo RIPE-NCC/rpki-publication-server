@@ -215,18 +215,18 @@ FROM (SELECT v.*,
      latest_version
 WHERE z.session_id = latest_version.session_id
 AND total_delta_size <= latest_version.snapshot_size
+AND z.delta_hash IS NOT NULL
 ORDER BY z.id DESC;
 
 
 -- Create another entry in the versions table, either the
 -- next version (and the next serial) in the same session
 -- or generate a new session id if the table is empty.
-CREATE OR REPLACE FUNCTION freeze_version() RETURNS
-    TABLE(session_id TEXT, serial BIGINT, updated BOOLEAN) AS
+CREATE OR REPLACE FUNCTION freeze_version() RETURNS SETOF versions AS
 $body$
 BEGIN
     -- NOTE This one is safe from race conditions only if
-    -- lock_versions is called beforehands in the same transaction.
+    -- lock_versions is called before in the same transaction.
     IF EXISTS(SELECT * FROM versions) THEN
         -- create a new session-id+serial entry only in case there are
         -- new entries in the log since the last session-id+serial.
@@ -245,13 +245,6 @@ BEGIN
         WHERE ol.id > v.last_log_entry_id
         ORDER BY ol.id DESC
         LIMIT 1;
-
---         RETURN QUERY
---             SELECT session_id, serial
---             FROM versions
---             ORDER BY id DESC
---             LIMIT 1;
-
     ELSEIF EXISTS(SELECT * FROM object_log) THEN
         -- create a new version entry from object_log
         -- (if there's anything new in the object_log)
@@ -277,6 +270,28 @@ END
 $body$
     LANGUAGE plpgsql;
 
+
+
+-- Returns if there's any entry in the object_log table since
+-- the last frozen version.
+CREATE OR REPLACE FUNCTION changes_exist() RETURNS BOOLEAN AS
+$body$
+BEGIN
+    IF (EXISTS (SELECT * FROM versions)) THEN
+        RETURN EXISTS (
+            SELECT * FROM object_log
+            WHERE id > (
+                SELECT last_log_entry_id
+                FROM versions
+                ORDER BY id DESC
+                LIMIT 1)
+            );
+    ELSE
+        RETURN EXISTS (SELECT * FROM object_log);
+    END IF;
+END
+$body$
+    LANGUAGE plpgsql;
 
 -- Delete versions that
 -- a) have different session id than the latest version
