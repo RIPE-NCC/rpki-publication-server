@@ -31,15 +31,15 @@ case class Notification(sessionId: UUID, serial: BigInt, snapshot: SnapshotLocat
 
 object Notification extends Hashing {
 
-  def create(conf: AppConfig)(snapshot: Snapshot, serverState: ServerState, deltas: Seq[(Long, Hash)]): Notification = {
-    val snapshotLocator = SnapshotLocator(conf.snapshotUrl(serverState), snapshot.contentHash)
-    val deltaLocators = deltas.sortBy(-_._1).map { d =>
-      val (serial, hash) = d
-      DeltaLocator(serial, conf.deltaUrl(snapshot.serverState.sessionId, serial), hash)
-    }.seq
-    val ServerState(sessionId, serial) = serverState
-    Notification(sessionId, serial, snapshotLocator, deltaLocators)
-  }
+//  def create(conf: AppConfig)(snapshot: Snapshot, serverState: ServerState, deltas: Seq[(Long, Hash)]): Notification = {
+//    val snapshotLocator = SnapshotLocator(conf.snapshotUrl(serverState), snapshot.contentHash)
+//    val deltaLocators = deltas.sortBy(-_._1).map { d =>
+//      val (serial, hash) = d
+//      DeltaLocator(serial, conf.deltaUrl(snapshot.serverState.sessionId, serial), hash)
+//    }.seq
+//    val ServerState(sessionId, serial) = serverState
+//    Notification(sessionId, serial, snapshotLocator, deltaLocators)
+//  }
 
   def create(conf: AppConfig, sessionId: String, serial: Long, snapshotHash: Hash, deltas: Seq[(Long, Hash)]): Notification = {
     val sessionUuid = UUID.fromString(sessionId)

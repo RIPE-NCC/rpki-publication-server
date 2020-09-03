@@ -70,52 +70,52 @@ class RrdpFlusher(conf: AppConfig) extends Actor with Logging {
 
 
   def initFS(state: ObjectStore.State) = {
-    val serverState = ServerState(sessionId, serial)
-    val snapshotPdus = state.map { e =>
-      val (uri, (bytes, _, _)) = e
-      (bytes, uri)
-    }.toSeq
-
-    val snapshot = Snapshot(serverState, snapshotPdus)
-    val notification = Notification.create(conf)(snapshot, serverState, Seq())
-
-    logger.info("Writing initial RRDP state to " + conf.rrdpRepositoryPath)
-    rrdpWriter.writeNewState(conf.rrdpRepositoryPath, serverState, notification, snapshot)
-      .recover {
-        case e: Exception =>
-          logger.error(s"Could not write snapshot to rrdp repo: ", e)
-          throwFatalException
-      }
+//    val serverState = ServerState(sessionId, serial)
+//    val snapshotPdus = state.map { e =>
+//      val (uri, (bytes, _, _)) = e
+//      (bytes, uri)
+//    }.toSeq
+//
+//    val snapshot = Snapshot(serverState, snapshotPdus)
+//    val notification = Notification.create(conf)(snapshot, serverState, Seq())
+//
+//    logger.info("Writing initial RRDP state to " + conf.rrdpRepositoryPath)
+//    rrdpWriter.writeNewState(conf.rrdpRepositoryPath, serverState, notification, snapshot)
+//      .recover {
+//        case e: Exception =>
+//          logger.error(s"Could not write snapshot to rrdp repo: ", e)
+//          throwFatalException
+//      }
   }
 
   def updateFS(messages: Seq[QueryMessage], state: ObjectStore.State): Any = {
-    val pdus = messages.flatMap(_.pdus)
-    val delta = Delta(sessionId, serial, pdus)
-    deltas.enqueue((serial, delta.contentHash, delta.binarySize, Instant.now()))
-    deltasTotalSize += delta.binarySize
-
-    val serverState = ServerState(sessionId, serial)
-    val snapshotPdus = state.map { case (uri, (bytes, _, _)) => (bytes, uri) }.toSeq
-
-    val snapshot = Snapshot(serverState, snapshotPdus)
-    val deltasToDeleteFromFS = deleteExtraDeltas(snapshot.binarySize)
-    val notification = Notification.create(conf)(snapshot, serverState, deltas.map(e => (e._1, e._2)))
-
-    Try {
-      logger.info(s"Writing delta $serial to RRDP filesystem")
-      rrdpWriter.writeDelta(conf.rrdpRepositoryPath, delta)
-    } flatMap { _ =>
-      logger.info(s"Writing snapshot $serial to RRDP filesystem")
-      rrdpWriter.writeNewState(conf.rrdpRepositoryPath, serverState, notification, snapshot)
-    } match {
-      case Success(timestampOption) =>
-        timestampOption.foreach(scheduleSnapshotCleanup(serial))
-        if (deltasToDeleteFromFS.nonEmpty) {
-          scheduleDeltaCleanups(deltasToDeleteFromFS)
-        }
-      case Failure(e) =>
-        logger.error("Could not update RRDP files: ", e)
-    }
+//    val pdus = messages.flatMap(_.pdus)
+//    val delta = Delta(sessionId, serial, pdus)
+//    deltas.enqueue((serial, delta.contentHash, delta.binarySize, Instant.now()))
+//    deltasTotalSize += delta.binarySize
+//
+//    val serverState = ServerState(sessionId, serial)
+//    val snapshotPdus = state.map { case (uri, (bytes, _, _)) => (bytes, uri) }.toSeq
+//
+//    val snapshot = Snapshot(serverState, snapshotPdus)
+//    val deltasToDeleteFromFS = deleteExtraDeltas(snapshot.binarySize)
+//    val notification = Notification.create(conf)(snapshot, serverState, deltas.map(e => (e._1, e._2)))
+//
+//    Try {
+//      logger.info(s"Writing delta $serial to RRDP filesystem")
+//      rrdpWriter.writeDelta(conf.rrdpRepositoryPath, delta)
+//    } flatMap { _ =>
+//      logger.info(s"Writing snapshot $serial to RRDP filesystem")
+//      rrdpWriter.writeNewState(conf.rrdpRepositoryPath, serverState, notification, snapshot)
+//    } match {
+//      case Success(timestampOption) =>
+//        timestampOption.foreach(scheduleSnapshotCleanup(serial))
+//        if (deltasToDeleteFromFS.nonEmpty) {
+//          scheduleDeltaCleanups(deltasToDeleteFromFS)
+//        }
+//      case Failure(e) =>
+//        logger.error("Could not update RRDP files: ", e)
+//    }
   }
 
   def afterRetainPeriod = new Date(System.currentTimeMillis() + conf.unpublishedFileRetainPeriod.toMillis)

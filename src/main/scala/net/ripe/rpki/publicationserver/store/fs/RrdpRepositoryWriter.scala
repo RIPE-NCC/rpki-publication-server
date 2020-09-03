@@ -36,15 +36,15 @@ class RrdpRepositoryWriter extends Logging {
     }
 
 
-  def writeSnapshot(rootDir: String, serverState: ServerState, snapshot: Snapshot): Path = {
-    val ServerState(sessionId, serial) = serverState
-    val stateDir = getStateDir(rootDir, sessionId.toString, serial)
-    writeFile(snapshot.bytes, stateDir.resolve(Rrdp.snapshotFilename))
+  def writeSnapshot(rootDir: String, serverState: ServerState, snapshot: Snapshot) = {
+//    val ServerState(sessionId, serial) = serverState
+//    val stateDir = getStateDir(rootDir, sessionId.toString, serial)
+//    writeFile(snapshot.bytes, stateDir.resolve(Rrdp.snapshotFilename))
   }
 
-  def writeDelta(rootDir: String, delta: Delta): Path = {
-    val stateDir = getStateDir(rootDir, delta.sessionId.toString, delta.serial)
-    writeFile(delta.bytes, stateDir.resolve(Rrdp.deltaFilename))
+  def writeDelta(rootDir: String, delta: Delta) = {
+//    val stateDir = getStateDir(rootDir, delta.sessionId.toString, delta.serial)
+//    writeFile(delta.bytes, stateDir.resolve(Rrdp.deltaFilename))
   }
 
   def writeNotification(rootDir: String, notification: Notification): Option[FileTime] = {
