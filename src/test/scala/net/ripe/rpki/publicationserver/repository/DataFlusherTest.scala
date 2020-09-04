@@ -97,8 +97,8 @@ class DataFlusherTest  extends PublicationServerBaseTest with Hashing {
 
     val clientId = ClientId("client1")
 
-    val uri1 = new URI(urlPrefix1 + "/path1")
-    val uri2 = new URI(urlPrefix2 + "/path2")
+    val uri1 = new URI(urlPrefix1 + "/path1.cer")
+    val uri2 = new URI(urlPrefix2 + "/directory/path2.cer")
 
     val (bytes1, base64_1) = TestBinaries.generateObject()
     val (bytes2, base64_2) = TestBinaries.generateObject()
@@ -109,6 +109,10 @@ class DataFlusherTest  extends PublicationServerBaseTest with Hashing {
     pgStore.applyChanges(changeSet, clientId)
 
     flusher.initFS()
+
+    Bytes(Files.readAllBytes(rsyncRootDir1.resolve("online").resolve("path1.cer"))) should be(bytes1)
+    Bytes(Files.readAllBytes(rsyncRootDir2.resolve("online")
+        .resolve("directory").resolve("path2.cer"))) should be(bytes2)
 
     val (sessionId, serial) = verifySessionAndSerial
 
@@ -139,18 +143,20 @@ class DataFlusherTest  extends PublicationServerBaseTest with Hashing {
 
     val clientId = ClientId("client1")
 
-    val uri1 = new URI(urlPrefix1 + "/path1")
-    val uri2 = new URI(urlPrefix2 + "/path2")
+    val uri1 = new URI(urlPrefix1 + "/path1.cer")
+    val uri2 = new URI(urlPrefix2 + "/directory/path2.cer")
     val (bytes1, base64_1) = TestBinaries.generateObject()
     val (bytes2, base64_2) = TestBinaries.generateObject()
 
     pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = None, bytes1))), clientId)
-
     flusher.initFS()
+
+    Bytes(Files.readAllBytes(rsyncRootDir1.resolve("online").resolve("path1.cer"))) should be(bytes1)
 
     pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri2, tag = None, hash = None, bytes2))), clientId)
-
     flusher.initFS()
+
+    Bytes(Files.readAllBytes(rsyncRootDir2.resolve("online").resolve("directory").resolve("path2.cer"))) should be(bytes2)
 
     val (sessionId, serial) = verifySessionAndSerial
 
@@ -186,13 +192,13 @@ class DataFlusherTest  extends PublicationServerBaseTest with Hashing {
 
     val clientId = ClientId("client1")
 
-    val uri1 = new URI(urlPrefix1 + "/path1")
-    val uri2 = new URI(urlPrefix1 + "/path2")
-    val uri3 = new URI(urlPrefix2 + "/path3")
+    val uri1 = new URI(urlPrefix1 + "/path1.roa")
+    val uri2 = new URI(urlPrefix1 + "/pbla/path2.cer")
+    val uri3 = new URI(urlPrefix2 + "/x/y/z/path3.mft")
     // generate some bigger objects so that the size of the snapshot would be big
-    val (bytes1, base64_1) = TestBinaries.generateObject(1000)
-    val (bytes2, base64_2) = TestBinaries.generateObject(500)
-    val (bytes3, base64_3) = TestBinaries.generateObject(500)
+    val (bytes1, base64_1) = TestBinaries.generateObject(100)
+    val (bytes2, base64_2) = TestBinaries.generateObject(10)
+    val (bytes3, base64_3) = TestBinaries.generateObject(10)
 
     pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = None, bytes1))), clientId)
     flusher.initFS()
@@ -202,6 +208,14 @@ class DataFlusherTest  extends PublicationServerBaseTest with Hashing {
 
     pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri3, tag = None, hash = None, bytes3))), clientId)
     flusher.initFS()
+
+    Bytes(Files.readAllBytes(rsyncRootDir1.resolve("online").resolve("path1.roa"))) should be(bytes1)
+    Bytes(Files.readAllBytes(rsyncRootDir1.resolve("online").resolve("pbla").resolve("path2.cer"))) should be(bytes2)
+    Bytes(Files.readAllBytes(rsyncRootDir2.resolve("online")
+      .resolve("x")
+      .resolve("y")
+      .resolve("z")
+      .resolve("path3.mft"))) should be(bytes3)
 
     val (sessionId, serial) = verifySessionAndSerial
 
@@ -358,9 +372,9 @@ class DataFlusherTest  extends PublicationServerBaseTest with Hashing {
 
     val clientId = ClientId("client1")
 
-    val uri1 = new URI(urlPrefix1 + "/path1")
-    val uri2 = new URI(urlPrefix1 + "/path2")
-    val uri3 = new URI(urlPrefix2 + "/path3")
+    val uri1 = new URI(urlPrefix1 + "/path1.roa")
+    val uri2 = new URI(urlPrefix1 + "/q/path2.cer")
+    val uri3 = new URI(urlPrefix2 + "/path3.crl")
 
     val (bytes1, base64_1) = TestBinaries.generateObject(1000)
     val (bytes2, base64_2) = TestBinaries.generateObject(200)
@@ -369,11 +383,17 @@ class DataFlusherTest  extends PublicationServerBaseTest with Hashing {
     pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = None, bytes1))), clientId)
     flusher.updateFS()
 
+    Bytes(Files.readAllBytes(rsyncRootDir1.resolve("online").resolve("path1.roa"))) should be(bytes1)
+
     pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri2, tag = None, hash = None, bytes2))), clientId)
     flusher.updateFS()
 
+    Bytes(Files.readAllBytes(rsyncRootDir1.resolve("online").resolve("q").resolve("path2.cer"))) should be(bytes2)
+
     pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri3, tag = None, hash = None, bytes3))), clientId)
     flusher.updateFS()
+
+    Bytes(Files.readAllBytes(rsyncRootDir2.resolve("online").resolve("path3.crl"))) should be(bytes3)
 
     val (sessionId, serial) = verifySessionAndSerial
 
@@ -408,6 +428,78 @@ class DataFlusherTest  extends PublicationServerBaseTest with Hashing {
             <snapshot uri="http://localhost:7788/${sessionId}/${serial}/snapshot.xml" hash="${hash(Bytes(snapshotBytes)).hash}"/>
             <delta serial="${serial}" uri="http://localhost:7788/${sessionId}/${serial}/delta.xml" hash="${hash(Bytes(deltaBytes3)).hash}"/>
             <delta serial="${serial - 1}" uri="http://localhost:7788/${sessionId}/${serial - 1}/delta.xml" hash="${hash(Bytes(deltaBytes2)).hash}"/>
+          </notification>"""
+    }
+  }
+
+
+  test("Should update RRDP and rsync when objects are published and withdrawn") {
+    flusher.initFS()
+
+    val clientId = ClientId("client1")
+
+    val uri1 = new URI(urlPrefix1 + "/path1.roa")
+    val uri2 = new URI(urlPrefix1 + "/q/path2.cer")
+    val uri3 = new URI(urlPrefix2 + "/path3.crl")
+
+    val (bytes1, base64_1) = TestBinaries.generateObject(1000)
+    val (bytes2, base64_2) = TestBinaries.generateObject(200)
+    val (bytes3, base64_3) = TestBinaries.generateObject(100)
+
+    pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = None, bytes1))), clientId)
+    flusher.updateFS()
+
+    Bytes(Files.readAllBytes(rsyncRootDir1.resolve("online").resolve("path1.roa"))) should be(bytes1)
+
+    pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = Some(hash(bytes1).hash), bytes2))), clientId)
+    flusher.updateFS()
+
+    Bytes(Files.readAllBytes(rsyncRootDir1.resolve("online").resolve("path1.roa"))) should be(bytes2)
+
+    pgStore.applyChanges(QueryMessage(Seq(WithdrawQ(uri1, tag = None, hash = hash(bytes2).hash))), clientId)
+    flusher.updateFS()
+
+    rsyncRootDir1.resolve("online").resolve("path1.roa").toFile.exists() should be(false)
+
+    val (sessionId, serial) = verifySessionAndSerial
+
+    val snapshotBytes = verifyExpectedSnapshot(sessionId, serial) {
+      s"""<snapshot version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp"></snapshot>"""
+    }
+
+    verifyExpectedSnapshot(sessionId, serial - 1) {
+      s"""<snapshot version="1" session_id="${sessionId}" serial="${serial-1}" xmlns="http://www.ripe.net/rpki/rrdp">
+            <publish uri="${uri1}">${base64_2}</publish>
+         </snapshot>"""
+    }
+
+    verifyExpectedSnapshot(sessionId, serial - 2) {
+      s"""<snapshot version="1" session_id="${sessionId}" serial="${serial-2}" xmlns="http://www.ripe.net/rpki/rrdp">
+            <publish uri="${uri1}">${base64_1}</publish>
+         </snapshot>"""
+    }
+
+    verifyExpectedDelta(sessionId, serial - 2) {
+      s"""<delta version="1" session_id="${sessionId}" serial="${serial - 2}" xmlns="http://www.ripe.net/rpki/rrdp">
+          <publish uri="${uri1}">${base64_1}</publish>
+      </delta>"""
+    }
+
+    val deltaBytes2 = verifyExpectedDelta(sessionId, serial - 1) {
+      s"""<delta version="1" session_id="${sessionId}" serial="${serial - 1}" xmlns="http://www.ripe.net/rpki/rrdp">
+          <publish uri="${uri1}" hash="${hash(bytes1).hash}">${base64_2}</publish>
+      </delta>"""
+    }
+
+    val deltaBytes3 = verifyExpectedDelta(sessionId, serial) {
+      s"""<delta version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
+          <withdraw uri="${uri1}" hash="${hash(bytes2).hash}"/>
+      </delta>"""
+    }
+
+    verifyExpectedNotification {
+      s"""<notification version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
+            <snapshot uri="http://localhost:7788/${sessionId}/${serial}/snapshot.xml" hash="${hash(Bytes(snapshotBytes)).hash}"/>
           </notification>"""
     }
   }
