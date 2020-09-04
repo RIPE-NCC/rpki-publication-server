@@ -162,7 +162,7 @@ class DataFlusher(conf: AppConfig) extends Hashing with Formatting with Logging 
     val stream = createStream
     try {
       f(stream)
-      stream.info
+      stream.summary
     } finally {
       stream.close()
     }

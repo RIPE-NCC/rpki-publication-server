@@ -20,7 +20,7 @@ class HashingSizedStreamTest extends PublicationServerBaseTest with Hashing {
     IOStream.string(s2, stream)
     IOStream.string(s3, stream)
 
-    val (streamHash, size) = stream.info
+    val (streamHash, size) = stream.summary
 
     val bytes = (s1 + s2 + s3).getBytes(StandardCharsets.US_ASCII)
     val realBytes = Bytes(bytes)
