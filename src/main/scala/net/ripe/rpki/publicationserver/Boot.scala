@@ -22,9 +22,8 @@ import scala.util.{Failure, Success, Try}
 
 
 
-object Boot extends App {
+object Boot extends App with Logging {
   lazy val conf = wire[AppConfig]
-  lazy val logger = setupLogging(conf)
 
   override final def main(args: Array[String]) = {
     val sslHelper = new SSLHelper(conf, logger)
@@ -40,11 +39,6 @@ object Boot extends App {
     }
 
     new PublicationServerApp(conf, https, logger).run()
-  }
-
-  def setupLogging(conf: AppConfig) = {
-    System.setProperty("LOG_FILE", conf.locationLogfile)
-    LoggerFactory.getLogger(this.getClass)
   }
 }
 
