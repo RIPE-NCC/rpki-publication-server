@@ -1,29 +1,61 @@
-rpki-publication-server:
+build:
   stage: build
   image: $CI_REGISTRY/swe/gitlab-ci/sbt:1.3-2.12-jdk-8
   script:
-    - sbt clean test universal:packageZipTarball 
+    - sbt clean test universal:packageZipTarball assembly
+
   artifacts:
     paths:
       - target/universal/rpki-publication-server-1.1-SNAPSHOT.tgz
+      - target/rpki-publication-server.jar
 
 .deploy_template: &deploy_env
   stage: deploy
   image: docker:latest
   dependencies:
-    - rpki-publication-server 
+    - build
   services:
     - docker:dind
   before_script:
     - apk add --update curl
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
-    - docker build --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA .
+    - docker build -f Dockerfile.artifact_container --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA .
     - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
     - curl -X POST -F "token=$RPKI_AWS_TOKEN" -F "ref=$BRANCH_TARGET" -F "variables[DEPLOY_TARGET]=$DEPLOY_TARGET" -F "variables[IMAGE_TARGET]=$CI_COMMIT_SHA"  "$AWS_PIPELINE_TRIGGER"
 
   when:
     manual
+
+build_tagged_image:
+  stage: deploy
+  only:
+    - tags@rpki/rpki-publication-server
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
+    - docker build -t  rpki-publication-server .
+    # Abort if not on a tag
+    - if [ -z "${CI_COMMIT_TAG}" ]; then echo "Not releasing docker image tagged with a version."; exit 0; fi;
+    - echo "Releasing this image as :latest and :${CI_COMMIT_TAG}"
+    - docker tag rpki-publication-server $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
+    - docker tag rpki-publication-server $CI_REGISTRY_IMAGE:latest
+    - docker push $CI_REGISTRY_IMAGE:latest
+
+build_manual_image:
+  stage: deploy
+  when: manual
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
+    - docker build -t  rpki-publication-server .
+    - docker tag rpki-publication-server $CI_REGISTRY_IMAGE:dev
+    - docker push $CI_REGISTRY_IMAGE:dev
 
 deploy-prepdev:
   variables:

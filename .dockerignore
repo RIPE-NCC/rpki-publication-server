@@ -1,5 +1,8 @@
 .metals
 target
+!target/rpki-publication-server.jar
+# Used by the artifact build
+!target/universal/*
 log
 store
 publication-server-test.log*

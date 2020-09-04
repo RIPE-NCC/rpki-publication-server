@@ -1,15 +1,22 @@
 FROM mozilla/sbt as build
 
 # Use /staging/data, since /app/../data is equal to /data and would be cleared
+# by the tests.
 RUN mkdir -p /staging/conf /staging/data/db /staging/data/logs /staging/data/rsync /staging/data/rrdp
 
 ADD . /app
 
+#
+# Container picks up the artifact from './target/rpki-publication-server.jar'
+#
 WORKDIR /app
-RUN sbt assembly
+# could RUN sbt assembly or RUN 'set test in assembly := {}' clean assembly here,
+# but we pick up the artifact instead.
 RUN cp docker/publication-server-docker.conf /staging/conf/
 
-FROM gcr.io/distroless/java-debian10:11-debug
+# use gcr.io/distroless/java-debian10:11-debug if you want to be able to run a
+# shell in the container (e.g. `docker run -it --entrypoint sh --rm <image>`)
+FROM gcr.io/distroless/java-debian10:11
 
 COPY --from=build /staging/conf/ /conf/
 COPY --from=build /staging/data/ /data/
