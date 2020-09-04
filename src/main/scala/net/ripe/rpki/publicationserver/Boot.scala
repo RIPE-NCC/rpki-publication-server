@@ -19,17 +19,28 @@ import org.slf4j.{Logger, LoggerFactory}
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 
+import org.flywaydb.core.Flyway
 
 
 object Boot extends App {
   lazy val conf = wire[AppConfig]
   lazy val logger = setupLogging(conf)
+
+  logger.info("Starting up the publication server ...")
+
+  migrateDB(conf.pgConfig)
   new PublicationServerApp(conf, logger).run()
 
   def setupLogging(conf: AppConfig) = {
     System.setProperty("LOG_FILE", conf.locationLogfile)
     SysStreamsLogger.bindSystemStreams()
     LoggerFactory.getLogger(this.getClass)
+  }
+
+  def migrateDB(pgConfig: PgConfig) = {
+    logger.info("Migrating the database")
+    val flyway = Flyway.configure.dataSource(pgConfig.url, pgConfig.user, pgConfig.password).load
+    flyway.migrate();
   }
 }
 
@@ -44,8 +55,6 @@ class PublicationServerApp(conf: AppConfig, logger: Logger) extends RRDPService 
   val healthChecks = new HealthChecks(conf)
 
   def run() {
-    logger.info("Starting up the publication server ...")    
-    logger.info("Server address " + conf.serverAddress)
 
     implicit val timeout = Timeout(5.seconds)
 
@@ -54,6 +63,8 @@ class PublicationServerApp(conf: AppConfig, logger: Logger) extends RRDPService 
     val metricsApi = new MetricsApi(registry)
 
     val publicationService = new PublicationService(conf, metrics)
+
+    logger.info("Server address " + conf.serverAddress)
 
     this.httpsBinding = Http().bindAndHandle(
       publicationService.publicationRoutes,

@@ -72,7 +72,8 @@ libraryDependencies ++= {
     "org.scala-lang.modules"   %% "scala-xml"             % "1.2.0",
     "org.scalikejdbc"          %% "scalikejdbc"           % "3.5.+",
     "org.postgresql"           % "postgresql"             % "42.2.15",
-    "org.json4s"               %% "json4s-native"         % "3.7.0-M6"
+    "org.json4s"               %% "json4s-native"         % "3.7.0-M6",
+    "org.flywaydb"             % "flyway-core"            % "6.5.5"
   )
 }
 
