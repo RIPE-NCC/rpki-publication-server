@@ -141,14 +141,9 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
       sql"SELECT acquire_client_id_lock(${clientId.value})".execute().apply()
 
       changeSet.pdus.foreach {
-        case WithdrawQ(uri, _, hash) =>
-          executeSql(
-            sql"SELECT delete_object(${uri.toString}, ${hash}, ${clientId.value})",
-            metrics.withdrawnObject(),
-            metrics.failedToDelete())
         case PublishQ(uri, _, None, Bytes(bytes)) =>
           executeSql(
-              sql"SELECT create_object(${bytes},  ${uri.toString}, ${clientId.value})",
+            sql"SELECT create_object(${bytes},  ${uri.toString}, ${clientId.value})",
             metrics.publishedObject(),
             metrics.failedToAdd())
         case PublishQ(uri, _, Some(oldHash), Bytes(bytes)) =>
@@ -159,6 +154,11 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
               metrics.publishedObject()
             },
             metrics.failedToReplace())
+        case WithdrawQ(uri, _, hash) =>
+          executeSql(
+            sql"SELECT delete_object(${uri.toString}, ${hash}, ${clientId.value})",
+            metrics.withdrawnObject(),
+            metrics.failedToDelete())
       }
     }
   }
