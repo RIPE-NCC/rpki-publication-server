@@ -4,18 +4,17 @@ import java.net.URI
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, NoSuchFileException}
 
-import net.ripe.rpki.publicationserver.Binaries.{Base64, Bytes}
-import net.ripe.rpki.publicationserver.model.ClientId
-import net.ripe.rpki.publicationserver.store.postresql.PgStore
+import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver._
+import net.ripe.rpki.publicationserver.model.ClientId
 
-class DataFlusherTest  extends PublicationServerBaseTest with Hashing {
+class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
   val rsyncRootDir1 = Files.createTempDirectory( "test_pub_server_rsync_")
   val rsyncRootDir2 = Files.createTempDirectory( "test_pub_server_rsync_")
 
   val rrdpRootDfir = Files.createTempDirectory( "test_pub_server_rrdp_")
-  val pgStore = PgStore.get(pgTestConfig)
+  val pgStore = createPgStore
 
   val urlPrefix1 = "rsync://host1.com"
   val urlPrefix2 = "rsync://host2.com"

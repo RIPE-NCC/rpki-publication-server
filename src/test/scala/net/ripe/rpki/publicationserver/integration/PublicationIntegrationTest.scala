@@ -46,11 +46,6 @@ class PublicationIntegrationTest
     client = new PublicationServerClient()
   }
 
-  override def afterAll(): Unit = {
-    TestKit.shutdownActorSystem(client.system)
-    TestKit.shutdownActorSystem(server.system)
-  }
-
   // NOTE: test order is important
 
   test("should publish an object and don't accept repeated publish") {

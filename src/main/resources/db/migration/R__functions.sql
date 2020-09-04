@@ -293,6 +293,7 @@ END
 $body$
     LANGUAGE plpgsql;
 
+
 -- Delete versions that
 -- a) have different session id than the latest version
 -- b) are not reasonable to keep, i.e. total size of deltas in the session

@@ -12,6 +12,7 @@ import io.prometheus.client.CollectorRegistry
 import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver.metrics.Metrics
 import net.ripe.rpki.publicationserver.model.ClientId
+import net.ripe.rpki.publicationserver.store.postresql.PgStore
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfter, FunSuite, Matchers}
 
@@ -27,6 +28,11 @@ abstract class PublicationServerBaseTest extends FunSuite with BeforeAndAfter wi
   var tempXodusDir: File = _
 
   val pgTestConfig = PgConfig(url = "jdbc:postgresql://localhost:5432/pubserver_test", user = "pubserver", password = "pubserver")
+
+  protected def createPgStore = {
+    PgStore.migrateDB(pgTestConfig)
+    PgStore.get(pgTestConfig)
+  }
 
   implicit lazy val testMetrics = Metrics.get(new CollectorRegistry(true));
 

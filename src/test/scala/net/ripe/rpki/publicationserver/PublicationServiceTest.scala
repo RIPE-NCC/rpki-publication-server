@@ -15,7 +15,7 @@ class PublicationServiceTest extends PublicationServerBaseTest with Hashing with
 
   def publicationService = new PublicationService(conf, testMetrics)
 
-  private val objectStore = PgStore.get(pgTestConfig)
+  private val objectStore = createPgStore
 
   before {
     objectStore.clear()

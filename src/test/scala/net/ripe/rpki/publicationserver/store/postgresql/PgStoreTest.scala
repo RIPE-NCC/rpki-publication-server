@@ -13,7 +13,7 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
 
   private val uri: URI = new URI("rsync://host.com/path")
 
-  val objectStore = PgStore.get(pgTestConfig)
+  val objectStore = createPgStore
 
   before {
     objectStore.clear()

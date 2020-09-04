@@ -3,10 +3,12 @@ package net.ripe.rpki.publicationserver.store.postresql
 import java.net.URI
 
 import net.ripe.rpki.publicationserver.Binaries.Bytes
+import net.ripe.rpki.publicationserver.Boot.logger
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.metrics.Metrics
 import net.ripe.rpki.publicationserver.model.ClientId
 import net.ripe.rpki.publicationserver.store.ObjectStore
+import org.flywaydb.core.Flyway
 import org.json4s._
 import org.json4s.native.JsonMethods._
 import scalikejdbc.{ConnectionPool, ConnectionPoolSettings, DB, DBSession, IsolationLevel, NoExtractor, SQL, scalikejdbcSQLInterpolationImplicitDef}
@@ -223,6 +225,12 @@ object PgStore {
       pgStore = new PgStore(pgConfig)
     }
     pgStore
+  }
+
+  def migrateDB(pgConfig: PgConfig) = {
+    logger.info("Migrating the database")
+    val flyway = Flyway.configure.dataSource(pgConfig.url, pgConfig.user, pgConfig.password).load
+    flyway.migrate();
   }
 
 }

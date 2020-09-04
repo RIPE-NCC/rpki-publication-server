@@ -4,7 +4,7 @@ import java.io.FileInputStream
 import java.security.KeyStore
 import java.{util => ju}
 
-import akka.actor.{ActorRef, ActorSystem}
+import akka.actor.ActorSystem
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.{ConnectionContext, Http}
@@ -12,14 +12,12 @@ import akka.util.Timeout
 import com.softwaremill.macwire._
 import io.prometheus.client._
 import javax.net.ssl._
-import net.ripe.logging.SysStreamsLogger
 import net.ripe.rpki.publicationserver.metrics._
+import net.ripe.rpki.publicationserver.store.postresql.PgStore
 import org.slf4j.{Logger, LoggerFactory}
 
-import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
-
-import org.flywaydb.core.Flyway
+import scala.concurrent.{Await, Future}
 
 
 object Boot extends App {
@@ -28,19 +26,13 @@ object Boot extends App {
 
   logger.info("Starting up the publication server ...")
 
-  migrateDB(conf.pgConfig)
+  PgStore.migrateDB(conf.pgConfig)
   new PublicationServerApp(conf, logger).run()
 
   def setupLogging(conf: AppConfig) = {
-    System.setProperty("LOG_FILE", conf.locationLogfile)
-    SysStreamsLogger.bindSystemStreams()
+//    System.setProperty("LOG_FILE", conf.locationLogfile)
+//    SysStreamsLogger.bindSystemStreams()
     LoggerFactory.getLogger(this.getClass)
-  }
-
-  def migrateDB(pgConfig: PgConfig) = {
-    logger.info("Migrating the database")
-    val flyway = Flyway.configure.dataSource(pgConfig.url, pgConfig.user, pgConfig.password).load
-    flyway.migrate();
   }
 }
 
@@ -78,7 +70,9 @@ class PublicationServerApp(conf: AppConfig, logger: Logger) extends RRDPService 
       rrdpAndMonitoringRoutes ~ metricsApi.routes,
       interface = conf.serverAddress,
       port = conf.rrdpPort
-    )    
+    )
+
+    println(httpBinding.value)
   }
 
   def shutdown() = {
