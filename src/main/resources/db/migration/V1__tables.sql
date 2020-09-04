@@ -47,6 +47,7 @@ CREATE TABLE versions
     delta_hash        CHAR(64),
     snapshot_size     BIGINT,
     delta_size        BIGINT,
+    created_at        TIMESTAMP WITHOUT TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC')
     CONSTRAINT delta_field_in_sync CHECK (
             delta_size IS NULL AND delta_hash IS NULL OR
             delta_size IS NOT NULL AND delta_hash IS NOT NULL

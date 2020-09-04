@@ -58,6 +58,7 @@ class PublicationServerApp(conf: AppConfig, logger: Logger) extends RRDPService 
 
     logger.info("Server address " + conf.serverAddress)
 
+    // TODO Catch binding errors
     this.httpsBinding = Http().bindAndHandle(
       publicationService.publicationRoutes,
       interface = conf.serverAddress,
@@ -71,8 +72,6 @@ class PublicationServerApp(conf: AppConfig, logger: Logger) extends RRDPService 
       interface = conf.serverAddress,
       port = conf.rrdpPort
     )
-
-    println(httpBinding.value)
   }
 
   def shutdown() = {
