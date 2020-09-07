@@ -3,12 +3,10 @@ package net.ripe.rpki.publicationserver.repository
 import java.net.URI
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, NoSuchFileException}
-import java.time.temporal.ChronoUnit
 
 import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.model.ClientId
-import org.scalatest.Matchers.be
 
 import scala.concurrent.duration._
 
@@ -295,19 +293,6 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
       PublishQ(uri2, tag=None, hash=None, bytes2),
     ))
     pgStore.applyChanges(changeSet, clientId)
-
-    val state = pgStore.getState
-
-    state should be(Map(
-      uri1 -> (bytes1, hash(bytes1), clientId),
-      uri2 -> (bytes2, hash(bytes2), clientId)
-    ))
-
-    val log = pgStore.getLog
-    log should be(Seq(
-      ("INS", uri1, None, bytes1),
-      ("INS", uri2, None, bytes2)
-    ))
 
     flusher.updateFS()
     waitForRrdpCleanup()

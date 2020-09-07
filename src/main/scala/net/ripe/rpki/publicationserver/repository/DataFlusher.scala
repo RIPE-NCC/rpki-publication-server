@@ -11,7 +11,6 @@ import java.util.{Date, UUID}
 import akka.actor.ActorSystem
 import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver._
-import net.ripe.rpki.publicationserver.model._
 import net.ripe.rpki.publicationserver.fs.{Rrdp, RrdpRepositoryWriter, RsyncRepositoryWriter}
 import net.ripe.rpki.publicationserver.store.postresql.PgStore
 import scalikejdbc.DBSession

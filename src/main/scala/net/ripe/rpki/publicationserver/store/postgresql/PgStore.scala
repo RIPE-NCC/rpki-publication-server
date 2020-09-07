@@ -51,7 +51,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
         val operation = rs.string(1)
         val uri = URI.create(rs.string(2))
         val hash = rs.stringOpt(3).map(Hash)
-        val bytes = Bytes.fromStream(rs.binaryStream(4))
+        val bytes = rs.binaryStreamOpt(4).map(Bytes.fromStream)
         (operation, uri, hash, bytes)
       }
       .list
