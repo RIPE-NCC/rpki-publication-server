@@ -5,11 +5,10 @@ import java.nio.file.attribute.{FileTime, PosixFilePermissions}
 import java.util.UUID
 
 import net.ripe.rpki.publicationserver._
-import net.ripe.rpki.publicationserver.model.{Delta, Notification, ServerState, Snapshot}
+import net.ripe.rpki.publicationserver.model.{Delta, Notification, ServerState}
 
-import scala.util.{Failure, Try}
+import scala.util.Try
 import scala.xml.{Node, XML}
-import java.io.File
 
 class RrdpRepositoryWriter extends Logging {
 
@@ -24,29 +23,6 @@ class RrdpRepositoryWriter extends Logging {
 
   private val fileAttributes = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-r--r--"))
 
-  def writeNewState(rootDir: String, serverState: ServerState, newNotification: Notification, snapshot: Snapshot): Try[Option[FileTime]] =    
-    Try {
-      writeSnapshot(rootDir, serverState, snapshot)
-      writeNotification(rootDir, newNotification)
-    }.recoverWith { case e: Exception =>
-      logger.error("An error occurred, removing snapshot: ", e)
-      e.printStackTrace()
-      deleteSnapshot(rootDir, serverState)
-      Failure(e)
-    }
-
-
-  def writeSnapshot(rootDir: String, serverState: ServerState, snapshot: Snapshot) = {
-//    val ServerState(sessionId, serial) = serverState
-//    val stateDir = getStateDir(rootDir, sessionId.toString, serial)
-//    writeFile(snapshot.bytes, stateDir.resolve(Rrdp.snapshotFilename))
-  }
-
-  def writeDelta(rootDir: String, delta: Delta) = {
-//    val stateDir = getStateDir(rootDir, delta.sessionId.toString, delta.serial)
-//    writeFile(delta.bytes, stateDir.resolve(Rrdp.deltaFilename))
-  }
-
   def writeNotification(rootDir: String, notification: Notification): Option[FileTime] = {
     val root = getRootFolder(rootDir)
     val tmpFile = Files.createTempFile(root, "notification.", ".xml", fileAttributes)
@@ -60,9 +36,6 @@ class RrdpRepositoryWriter extends Logging {
       Files.deleteIfExists(tmpFile)
     }
   }
-
-  private def writeFile(content: Array[Byte], path: Path) =
-    Files.write(path, content)
 
   private def writeFile(content: Node, path: Path): Unit =
     XML.save(path.toString, content, "UTF-8")

@@ -7,12 +7,11 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 import akka.http.scaladsl.settings.ServerSettings
-import com.typesafe.config.{ConfigFactory, ConfigObject, ConfigValue}
+import com.typesafe.config.{Config, ConfigFactory, ConfigObject, ConfigValue}
 import net.ripe.rpki.publicationserver.model.{Delta, ServerState}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
-import com.typesafe.config.Config
 
 /**
  * Helper class which can be wired into clients while making sure that the config file is loaded only once.

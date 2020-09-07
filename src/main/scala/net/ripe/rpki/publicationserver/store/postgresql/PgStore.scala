@@ -72,7 +72,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
   def readDelta(sessionId: String, serial: Long)(f: (String, URI, Option[Hash], Option[Bytes]) => Unit)(implicit session: DBSession) = {
     sql"""SELECT operation, url, old_hash, content
          FROM deltas
-         WHERE session_id = ${sessionId} AND serial = ${serial}"""
+         WHERE session_id = $sessionId AND serial = $serial"""
       .foreach { rs =>
         val operation = rs.string(1)
         val uri = URI.create(rs.string(2))
@@ -94,7 +94,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
   def getReasonableDeltas(sessionId: String)(implicit session: DBSession) = {
     sql"""SELECT serial, delta_hash
           FROM reasonable_deltas
-          WHERE session_id = ${sessionId}
+          WHERE session_id = $sessionId
           ORDER BY serial DESC"""
       .map { rs =>
         (rs.long(1), Hash(rs.string(2)))
@@ -106,8 +106,8 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
   def updateSnapshotInfo(sessionId: String, serial: Long, hash: Hash, size: Long)(implicit session: DBSession): Unit = {
     sql"""UPDATE versions SET
             snapshot_hash = ${hash.hash},
-            snapshot_size = ${size}
-          WHERE session_id = ${sessionId} AND serial = ${serial}"""
+            snapshot_size = $size
+          WHERE session_id = $sessionId AND serial = $serial"""
       .execute()
       .apply()
   }
@@ -116,7 +116,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
     sql"""UPDATE versions SET
             delta_hash = ${hash.hash},
             delta_size = ${size}
-          WHERE session_id = ${sessionId} AND serial = ${serial}"""
+          WHERE session_id = $sessionId AND serial = $serial"""
       .execute()
       .apply()
   }
@@ -152,7 +152,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
           executeSql(
             sql"SELECT replace_object(${bytes}, ${oldHash}, ${uri.toString}, ${clientId.value})",
             {
-              metrics.withdrawnObject();
+              metrics.withdrawnObject()
               metrics.publishedObject()
             },
             metrics.failedToReplace())
@@ -169,12 +169,22 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
     sql"SELECT lock_versions()".execute().apply()
   }
 
+
   def freezeVersion(implicit session: DBSession) = {
-    sql"SELECT session_id, serial FROM freeze_version()"
-      .map(rs => (rs.string(1), rs.long(2)))
+    sql"SELECT session_id, serial, created_at FROM freeze_version()"
+      .map(rs => (rs.string(1), rs.long(2), rs.timestamp(3)))
       .single()
       .apply()
       .get
+  }
+
+  // Delete old version (for a certain definition of "old") and return their
+  // session_id and serial.
+  def deleteOldVersions(implicit session: DBSession) = {
+    sql"SELECT session_id, serial FROM delete_old_versions()"
+      .map(rs => (rs.string(1), rs.long(2)))
+      .list()
+      .apply()
   }
 
   def changesExist(implicit session: DBSession) = {
@@ -230,7 +240,7 @@ object PgStore {
   def migrateDB(pgConfig: PgConfig) = {
     logger.info("Migrating the database")
     val flyway = Flyway.configure.dataSource(pgConfig.url, pgConfig.user, pgConfig.password).load
-    flyway.migrate();
+    flyway.migrate()
   }
 
 }

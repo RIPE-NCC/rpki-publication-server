@@ -149,7 +149,8 @@ class PublicationService(conf: AppConfig, metrics: Metrics)
   var lastTimeFlushed : Option[Instant] = None
 
   def triggerFlush() = {
-    def flush = {
+
+    def flush = synchronized {
       dataFlusher.updateFS()
       logger.info("Updated FS")
       lastTimeFlushed = Some(Instant.now())

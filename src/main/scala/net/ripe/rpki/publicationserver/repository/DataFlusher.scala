@@ -5,18 +5,21 @@ import java.net.URI
 import java.nio.file.attribute.FileTime
 import java.nio.file.{Files, Paths}
 import java.time.Instant
-import java.util.Date
+import java.time.temporal.ChronoUnit
+import java.util.{Date, UUID}
 
-import akka.actor.{Actor, Props}
+import akka.actor.ActorSystem
 import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver._
-import net.ripe.rpki.publicationserver.messaging.Messages._
 import net.ripe.rpki.publicationserver.model._
 import net.ripe.rpki.publicationserver.store.fs.{Rrdp, RrdpRepositoryWriter, RsyncRepositoryWriter}
 import net.ripe.rpki.publicationserver.store.postresql.PgStore
 import scalikejdbc.DBSession
 
-class DataFlusher(conf: AppConfig) extends Hashing with Formatting with Logging {
+class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
+  extends Hashing with Formatting with Logging {
+
+  implicit val executionContext = system.dispatcher
 
   protected lazy val rrdpWriter = new RrdpRepositoryWriter
   protected lazy val rsyncWriter = new RsyncRepositoryWriter(conf)
@@ -30,7 +33,7 @@ class DataFlusher(conf: AppConfig) extends Hashing with Formatting with Logging 
 
     val thereAreChangesSinceTheLastFreeze = pgStore.changesExist
 
-    val (sessionId, latestSerial) = pgStore.freezeVersion
+    val (sessionId, latestSerial, _) = pgStore.freezeVersion
     val (snapshotHash, snapshotSize) =
       withOS(snapshotStream(sessionId, latestSerial)) { snapshotOs =>
         writeSnapshot(sessionId, latestSerial, true, snapshotOs)
@@ -57,6 +60,8 @@ class DataFlusher(conf: AppConfig) extends Hashing with Formatting with Logging 
 
     val notification = Notification.create(conf, sessionId, latestSerial, snapshotHash, deltas)
     rrdpWriter.writeNotification(conf.rrdpRepositoryPath, notification)
+
+    initialRrdpRepositoryCleanup(UUID.fromString(sessionId))
   }
 
   // Write current state of the database into RRDP snapshot and delta and rsync repositories
@@ -64,7 +69,7 @@ class DataFlusher(conf: AppConfig) extends Hashing with Formatting with Logging 
       pgStore.lockVersions
 
       if (pgStore.changesExist) {
-        val (sessionId, serial) = pgStore.freezeVersion
+        val (sessionId, serial, _) = pgStore.freezeVersion
 
         val (snapshotHash, snapshotSize) =
           withOS(snapshotStream(sessionId, serial)) { snapshotOs =>
@@ -81,6 +86,8 @@ class DataFlusher(conf: AppConfig) extends Hashing with Formatting with Logging 
         val deltas = pgStore.getReasonableDeltas(sessionId)
         val notification = Notification.create(conf, sessionId, serial, snapshotHash, deltas)
         rrdpWriter.writeNotification(conf.rrdpRepositoryPath, notification)
+
+        updateRrdpRepositoryCleanup()
       }
     }
 
@@ -131,7 +138,7 @@ class DataFlusher(conf: AppConfig) extends Hashing with Formatting with Logging 
       case ("UPD", Some(b)) => rsyncWriter.writeFile(uri, b)
       case ("DEL", _)       => rsyncWriter.removeFile(uri)
       case anythingElse =>
-        logger.error(s"Log contains invalid row ${anythingElse}")
+        logger.error(s"Log contains invalid row $anythingElse")
     }
 
   private def writeObjectToSnapshotFile(uri: URI, bytes: Bytes, stream: HashingSizedStream): Unit =
@@ -148,7 +155,7 @@ class DataFlusher(conf: AppConfig) extends Hashing with Formatting with Logging 
       case ("DEL", Some(Hash(hash)), None) =>
         IOStream.string(s"""<withdraw uri="${attr(uri.toASCIIString)}" hash="$hash"/>\n""", stream)
       case anythingElse =>
-        logger.error(s"Log contains invalid row ${anythingElse}")
+        logger.error(s"Log contains invalid row $anythingElse")
     }
   }
 
@@ -169,30 +176,46 @@ class DataFlusher(conf: AppConfig) extends Hashing with Formatting with Logging 
   }
 
   def afterRetainPeriod = new Date(System.currentTimeMillis() + conf.unpublishedFileRetainPeriod.toMillis)
-}
 
+  def initialRrdpRepositoryCleanup(sessionId: UUID)(implicit session: DBSession) = {
 
-class RrdpCleaner(conf: AppConfig) extends Actor with Logging {
+    val now = Instant.now()
+    val oldEnough = FileTime.from(now.minus(conf.unpublishedFileRetainPeriod.toMillis, ChronoUnit.MILLIS))
 
-  private val rrdpWriter = new RrdpRepositoryWriter
+    // Delete files related to the current sessions
+    updateRrdpRepositoryCleanup()
 
-  override def receive = {
-    case CleanUpSnapshot(timestamp, serial) =>
-      logger.info(s"Removing snapshots older than $timestamp and having serial number older than $serial")
-      rrdpWriter.deleteSnapshotsOlderThan(conf.rrdpRepositoryPath, timestamp, serial)
-    case CleanUpDeltas(sessionId, serials) =>
-      logger.info(s"Removing deltas with serials: $serials")
-      rrdpWriter.deleteDeltas(conf.rrdpRepositoryPath, sessionId, serials)
-    case CleanUpRepo(sessionId) =>
-      logger.info(s"Removing all the sessions in RRDP repository except for $sessionId")
-      rrdpWriter.cleanRepositoryExceptOneSessionOlderThan(conf.rrdpRepositoryPath, FileTime.from(Instant.now()), sessionId)
-    case CleanUpRepoOldOnesNow(timestamp, sessionId) =>
+    // Cleanup files that are left from some previously existing sessions
+    //
+    // First remove the ones that are more than time T old
+    logger.info(s"Removing all the sessions in RRDP repository except for $sessionId")
+    rrdpWriter.cleanRepositoryExceptOneSessionOlderThan(conf.rrdpRepositoryPath, oldEnough, sessionId)
+
+    // Wait for the time T and delete those which are older than `now`
+    system.scheduler.scheduleOnce(conf.unpublishedFileRetainPeriod, () => {
       logger.info(s"Removing all the older sessions in RRDP repository except for $sessionId")
-      rrdpWriter.cleanRepositoryExceptOneSessionOlderThan(conf.rrdpRepositoryPath, timestamp, sessionId)
+      rrdpWriter.cleanRepositoryExceptOneSessionOlderThan(conf.rrdpRepositoryPath, FileTime.from(now), sessionId)
+      ()
+    })
   }
 
-}
 
-object RrdpCleaner {
-  def props(conf: AppConfig) = Props(new RrdpCleaner(conf))
+  def updateRrdpRepositoryCleanup()(implicit session: DBSession) = {
+
+    val oldEnough = FileTime.from(Instant.now()
+      .minus(conf.unpublishedFileRetainPeriod.toMillis, ChronoUnit.MILLIS))
+
+    // Delete version that are removed from the database
+    pgStore.deleteOldVersions.groupBy(_._1).foreach {
+      case (sessionId, ss) =>
+        val serials = ss.map(_._2).toSet
+        system.scheduler.scheduleOnce(conf.unpublishedFileRetainPeriod, () => {
+          rrdpWriter.deleteDeltas(conf.rrdpRepositoryPath, UUID.fromString(sessionId), serials)
+          val oldestSerial = serials.min
+          logger.info(s"Removing snapshots from the session $sessionId older than $oldEnough and having serial number older than $oldestSerial")
+          rrdpWriter.deleteSnapshotsOlderThan(conf.rrdpRepositoryPath, oldEnough, oldestSerial + 1)
+        })
+    }
+  }
+
 }

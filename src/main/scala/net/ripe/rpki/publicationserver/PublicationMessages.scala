@@ -2,7 +2,6 @@ package net.ripe.rpki.publicationserver
 
 import java.net.URI
 
-import com.google.common.xml.XmlEscapers
 import net.ripe.rpki.publicationserver.Binaries.Bytes
 
 case class BaseError(code: String, message: String)

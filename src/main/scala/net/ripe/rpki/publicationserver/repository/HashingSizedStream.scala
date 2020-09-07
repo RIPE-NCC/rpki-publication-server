@@ -1,9 +1,9 @@
-package net.ripe.rpki.publicationserver.repository;
+package net.ripe.rpki.publicationserver.repository
 
 import java.io.OutputStream
 import java.security.MessageDigest
 
-import net.ripe.rpki.publicationserver.{Hash, Hashing};
+import net.ripe.rpki.publicationserver.{Hash, Hashing}
 
 class HashingSizedStream(val os: OutputStream) extends Hashing {
   private var size: Long = 0

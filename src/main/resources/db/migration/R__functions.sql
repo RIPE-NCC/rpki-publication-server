@@ -298,17 +298,36 @@ $body$
 -- a) have different session id than the latest version
 -- b) are not reasonable to keep, i.e. total size of deltas in the session
 -- becomes bigger than the snapshot size
+-- c) not the last version
 CREATE OR REPLACE FUNCTION delete_old_versions() RETURNS SETOF versions AS
 $body$
 BEGIN
     --
-    DELETE FROM object_log
-    WHERE id < (SELECT MIN(last_log_entry_id) FROM reasonable_deltas);
-
     RETURN QUERY
-        DELETE FROM versions
-            WHERE id NOT IN (SELECT id FROM reasonable_deltas)
-            RETURNING *;
+        WITH latest_version AS (
+            SELECT *
+            FROM versions
+            ORDER BY id DESC
+            LIMIT 1
+        ),
+             deleted_versions AS (
+                 DELETE FROM versions
+                     WHERE id NOT IN (SELECT id FROM reasonable_deltas)
+                         AND id NOT IN (SELECT id FROM latest_version)
+                     RETURNING *
+             ),
+             deleted_log AS (
+                 DELETE FROM object_log ol
+                     WHERE EXISTS(
+                             SELECT last_log_entry_id
+                             FROM deleted_versions
+                             WHERE ol.id <= last_log_entry_id
+                         )
+                     RETURNING id
+             )
+        SELECT *
+        FROM deleted_versions;
+
 END
 $body$
     LANGUAGE plpgsql;

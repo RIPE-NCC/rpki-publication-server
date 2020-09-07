@@ -3,10 +3,14 @@ package net.ripe.rpki.publicationserver.repository
 import java.net.URI
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, NoSuchFileException}
+import java.time.temporal.ChronoUnit
 
 import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.model.ClientId
+import org.scalatest.Matchers.be
+
+import scala.concurrent.duration._
 
 class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
@@ -22,6 +26,7 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
   private val conf = new AppConfig() {
     override lazy val pgConfig = pgTestConfig
     override lazy val rrdpRepositoryPath = rrdpRootDfir.toAbsolutePath.toString
+    override lazy val unpublishedFileRetainPeriod = Duration(20, MILLISECONDS)
     override lazy val rsyncRepositoryMapping = Map(
       URI.create(urlPrefix1) -> rsyncRootDir1,
       URI.create(urlPrefix2) -> rsyncRootDir2
@@ -34,8 +39,12 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     pgStore.clear()
   }
 
+  def waitForRrdpCleanup() = Thread.sleep(200)
+
   test("Should initialise an empty RRDP repository with no objects") {
     flusher.initFS()
+
+    waitForRrdpCleanup()
 
     val (sessionId, serial) = verifySessionAndSerial
 
@@ -81,10 +90,13 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
       }
     }
 
+    waitForRrdpCleanup()
+
     val (sessionId, serial) = verifySessionAndSerial
     verifyRrdpFiles(sessionId, serial)
 
     flusher.initFS()
+    waitForRrdpCleanup()
 
     val (sessionId1, serial1) = verifySessionAndSerial
     sessionId1 should be(sessionId)
@@ -108,6 +120,7 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     pgStore.applyChanges(changeSet, clientId)
 
     flusher.initFS()
+    waitForRrdpCleanup()
 
     Bytes(Files.readAllBytes(rsyncRootDir1.resolve("online").resolve("path1.cer"))) should be(bytes1)
     Bytes(Files.readAllBytes(rsyncRootDir2.resolve("online")
@@ -149,11 +162,13 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
     pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = None, bytes1))), clientId)
     flusher.initFS()
+    waitForRrdpCleanup()
 
     Bytes(Files.readAllBytes(rsyncRootDir1.resolve("online").resolve("path1.cer"))) should be(bytes1)
 
     pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri2, tag = None, hash = None, bytes2))), clientId)
     flusher.initFS()
+    waitForRrdpCleanup()
 
     Bytes(Files.readAllBytes(rsyncRootDir2.resolve("online").resolve("directory").resolve("path2.cer"))) should be(bytes2)
 
@@ -166,11 +181,12 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
       </snapshot>"""
     }
 
-    val deltaBytes1 = verifyExpectedDelta(sessionId, serial-1) {
-      s"""<delta version="1" session_id="${sessionId}" serial="${serial-1}" xmlns="http://www.ripe.net/rpki/rrdp">
-          <publish uri="${uri1}">${base64_1}</publish>
-      </delta>"""
-    }
+    verifyDeltaDoesntExist(sessionId, serial-1)
+//    val deltaBytes1 = verifyExpectedDelta(sessionId, serial-1) {
+//      s"""<delta version="1" session_id="${sessionId}" serial="${serial-1}" xmlns="http://www.ripe.net/rpki/rrdp">
+//          <publish uri="${uri1}">${base64_1}</publish>
+//      </delta>"""
+//    }
 
     val deltaBytes2 = verifyExpectedDelta(sessionId, serial) {
       s"""<delta version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
@@ -201,12 +217,15 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
     pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = None, bytes1))), clientId)
     flusher.initFS()
+    waitForRrdpCleanup()
 
     pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri2, tag = None, hash = None, bytes2))), clientId)
     flusher.initFS()
+    waitForRrdpCleanup()
 
     pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri3, tag = None, hash = None, bytes3))), clientId)
     flusher.initFS()
+    waitForRrdpCleanup()
 
     Bytes(Files.readAllBytes(rsyncRootDir1.resolve("online").resolve("path1.roa"))) should be(bytes1)
     Bytes(Files.readAllBytes(rsyncRootDir1.resolve("online").resolve("pbla").resolve("path2.cer"))) should be(bytes2)
@@ -226,11 +245,12 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
       </snapshot>"""
     }
 
-    val deltaBytes1 = verifyExpectedDelta(sessionId, serial-2) {
-      s"""<delta version="1" session_id="${sessionId}" serial="${serial-2}" xmlns="http://www.ripe.net/rpki/rrdp">
-          <publish uri="${uri1}">${base64_1}</publish>
-      </delta>"""
-    }
+    verifyDeltaDoesntExist(sessionId, serial-2)
+//    val deltaBytes1 = verifyExpectedDelta(sessionId, serial-2) {
+//      s"""<delta version="1" session_id="${sessionId}" serial="${serial-2}" xmlns="http://www.ripe.net/rpki/rrdp">
+//          <publish uri="${uri1}">${base64_1}</publish>
+//      </delta>"""
+//    }
 
     val deltaBytes2 = verifyExpectedDelta(sessionId, serial-1) {
       s"""<delta version="1" session_id="${sessionId}" serial="${serial-1}" xmlns="http://www.ripe.net/rpki/rrdp">
@@ -289,7 +309,8 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
       ("INS", uri2, None, bytes2)
     ))
 
-    flusher.updateFS
+    flusher.updateFS()
+    waitForRrdpCleanup()
 
     val (sessionId, serial) = verifySessionAndSerial
 
@@ -318,6 +339,7 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
   test("Should update an empty RRDP repository with no objects") {
     flusher.updateFS()
+    waitForRrdpCleanup()
 
     pgStore.inRepeatableReadTx { implicit session =>
       pgStore.getCurrentSessionInfo
@@ -326,6 +348,7 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
   test("Should update an RRDP repository with a couple of objects published at once") {
     flusher.initFS()
+    waitForRrdpCleanup()
 
     val clientId = ClientId("client1")
 
@@ -341,6 +364,7 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     pgStore.applyChanges(changeSet, clientId)
 
     flusher.updateFS()
+    waitForRrdpCleanup()
 
     val (sessionId, serial) = verifySessionAndSerial
 
@@ -368,6 +392,7 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
   test("Should update an RRDP repository after 3 publishes (only two deltas because of the size)") {
     flusher.initFS()
+    waitForRrdpCleanup()
 
     val clientId = ClientId("client1")
 
@@ -381,20 +406,24 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
     pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = None, bytes1))), clientId)
     flusher.updateFS()
+    waitForRrdpCleanup()
 
     Bytes(Files.readAllBytes(rsyncRootDir1.resolve("online").resolve("path1.roa"))) should be(bytes1)
 
     pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri2, tag = None, hash = None, bytes2))), clientId)
     flusher.updateFS()
+    waitForRrdpCleanup()
 
     Bytes(Files.readAllBytes(rsyncRootDir1.resolve("online").resolve("q").resolve("path2.cer"))) should be(bytes2)
 
     pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri3, tag = None, hash = None, bytes3))), clientId)
     flusher.updateFS()
+    waitForRrdpCleanup()
 
     Bytes(Files.readAllBytes(rsyncRootDir2.resolve("online").resolve("path3.crl"))) should be(bytes3)
 
     val (sessionId, serial) = verifySessionAndSerial
+    serial should be(4)
 
     val snapshotBytes = verifyExpectedSnapshot(sessionId, serial) {
       s"""<snapshot version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
@@ -404,11 +433,10 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
       </snapshot>"""
     }
 
-    verifyExpectedDelta(sessionId, serial - 2) {
-      s"""<delta version="1" session_id="${sessionId}" serial="${serial - 2}" xmlns="http://www.ripe.net/rpki/rrdp">
-          <publish uri="${uri1}">${base64_1}</publish>
-      </delta>"""
-    }
+    verifySnapshotDoesntExist(sessionId, serial - 3)
+    verifySnapshotDoesntExist(sessionId, serial - 2)
+    verifyDeltaDoesntExist(sessionId, serial - 3)
+    verifyDeltaDoesntExist(sessionId, serial - 2)
 
     val deltaBytes2 = verifyExpectedDelta(sessionId, serial - 1) {
       s"""<delta version="1" session_id="${sessionId}" serial="${serial - 1}" xmlns="http://www.ripe.net/rpki/rrdp">
@@ -434,63 +462,46 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
   test("Should update RRDP and rsync when objects are published and withdrawn") {
     flusher.initFS()
+    waitForRrdpCleanup()
 
     val clientId = ClientId("client1")
 
     val uri1 = new URI(urlPrefix1 + "/path1.roa")
-    val uri2 = new URI(urlPrefix1 + "/q/path2.cer")
-    val uri3 = new URI(urlPrefix2 + "/path3.crl")
 
     val (bytes1, base64_1) = TestBinaries.generateObject(1000)
     val (bytes2, base64_2) = TestBinaries.generateObject(200)
-    val (bytes3, base64_3) = TestBinaries.generateObject(100)
 
     pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = None, bytes1))), clientId)
     flusher.updateFS()
+    waitForRrdpCleanup()
 
     Bytes(Files.readAllBytes(rsyncRootDir1.resolve("online").resolve("path1.roa"))) should be(bytes1)
 
     pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = Some(hash(bytes1).hash), bytes2))), clientId)
     flusher.updateFS()
+    waitForRrdpCleanup()
 
     Bytes(Files.readAllBytes(rsyncRootDir1.resolve("online").resolve("path1.roa"))) should be(bytes2)
 
     pgStore.applyChanges(QueryMessage(Seq(WithdrawQ(uri1, tag = None, hash = hash(bytes2).hash))), clientId)
     flusher.updateFS()
+    waitForRrdpCleanup()
 
     rsyncRootDir1.resolve("online").resolve("path1.roa").toFile.exists() should be(false)
 
     val (sessionId, serial) = verifySessionAndSerial
+    serial should be(4L)
+
+    verifySnapshotDoesntExist(sessionId, serial - 2)
+    verifySnapshotDoesntExist(sessionId, serial - 1)
+    verifyDeltaDoesntExist(sessionId, serial - 2)
+    verifyDeltaDoesntExist(sessionId, serial - 1)
 
     val snapshotBytes = verifyExpectedSnapshot(sessionId, serial) {
       s"""<snapshot version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp"></snapshot>"""
     }
 
-    verifyExpectedSnapshot(sessionId, serial - 1) {
-      s"""<snapshot version="1" session_id="${sessionId}" serial="${serial-1}" xmlns="http://www.ripe.net/rpki/rrdp">
-            <publish uri="${uri1}">${base64_2}</publish>
-         </snapshot>"""
-    }
-
-    verifyExpectedSnapshot(sessionId, serial - 2) {
-      s"""<snapshot version="1" session_id="${sessionId}" serial="${serial-2}" xmlns="http://www.ripe.net/rpki/rrdp">
-            <publish uri="${uri1}">${base64_1}</publish>
-         </snapshot>"""
-    }
-
-    verifyExpectedDelta(sessionId, serial - 2) {
-      s"""<delta version="1" session_id="${sessionId}" serial="${serial - 2}" xmlns="http://www.ripe.net/rpki/rrdp">
-          <publish uri="${uri1}">${base64_1}</publish>
-      </delta>"""
-    }
-
-    val deltaBytes2 = verifyExpectedDelta(sessionId, serial - 1) {
-      s"""<delta version="1" session_id="${sessionId}" serial="${serial - 1}" xmlns="http://www.ripe.net/rpki/rrdp">
-          <publish uri="${uri1}" hash="${hash(bytes1).hash}">${base64_2}</publish>
-      </delta>"""
-    }
-
-    val deltaBytes3 = verifyExpectedDelta(sessionId, serial) {
+    verifyExpectedDelta(sessionId, serial) {
       s"""<delta version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
           <withdraw uri="${uri1}" hash="${hash(bytes2).hash}"/>
       </delta>"""
@@ -506,6 +517,7 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
   test("updateFS function must be idempotent") {
 
     flusher.initFS()
+    waitForRrdpCleanup()
 
     val clientId = ClientId("client1")
 
@@ -545,11 +557,13 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     pgStore.applyChanges(changeSet, clientId)
 
     flusher.updateFS()
+    waitForRrdpCleanup()
 
     val (sessionId, serial) = verifySessionAndSerial
     verifyRrpdFiles(sessionId, serial)
 
     flusher.updateFS()
+    waitForRrdpCleanup()
 
     val (sessionId1, serial1) = verifySessionAndSerial
     sessionId1 should be(sessionId)
@@ -578,6 +592,12 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     trim(generatedNotification) should be(trim(expected))
     bytes
   }
+
+  private def verifySnapshotDoesntExist(sessionId: String, serial: Long) =
+    rrdpRootDfir.resolve(sessionId).resolve(serial.toString).resolve("snapshot.xml").toFile.exists() should be(false)
+
+  private def verifyDeltaDoesntExist(sessionId: String, serial: Long) =
+    rrdpRootDfir.resolve(sessionId).resolve(serial.toString).resolve("delta.xml").toFile.exists() should be(false)
 
 
 }
