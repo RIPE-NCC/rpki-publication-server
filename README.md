@@ -13,6 +13,11 @@ It has been tested with Oracle's JDK, but should work with other implementations
 
 Use `sbt universal:packageZipTarball` to create a distribution archive from sources.
 
+For running and testing locally one would need to create PostgreSQL databases
+
+    createuser -R -S -D pubserver
+    createdb -O pubserver pubserver
+    createdb -O pubserver pubserver_test
 
 Running the server
 ------------------
