@@ -13,7 +13,7 @@ import org.json4s.native.JsonMethods._
 import scalikejdbc.{ConnectionPool, ConnectionPoolSettings, DB, DBSession, IsolationLevel, NoExtractor, SQL, scalikejdbcSQLInterpolationImplicitDef}
 
 
-class RollbackException(val error: BaseError) extends Exception
+case class RollbackException(val error: BaseError) extends Exception
 
 class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
 

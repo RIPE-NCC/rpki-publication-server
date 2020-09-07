@@ -114,7 +114,7 @@ BEGIN
 
     IF existing_client_id <> client_id_ THEN
         RETURN json_build_object('code', 'permission_failure', 'message',
-                                 format('Not allowed to update an object of another client [%s].', url_));
+                                 format('Not allowed to update an object of another client: [%s].', url_));
     END IF;
 
     -- NOTE: reference in object_urls will be removed by the cascading constraint
@@ -157,13 +157,13 @@ BEGIN
 
     IF existing_hash <> hash_to_delete THEN
         RETURN json_build_object('code', 'no_object_matching_hash', 'message',
-                                 format('Cannot withdraw the object [%s], hash doesn''t match, ' ||
-                                 'passed %s, but existing one is %s', url_, hash_to_delete, existing_hash));
+                                 format('Cannot withdraw the object [%s], hash does not match, ' ||
+                                 'passed %s, but existing one is %s.', url_, hash_to_delete, existing_hash));
     END IF;
 
     IF existing_client_id <> client_id_ THEN
         RETURN json_build_object('code', 'permission_failure', 'message',
-                                 format('Not allowed to delete an object of another client [%s].', url_));
+                                 format('Not allowed to delete an object of another client: [%s].', url_));
     END IF;
 
     -- NOTE: reference in object_urls will be removed by the cascading constraint

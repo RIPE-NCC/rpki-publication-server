@@ -94,7 +94,7 @@ class PublicationIntegrationTest
     val wrongHash = hash(Base64(TestBinaries.generateSomeBase64())).hash
     val w = client.withdraw(clientId, url, wrongHash)
     w should include(s"""<report_error error_code="no_object_matching_hash">""")
-    w should include(s"""Cannot withdraw the object [${url}], hash doesn't match, passed ${wrongHash}, but existing one is $hashStr""")
+    w should include(s"""Cannot withdraw the object [${url}], hash does not match, passed ${wrongHash}, but existing one is $hashStr.""")
 
     forMetrics { metrics =>
         metrics should include("""rpkipublicationserver_objects_failure_total{operation="delete",} 1.0""")
