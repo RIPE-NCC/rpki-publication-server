@@ -10,7 +10,7 @@ $$ LANGUAGE SQL;
 -- Auxiliary functions for client_id lock
 CREATE OR REPLACE FUNCTION acquire_client_id_lock(client_id_ TEXT) RETURNS VOID AS
 $$
-SELECT pg_advisory_lock(1234567, CAST(hashed % 1234567 AS INT))
+SELECT pg_advisory_xact_lock(1234567, CAST(hashed % 1234567 AS INT))
 FROM (SELECT hash_bigint(client_id_) AS hashed) AS z
 $$ LANGUAGE SQL;
 
