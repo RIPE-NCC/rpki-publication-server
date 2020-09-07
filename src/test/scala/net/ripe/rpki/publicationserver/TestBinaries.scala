@@ -15,4 +15,11 @@ object TestBinaries {
     (bytes, Bytes.toBase64(bytes).value)
   }
 
+  def generateObjectNotBiggerThan(size: Int = 20) = {
+    val realSize = Math.max(10, scala.util.Random.nextInt(size))
+    val randomBytes = Array.fill(realSize)((scala.util.Random.nextInt(256) - 128).toByte)
+    val bytes = Bytes(randomBytes)
+    (bytes, Bytes.toBase64(bytes).value)
+  }
+
 }

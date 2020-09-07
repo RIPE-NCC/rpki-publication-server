@@ -13,6 +13,7 @@ import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.fs.{Rrdp, RrdpRepositoryWriter, RsyncRepositoryWriter}
 import net.ripe.rpki.publicationserver.store.postresql.PgStore
+import net.ripe.rpki.publicationserver.util.Time
 import scalikejdbc.DBSession
 
 class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
@@ -69,26 +70,38 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
     pgStore.lockVersions
 
     if (pgStore.changesExist) {
-      val (sessionId, serial, _) = pgStore.freezeVersion
+      val ((sessionId, serial, _), duration) = Time.timed(pgStore.freezeVersion)
+      logger.info(s"Froze version $sessionId, $serial, took ${duration}ms")
 
-      val (snapshotHash, snapshotSize) =
+      val ((snapshotHash, snapshotSize), snapshotDuration) = Time.timed {
         withOS(snapshotStream(sessionId, serial)) { snapshotOs =>
           writeSnapshot(sessionId, serial, false, snapshotOs)
         }
-      val (deltaHash, deltaSize) =
+      }
+      logger.info(s"Generated snapshot $sessionId, $serial, took ${snapshotDuration}ms")
+
+      val ((deltaHash, deltaSize), deltaDuration) = Time.timed {
         withOS(deltaStream(sessionId, serial)) { deltaOs =>
           writeDelta(sessionId, serial, true, deltaOs)
         }
+      }
+      logger.info(s"Generated delta $sessionId, $serial, took ${deltaDuration}ms")
 
       pgStore.updateDeltaInfo(sessionId, serial, deltaHash, deltaSize)
       pgStore.updateSnapshotInfo(sessionId, serial, snapshotHash, snapshotSize)
 
-      val deltas = pgStore.getReasonableDeltas(sessionId)
-      rrdpWriter.writeNotification(conf.rrdpRepositoryPath) { os =>
-        writeNotification(sessionId, serial, snapshotHash, deltas, new HashingSizedStream(os))
+      val (_, d)  = Time.timed {
+        val deltas = pgStore.getReasonableDeltas(sessionId)
+        rrdpWriter.writeNotification(conf.rrdpRepositoryPath) { os =>
+          writeNotification(sessionId, serial, snapshotHash, deltas, new HashingSizedStream(os))
+        }
       }
+      logger.info(s"Generated notification $sessionId, $serial, took ${d}ms")
 
-      updateRrdpRepositoryCleanup()
+      val (_, cleanupDuration)  = Time.timed {
+        updateRrdpRepositoryCleanup()
+      }
+      logger.info(s"Cleanup $sessionId, $serial, took ${cleanupDuration}ms")
     }
   }
 
