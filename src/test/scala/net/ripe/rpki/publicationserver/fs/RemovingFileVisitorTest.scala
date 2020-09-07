@@ -1,4 +1,4 @@
-package net.ripe.rpki.publicationserver.store.fs
+package net.ripe.rpki.publicationserver.fs
 
 import java.nio.file.{Paths, FileVisitResult, Path, Files}
 import java.nio.file.attribute.{BasicFileAttributes, FileTime}

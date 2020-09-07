@@ -4,10 +4,9 @@ package net.ripe.logging
  * The code below is copied from http://stackoverflow.com/a/11187462
  */
 
-import java.io.IOException
-import java.io.PrintStream
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
+import java.io.{IOException, PrintStream}
+
+import org.slf4j.{Logger, LoggerFactory}
 
 object SysStreamsLogger {
     private val sysOutLogger: Logger = LoggerFactory.getLogger("SYSOUT")

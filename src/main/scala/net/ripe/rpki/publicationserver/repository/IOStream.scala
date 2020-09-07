@@ -1,8 +1,6 @@
-package net.ripe.rpki.publicationserver.model
+package net.ripe.rpki.publicationserver.repository
 
 import java.nio.charset.StandardCharsets
-
-import net.ripe.rpki.publicationserver.repository.HashingSizedStream
 
 object IOStream {
   def string(s: String, stream: HashingSizedStream): Unit =

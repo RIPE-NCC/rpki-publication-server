@@ -7,7 +7,6 @@ import net.ripe.rpki.publicationserver.Boot.logger
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.metrics.Metrics
 import net.ripe.rpki.publicationserver.model.ClientId
-import net.ripe.rpki.publicationserver.store.ObjectStore
 import org.flywaydb.core.Flyway
 import org.json4s._
 import org.json4s.native.JsonMethods._
@@ -30,7 +29,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
     sql"DELETE FROM versions".update.apply()
   }
 
-  def getState: ObjectStore.State = DB.localTx { implicit session =>
+  def getState = DB.localTx { implicit session =>
     sql"SELECT * FROM current_state"
       .map { rs =>
         val hash = Hash(rs.string(1))

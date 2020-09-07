@@ -4,7 +4,6 @@ import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
 
 import net.ripe.rpki.publicationserver.Binaries.Bytes
-import net.ripe.rpki.publicationserver.model.IOStream
 import net.ripe.rpki.publicationserver.{Hashing, PublicationServerBaseTest}
 
 class HashingSizedStreamTest extends PublicationServerBaseTest with Hashing {
