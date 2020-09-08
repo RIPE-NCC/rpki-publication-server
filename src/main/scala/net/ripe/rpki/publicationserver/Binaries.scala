@@ -27,10 +27,6 @@ object Binaries {
     def fromBase64(b64: Base64): Bytes = Bytes(base64decoder.decode(b64.value))
 
     def toBase64(bytes: Bytes): Base64 = Base64(base64encoder.encodeToString(bytes.value))
-
-    def toBase64Stream(bytes: Bytes, stream: OutputStream): Unit = {
-      base64encoder.wrap(stream).write(bytes.value)
-    }
   }
 
 }
