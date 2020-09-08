@@ -170,7 +170,7 @@ class PublicationService(conf: AppConfig, metrics: Metrics)
             val left = conf.snapshotSyncDelay.toMillis - between
             FiniteDuration(left, MILLISECONDS)
           }
-        system.scheduler.scheduleOnce(duration, () => flush)
+        system.scheduler.scheduleOnce(duration)(flush)
     }
   }
 

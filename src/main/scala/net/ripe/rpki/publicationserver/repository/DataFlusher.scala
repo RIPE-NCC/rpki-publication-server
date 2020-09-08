@@ -216,7 +216,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
     rrdpWriter.cleanRepositoryExceptOneSessionOlderThan(conf.rrdpRepositoryPath, oldEnough, sessionId)
 
     // Wait for the time T and delete those which are older than `now`
-    system.scheduler.scheduleOnce(conf.unpublishedFileRetainPeriod, () => {
+    system.scheduler.scheduleOnce(conf.unpublishedFileRetainPeriod)({
       logger.info(s"Removing all the older sessions in RRDP repository except for $sessionId")
       rrdpWriter.cleanRepositoryExceptOneSessionOlderThan(conf.rrdpRepositoryPath, FileTime.from(now), sessionId)
       ()
@@ -233,7 +233,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
     pgStore.deleteOldVersions.groupBy(_._1).foreach {
       case (sessionId, ss) =>
         val serials = ss.map(_._2).toSet
-        system.scheduler.scheduleOnce(conf.unpublishedFileRetainPeriod, () => {
+        system.scheduler.scheduleOnce(conf.unpublishedFileRetainPeriod)({
           rrdpWriter.deleteDeltas(conf.rrdpRepositoryPath, UUID.fromString(sessionId), serials)
           val oldestSerial = serials.min
           logger.info(s"Removing snapshots from the session $sessionId older than $oldEnough and having serial number older than $oldestSerial")

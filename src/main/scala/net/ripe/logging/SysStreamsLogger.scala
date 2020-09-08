@@ -15,12 +15,12 @@ object SysStreamsLogger {
     val syserr: PrintStream = System.err
     protected val LINE_SEPERATOR: String = System.getProperty("line.separator")
 
-    def bindSystemStreams() {
+    def bindSystemStreams(): Unit = {
         System.setOut(new PrintStream(new LoggingOutputStream(sysOutLogger, false), true))
         System.setErr(new PrintStream(new LoggingOutputStream(sysErrLogger, true), true))
     }
 
-    def unbindSystemStreams() {
+    def unbindSystemStreams(): Unit = {
         System.setOut(sysout)
         System.setErr(syserr)
     }
@@ -77,7 +77,7 @@ object SysStreamsLogger {
           * <code>close</code> is that it closes the output stream. A closed
           * stream cannot perform output operations and cannot be reopened.
           */
-        override def close() {
+        override def close(): Unit = {
             flush()
             hasBeenClosed = true
         }
@@ -115,7 +115,7 @@ object SysStreamsLogger {
           * have been buffered by the implementation of the output stream, such
           * bytes should immediately be written to their intended destination.
           */
-        override def flush() {
+        override def flush(): Unit = {
             if (count != 0) {
                 if (count == LINE_SEPERATOR.length) {
                     if (buf(0).toChar == LINE_SEPERATOR.charAt(0) && ((count == 1) || ((count == 2) && buf(1).toChar == LINE_SEPERATOR.charAt(1)))) {
@@ -131,7 +131,7 @@ object SysStreamsLogger {
             }
         }
 
-        private def reset() {
+        private def reset(): Unit = {
             count = 0
         }
     }
