@@ -22,14 +22,13 @@ SELECT pg_advisory_xact_lock(999999);
 $$ LANGUAGE SQL;
 
 
--- Reusable part of both create and replace
+-- Reusable part of both create and replace an object in the 'objects' table.
 -- 
 CREATE OR REPLACE FUNCTION merge_object(bytes_ BYTEA,
                                         hash_ CHAR(64),
                                         url_ TEXT,
                                         client_id_ TEXT) RETURNS VOID AS
-$body$
-BEGIN
+$$
     WITH
         existing AS (
             SELECT id FROM objects WHERE hash = hash_
@@ -47,13 +46,15 @@ BEGIN
             UNION ALL
             SELECT id FROM inserted
         ) AS z;
-END
-$body$
-LANGUAGE plpgsql;
+$$ LANGUAGE SQL;
 
 
--- Add an object, corresponds to
--- <publish> without hash to replace.
+-- Add an object, corresponds to <publish> without hash to replace.
+--
+-- Returns JSON string that can be simply converted into
+-- BaseError object in the Scala code.
+--
+-- Error codes are defined by the RFC (https://tools.ietf.org/html/rfc8181#page-9)
 CREATE OR REPLACE FUNCTION create_object(bytes_ BYTEA,
                                          url_ TEXT,
                                          client_id_ TEXT) RETURNS JSON AS
@@ -83,6 +84,10 @@ $body$
 --
 -- Replace an object, corresponds to <publish hash="...">
 --
+-- Returns JSON string that can be simply converted into
+-- BaseError object in the Scala code.
+--
+-- Error codes are defined by the RFC (https://tools.ietf.org/html/rfc8181#page-9)
 CREATE OR REPLACE FUNCTION replace_object(bytes_ BYTEA,
                                           hash_to_replace CHAR(64),
                                           url_ TEXT,
@@ -134,6 +139,10 @@ $body$
 
 
 -- Delete an object, corresponds to <withdraw hash="...">.
+-- Returns JSON string that can be simply converted into
+-- BaseError object in the Scala code.
+--
+-- Error codes are defined by the RFC (https://tools.ietf.org/html/rfc8181#page-9)
 CREATE OR REPLACE FUNCTION delete_object(url_ TEXT,
                                          hash_to_delete CHAR(64),
                                          client_id_ TEXT) RETURNS JSON AS
@@ -178,6 +187,7 @@ $body$
     LANGUAGE plpgsql;
 
 
+-- All the objects currently stored
 CREATE OR REPLACE VIEW current_state AS
 SELECT LOWER(hash) as hash, url, client_id, content
 FROM objects o
@@ -185,21 +195,32 @@ INNER JOIN object_urls ou ON ou.object_id = o.id
 ORDER BY url;
 
 
+-- Convenience view for delta meta information (session_id, serial) together
+-- with the object_log entries related to the delta.
 CREATE OR REPLACE VIEW deltas AS
 WITH framed_version AS (
     SELECT session_id,
            serial,
            last_log_entry_id,
-           COALESCE(lag(last_log_entry_id, 1) OVER (ORDER BY id), 0) AS previous_log_entry_id
+           -- last_log_entry_id of the previous delta
+           COALESCE(LAG(last_log_entry_id, 1) OVER (ORDER BY id), 0) AS previous_log_entry_id
     FROM versions
 )
 SELECT id, operation, url, old_hash, content, session_id, serial
 FROM object_log ol
          INNER JOIN framed_version ON
+     -- objects related to the current delta serial are the ones
+     -- with id between last_log_entry_id of this serial and
+     -- last_log_entry_id of the previous serial, i.e. previous_log_entry_id
     ol.id <= last_log_entry_id AND ol.id > previous_log_entry_id
 ORDER BY id ASC;
 
 
+-- Return deltas that reasonable to put into the notification.xml file.
+-- These has to be
+-- 1) deltas from the latest session
+-- 2) of total size not larger than the latest snapshot
+-- 3) having a definite hash (latest delta can have undefined hash until its file is generated and written)
 CREATE OR REPLACE VIEW reasonable_deltas AS
 WITH latest_version AS (
     SELECT *
@@ -254,8 +275,8 @@ BEGIN
         ORDER BY id DESC
         LIMIT 1;
     ELSE
-        -- this can happen on a completely empty database, not log, no versions
-        -- just initialise with something reasonable
+        -- this can happen on a completely empty database, no object_log, no versions
+        -- just initialise with something reasonable.
         INSERT INTO versions (session_id, serial, last_log_entry_id)
         VALUES (uuid_in(md5(random()::TEXT || clock_timestamp()::TEXT)::CSTRING), 1, 0);
 
@@ -299,37 +320,34 @@ $body$
 -- b) are not reasonable to keep, i.e. total size of deltas in the session
 -- becomes bigger than the snapshot size
 -- c) not the last version
-CREATE OR REPLACE FUNCTION delete_old_versions() RETURNS SETOF versions AS
-$body$
-BEGIN
-    --
-    RETURN QUERY
-        WITH latest_version AS (
-            SELECT *
-            FROM versions
-            ORDER BY id DESC
-            LIMIT 1
-        ),
-             deleted_versions AS (
-                 DELETE FROM versions
-                     WHERE id NOT IN (SELECT id FROM reasonable_deltas)
-                         AND id NOT IN (SELECT id FROM latest_version)
-                     RETURNING *
-             ),
-             deleted_log AS (
-                 DELETE FROM object_log ol
-                     WHERE EXISTS(
-                             SELECT last_log_entry_id
-                             FROM deleted_versions
-                             WHERE ol.id <= last_log_entry_id
-                         )
-                     RETURNING id
-             )
+CREATE OR REPLACE FUNCTION delete_old_versions()
+    RETURNS SETOF versions AS
+$$
+WITH
+     latest_version AS (
         SELECT *
-        FROM deleted_versions;
+        FROM versions
+        ORDER BY id DESC
+        LIMIT 1
+     ),
+     deleted_versions AS (
+         DELETE FROM versions
+             WHERE id NOT IN (SELECT id FROM reasonable_deltas)
+                 AND id NOT IN (SELECT id FROM latest_version)
+             RETURNING *
+     ),
+     deleted_log AS (
+         DELETE FROM object_log ol
+             WHERE EXISTS(
+                     SELECT last_log_entry_id
+                     FROM deleted_versions
+                     WHERE ol.id <= last_log_entry_id
+                 )
+             RETURNING id
+     )
+SELECT *
+FROM deleted_versions;
 
-END
-$body$
-    LANGUAGE plpgsql;
+$$ LANGUAGE SQL;
 
 COMMIT;
