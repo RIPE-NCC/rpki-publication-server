@@ -46,7 +46,7 @@ class HealthChecks(val appConfig: AppConfig) {
     if (result.isFailure) throw result.failed.get else "OK"
   }
 
-  def mb(b: Long) = (b/(1024*1024)) + "mb"
+  def mb(b: Long) = s"${(b/(1024*1024))}mb"
 
   def memoryStat = {
     val r = Runtime.getRuntime

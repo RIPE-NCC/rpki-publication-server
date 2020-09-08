@@ -13,7 +13,8 @@ import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver.metrics.Metrics
 import net.ripe.rpki.publicationserver.model._
 import net.ripe.rpki.publicationserver.store.postresql.PgStore
-import org.scalatest.{BeforeAndAfter, FunSuite}
+import org.scalatest.BeforeAndAfter
+import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
@@ -21,7 +22,7 @@ import scala.io.Source
 import scala.util.Try
 import scala.xml.Elem
 
-abstract class PublicationServerBaseTest extends FunSuite with BeforeAndAfter with Matchers with TestLogSetup with ScalatestRouteTest {
+abstract class PublicationServerBaseTest extends AnyFunSuite with BeforeAndAfter with Matchers with TestLogSetup with ScalatestRouteTest {
 
   protected def waitTime: FiniteDuration = 30.seconds
 

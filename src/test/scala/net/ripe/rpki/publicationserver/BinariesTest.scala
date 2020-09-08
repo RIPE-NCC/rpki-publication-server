@@ -1,9 +1,12 @@
 package net.ripe.rpki.publicationserver
 
 import net.ripe.rpki.publicationserver.Binaries.{Base64, Bytes}
-import org.scalatest.{Assertion, FunSuite, Matchers}
+import org.scalatest.Assertion
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 
-class BinariesTest extends FunSuite with Matchers {
+
+class BinariesTest extends AnyFunSuite with Matchers {
   test("should convert to base64 and back") {
     check(Base64("AABB1100"))
     check(Base64("AA=="))

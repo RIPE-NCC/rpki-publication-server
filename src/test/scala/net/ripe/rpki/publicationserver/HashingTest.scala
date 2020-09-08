@@ -1,8 +1,9 @@
 package net.ripe.rpki.publicationserver
 
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 
-class HashingTest extends FunSuite with Matchers with Hashing {
+class HashingTest extends AnyFunSuite with Matchers with Hashing {
   test("should parse publish message") {
     stringify(null) should be("")
     stringify(Array()) should be("")

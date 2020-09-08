@@ -8,8 +8,8 @@ import java.util.concurrent.TimeUnit
 import akka.http.scaladsl.settings.ServerSettings
 import com.typesafe.config.{Config, ConfigFactory, ConfigObject, ConfigValue}
 
-import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
+import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 /**
  * Helper class which can be wired into clients while making sure that the config file is loaded only once.
