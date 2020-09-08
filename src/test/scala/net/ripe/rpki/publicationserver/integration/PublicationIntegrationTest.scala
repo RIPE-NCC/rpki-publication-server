@@ -16,7 +16,7 @@ class PublicationIntegrationTest
   private var server: PublicationServerApp = null
   private var client: PublicationServerClient = null
 
-  override def beforeAll = {
+  override def beforeAll(): Unit = {
 
     val logger = LoggerFactory.getLogger(this.getClass)
 

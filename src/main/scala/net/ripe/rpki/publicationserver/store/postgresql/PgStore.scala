@@ -23,10 +23,10 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
   }
 
   def clear(): Unit = DB.localTx { implicit session =>
-    sql"TRUNCATE TABLE object_log CASCADE".update.apply()
-    sql"TRUNCATE TABLE object_urls CASCADE".update.apply()
-    sql"TRUNCATE TABLE objects CASCADE".update.apply()
-    sql"TRUNCATE TABLE versions CASCADE".update.apply()
+    sql"TRUNCATE TABLE object_log CASCADE".update().apply()
+    sql"TRUNCATE TABLE object_urls CASCADE".update().apply()
+    sql"TRUNCATE TABLE objects CASCADE".update().apply()
+    sql"TRUNCATE TABLE versions CASCADE".update().apply()
   }
 
   def getState = DB.localTx { implicit session =>
@@ -38,8 +38,8 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
         val bytes = Bytes.fromStream(rs.binaryStream(4))
         uri -> (bytes, hash, clientId)
       }
-      .list
-      .apply
+      .list()
+      .apply()
       .toMap
   }
 
@@ -54,8 +54,8 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
         val bytes = rs.binaryStreamOpt(4).map(Bytes.fromStream)
         (operation, uri, hash, bytes)
       }
-      .list
-      .apply
+      .list()
+      .apply()
   }
 
   def readState(f: (URI, Hash, Bytes) => Unit)(implicit session: DBSession) = {
@@ -215,8 +215,8 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
            FROM current_state
            WHERE client_id = ${clientId.value}"""
       .map(rs => (rs.string(1), rs.string(2)))
-      .list
-      .apply
+      .list()
+      .apply()
   }
 }
 

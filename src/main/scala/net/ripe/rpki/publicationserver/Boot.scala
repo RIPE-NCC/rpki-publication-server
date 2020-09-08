@@ -46,7 +46,7 @@ class PublicationServerApp(conf: AppConfig, logger: Logger) extends RRDPService 
 
   val healthChecks = new HealthChecks(conf)
 
-  def run() {
+  def run(): Unit = {
 
     implicit val timeout = Timeout(5.seconds)
 
@@ -80,7 +80,7 @@ class PublicationServerApp(conf: AppConfig, logger: Logger) extends RRDPService 
             .flatMap(_ => 
                 Await.result(httpsBinding, 10.seconds)            
                 .terminate(hardDeadline = 3.seconds))
-            .flatMap(_ => system.terminate)
+            .flatMap(_ => system.terminate())
   }
 
   private def sslContext(): SSLContext = {

@@ -8,6 +8,7 @@ import java.util.UUID
 import net.ripe.rpki.publicationserver._
 
 import scala.util.Try
+import scala.collection.parallel.CollectionConverters._
 
 class RrdpRepositoryWriter extends Logging {
 

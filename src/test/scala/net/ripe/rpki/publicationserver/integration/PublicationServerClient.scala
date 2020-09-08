@@ -2,23 +2,26 @@ package net.ripe.rpki.publicationserver.integration
 
 import akka.http.scaladsl.model._
 import java.net.URL
+
 import javax.net.ssl._
 import net.ripe.rpki.publicationserver.PublicationService
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
-import akka.http.scaladsl.Http
-import scala.concurrent.Await
+import akka.http.scaladsl.{ConnectionContext, Http, HttpExt, HttpsConnectionContext}
+
 import scala.concurrent.duration._
 import java.security.KeyStore
 import java.io.FileInputStream
-import akka.http.scaladsl.ConnectionContext
+
 import com.typesafe.sslconfig.akka.AkkaSSLConfig
 import akka.util.ByteString
 import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets
+
 import scala.xml.NodeSeq
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.HttpExt
+
+import scala.concurrent.Await
 
 class PublicationServerClient() {
 
@@ -29,7 +32,7 @@ class PublicationServerClient() {
   private val rrdpPort = 7788
 
   private def https = {
-    val httpImpl = Http()    
+    val httpImpl = Http()
     // TODO Find a not deprecatreds way to do it
     val sslConfig = AkkaSSLConfig().mapSettings(s =>
       s.withLoose(s.loose.withDisableHostnameVerification(true))
