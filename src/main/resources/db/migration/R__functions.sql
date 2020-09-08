@@ -1,17 +1,17 @@
 BEGIN;
 
 -- Some utility functions first
---
-CREATE OR REPLACE FUNCTION hash_bigint(TEXT) RETURNS BIGINT AS
-$$
-SELECT ('x' || substr(md5($1), 1, 16)) :: BIT(64) :: BIGINT;
-$$ LANGUAGE SQL;
 
 -- Auxiliary functions for client_id lock
 CREATE OR REPLACE FUNCTION acquire_client_id_lock(client_id_ TEXT) RETURNS VOID AS
 $$
-SELECT pg_advisory_xact_lock(1234567, CAST(hashed % 1234567 AS INT))
-FROM (SELECT hash_bigint(client_id_) AS hashed) AS z
+    SELECT pg_advisory_xact_lock(1234567, CAST(hashed % 1234567 AS INT))
+    FROM (
+        -- Here md5 used just as an instance of reasonable string -> int conversion.
+        -- We only need it to return preferably different integers for different strings
+        -- and do not use any extensions such as pgcrypto.
+         SELECT ('x' || substr(md5($1), 1, 16)) :: BIT(64) :: BIGINT AS hashed
+    ) AS z
 $$ LANGUAGE SQL;
 
 -- Just pick up some arbitrary number to lock on when 'versions'
