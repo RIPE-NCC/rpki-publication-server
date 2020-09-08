@@ -36,13 +36,11 @@ build_tagged_image:
     - docker:dind
   script:
     - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
-    - docker build -t  rpki-publication-server .
     # Abort if not on a tag
     - if [ -z "${CI_COMMIT_TAG}" ]; then echo "Not releasing docker image tagged with a version."; exit 0; fi;
     - echo "Releasing this image as :latest and :${CI_COMMIT_TAG}"
-    - docker tag rpki-publication-server $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
+    - docker build --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG --tag $CI_REGISTRY_IMAGE:latest .
     - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
-    - docker tag rpki-publication-server $CI_REGISTRY_IMAGE:latest
     - docker push $CI_REGISTRY_IMAGE:latest
 
 build_manual_image:
@@ -53,8 +51,7 @@ build_manual_image:
     - docker:dind
   script:
     - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
-    - docker build -t  rpki-publication-server .
-    - docker tag rpki-publication-server $CI_REGISTRY_IMAGE:dev
+    - docker build --tag $CI_REGISTRY_IMAGE:dev .
     - docker push $CI_REGISTRY_IMAGE:dev
 
 deploy-prepdev:
