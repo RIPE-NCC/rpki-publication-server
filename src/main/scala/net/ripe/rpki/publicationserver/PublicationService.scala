@@ -2,8 +2,8 @@ package net.ripe.rpki.publicationserver
 
 import java.io.ByteArrayInputStream
 import java.net.URI
+import java.time.Instant
 import java.time.temporal.ChronoUnit
-import java.time.{Duration, Instant}
 
 import akka.actor._
 import akka.http.scaladsl.model._
@@ -19,6 +19,7 @@ import net.ripe.rpki.publicationserver.repository.DataFlusher
 import net.ripe.rpki.publicationserver.store.postresql.{PgStore, RollbackException}
 
 import scala.concurrent.Future
+import scala.concurrent.duration.{FiniteDuration, MILLISECONDS}
 import scala.io.{BufferedSource, Source}
 import scala.util.{Failure, Success}
 
@@ -163,11 +164,11 @@ class PublicationService(conf: AppConfig, metrics: Metrics)
         val now = Instant.now()
         val duration =
           if (timeBefore.isBefore(now.minus(conf.snapshotSyncDelay.toSeconds, ChronoUnit.SECONDS))) {
-            Duration.of(100, ChronoUnit.MILLIS)
+            FiniteDuration(100, MILLISECONDS)
           } else {
-            val between = Duration.between(timeBefore, now).toSeconds
-            val left = conf.snapshotSyncDelay.toSeconds - between
-            Duration.of(left, ChronoUnit.SECONDS)
+            val between = timeBefore.toEpochMilli - now.toEpochMilli
+            val left = conf.snapshotSyncDelay.toMillis - between
+            FiniteDuration(left, MILLISECONDS)
           }
         system.scheduler.scheduleOnce(duration, () => flush)
     }
