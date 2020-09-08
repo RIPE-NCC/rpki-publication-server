@@ -3,7 +3,7 @@ package net.ripe.rpki.publicationserver
 import java.net.URI
 
 import net.ripe.rpki.publicationserver.Binaries.{Base64, Bytes}
-import net.ripe.rpki.publicationserver.store.postresql.PgStore
+import net.ripe.rpki.publicationserver.model._
 import org.scalatest.BeforeAndAfterAll
 
 

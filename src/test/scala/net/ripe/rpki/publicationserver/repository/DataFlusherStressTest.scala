@@ -4,7 +4,7 @@ import java.net.URI
 import java.nio.file.Files
 
 import net.ripe.rpki.publicationserver._
-import net.ripe.rpki.publicationserver.model.ClientId
+import net.ripe.rpki.publicationserver.model._
 import net.ripe.rpki.publicationserver.util.Time
 import org.scalatest.Ignore
 

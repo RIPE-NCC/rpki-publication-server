@@ -13,7 +13,7 @@ import akka.http.scaladsl.util.FastFuture
 import akka.util.ByteString
 import javax.xml.stream.XMLStreamException
 import net.ripe.rpki.publicationserver.metrics.Metrics
-import net.ripe.rpki.publicationserver.model.ClientId
+import net.ripe.rpki.publicationserver.model._
 import net.ripe.rpki.publicationserver.parsing.PublicationMessageParser
 import net.ripe.rpki.publicationserver.repository.DataFlusher
 import net.ripe.rpki.publicationserver.store.postresql.{PgStore, RollbackException}

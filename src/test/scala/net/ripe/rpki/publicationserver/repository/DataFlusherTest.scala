@@ -6,7 +6,7 @@ import java.nio.file.{Files, NoSuchFileException}
 
 import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver._
-import net.ripe.rpki.publicationserver.model.ClientId
+import net.ripe.rpki.publicationserver.model._
 
 import scala.concurrent.duration._
 

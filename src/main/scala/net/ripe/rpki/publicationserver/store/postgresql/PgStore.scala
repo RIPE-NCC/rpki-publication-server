@@ -3,14 +3,13 @@ package net.ripe.rpki.publicationserver.store.postresql
 import java.net.URI
 
 import net.ripe.rpki.publicationserver.Binaries.Bytes
-import net.ripe.rpki.publicationserver.Boot.logger
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.metrics.Metrics
-import net.ripe.rpki.publicationserver.model.ClientId
+import net.ripe.rpki.publicationserver.model._
 import org.flywaydb.core.Flyway
 import org.json4s._
 import org.json4s.native.JsonMethods._
-import scalikejdbc.{ConnectionPool, ConnectionPoolSettings, DB, DBSession, IsolationLevel, NoExtractor, SQL, scalikejdbcSQLInterpolationImplicitDef}
+import scalikejdbc._
 
 
 case class RollbackException(val error: BaseError) extends Exception
@@ -221,7 +220,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
   }
 }
 
-object PgStore {
+object PgStore extends Logging {
   var pgStore : PgStore = _
 
   def get(pgConfig: PgConfig): PgStore = synchronized {

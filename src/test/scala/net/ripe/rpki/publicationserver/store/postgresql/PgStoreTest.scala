@@ -3,7 +3,7 @@ package net.ripe.rpki.publicationserver.store.postgresql
 import java.net.URI
 
 import net.ripe.rpki.publicationserver._
-import net.ripe.rpki.publicationserver.model.ClientId
+import net.ripe.rpki.publicationserver.model._
 import net.ripe.rpki.publicationserver.store.postresql.RollbackException
 
 class PgStoreTest extends PublicationServerBaseTest with Hashing {

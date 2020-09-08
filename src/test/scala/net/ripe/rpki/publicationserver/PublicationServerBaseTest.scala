@@ -11,7 +11,7 @@ import akka.testkit.TestKit.awaitCond
 import io.prometheus.client.CollectorRegistry
 import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver.metrics.Metrics
-import net.ripe.rpki.publicationserver.model.ClientId
+import net.ripe.rpki.publicationserver.model._
 import net.ripe.rpki.publicationserver.store.postresql.PgStore
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfter, FunSuite, Matchers}
