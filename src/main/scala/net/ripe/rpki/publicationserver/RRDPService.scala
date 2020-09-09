@@ -2,16 +2,10 @@ package net.ripe.rpki.publicationserver
 
 import java.nio.file.{Files, Paths}
 
-import akka.http.scaladsl.model.HttpResponse
+import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{CacheDirectives, `Cache-Control`}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
-import com.softwaremill.macwire._
-import akka.http.scaladsl.model.HttpEntity
-import akka.http.scaladsl.model.MediaTypes
-import akka.http.scaladsl.model.ContentType
-import akka.http.scaladsl.model.HttpCharsets
-import akka.stream.scaladsl.Source
 import akka.http.scaladsl.server.directives.ContentTypeResolver
 
 

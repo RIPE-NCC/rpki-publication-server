@@ -2,24 +2,20 @@ package net.ripe.rpki.publicationserver
 
 import java.net.URI
 
-import akka.testkit.TestActorRef
 import net.ripe.rpki.publicationserver.Binaries.{Base64, Bytes}
-import net.ripe.rpki.publicationserver.store.fs.RsyncRepositoryWriter
-import net.ripe.rpki.publicationserver.store.postresql.PgStore
+import net.ripe.rpki.publicationserver.model._
 import org.scalatest.BeforeAndAfterAll
 
 
 class PublicationServiceTest extends PublicationServerBaseTest with Hashing with BeforeAndAfterAll {
 
-  private val theRsyncWriter = mock[RsyncRepositoryWriter]
   private val conf = new AppConfig() {
     override lazy val pgConfig = pgTestConfig
   }
-  
-  def theStateActor = TestActorRef(new StateActor(conf, testMetrics))
-  def publicationService = new PublicationService(conf, theStateActor)
 
-  private val objectStore = PgStore.get(pgTestConfig)
+  def publicationService = new PublicationService(conf, testMetrics)
+
+  private val objectStore = createPgStore
 
   before {
     objectStore.clear()
@@ -105,7 +101,7 @@ class PublicationServiceTest extends PublicationServerBaseTest with Hashing with
     }
   }
 
-  test("should return an ok response for a valid replace request (hash casing problem)") {
+  test("should return an ok response for a valid replace request (hash causing problem)") {
     val service = publicationService
 
     val uri = new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer")

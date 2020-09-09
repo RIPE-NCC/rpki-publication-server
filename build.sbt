@@ -10,7 +10,7 @@ name := "rpki-publication-server"
 
 version := "1.1-SNAPSHOT"
 
-scalaVersion := "2.12.11"
+scalaVersion := "2.13.3"
 
 scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8")
 
@@ -54,7 +54,7 @@ libraryDependencies ++= {
     "com.typesafe.akka"        %% "akka-actor"            % akkaV,
     "com.typesafe.akka"        %% "akka-testkit"          % akkaV     % "test",
     "com.typesafe.akka"        %% "akka-slf4j"            % akkaV,
-    "org.scalatest"            %% "scalatest"             % "3.0.4"   % "test",
+    "org.scalatest"            %% "scalatest"             % "3.1.4"   % "test",
     "org.mockito"               % "mockito-all"           % "1.10.19" % "test",
     "org.codehaus.woodstox"     % "woodstox-core-asl"     % "4.4.1",
     "com.sun.xml.bind"          % "jaxb1-impl"            % "2.2.5.1",
@@ -71,7 +71,10 @@ libraryDependencies ++= {
     "io.prometheus"            % "simpleclient_common"    % "0.9.0",
     "org.scala-lang.modules"   %% "scala-xml"             % "1.2.0",
     "org.scalikejdbc"          %% "scalikejdbc"           % "3.5.+",
-    "org.postgresql"           % "postgresql"             % "42.2.15"
+    "org.postgresql"           % "postgresql"             % "42.2.15",
+    "org.json4s"               %% "json4s-native"         % "3.7.0-M6",
+    "org.flywaydb"             % "flyway-core"            % "6.5.5",
+    "org.scala-lang.modules" %% "scala-parallel-collections" % "0.2.0"
   )
 }
 

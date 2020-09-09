@@ -1,6 +1,6 @@
 package net.ripe.rpki.publicationserver.parsing
 
-import net.ripe.rpki.publicationserver.BaseError
+import net.ripe.rpki.publicationserver.model.BaseError
 
 import scala.io.BufferedSource
 

@@ -1,43 +1,45 @@
 package net.ripe.rpki.publicationserver
 
 import java.io.ByteArrayInputStream
+import java.net.URI
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 
 import akka.actor._
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.unmarshalling.Unmarshaller
 import akka.http.scaladsl.util.FastFuture
-import akka.pattern.ask
-import akka.util.Timeout
-import com.softwaremill.macwire._
-import javax.xml.stream.XMLStreamException
-import net.ripe.rpki.publicationserver.messaging.Messages.RawMessage
-import net.ripe.rpki.publicationserver.model.ClientId
-import net.ripe.rpki.publicationserver.parsing.PublicationMessageParser
-
-import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, Future}
-import scala.io.{BufferedSource, Source}
-import scala.util.{Failure, Success, Try}
 import akka.util.ByteString
+import javax.xml.stream.XMLStreamException
+import net.ripe.rpki.publicationserver.metrics.Metrics
+import net.ripe.rpki.publicationserver.model._
+import net.ripe.rpki.publicationserver.parsing.PublicationMessageParser
+import net.ripe.rpki.publicationserver.repository.DataFlusher
+import net.ripe.rpki.publicationserver.store.postresql.{PgStore, RollbackException}
+
+import scala.concurrent.Future
+import scala.concurrent.duration.{FiniteDuration, MILLISECONDS}
+import scala.io.{BufferedSource, Source}
+import scala.util.{Failure, Success}
 
 object PublicationService {
     val MediaTypeString = "application/rpki-publication"
     val `rpki-publication` = MediaType.customWithFixedCharset("application", "rpki-publication", HttpCharsets.`UTF-8`)
 } 
 
-class PublicationService
-    (conf: AppConfig, stateActor: ActorRef)
+class PublicationService(conf: AppConfig, metrics: Metrics)
     (implicit val system: ActorSystem) extends Logging {
 
   implicit val executionContext = system.dispatcher
 
-  val supervisorStrategy = OneForOneStrategy(maxNrOfRetries = 1) {
-    case _: Exception =>
-      SupervisorStrategy.Escalate
-  }
-  
-  val msgParser = wire[PublicationMessageParser]
+  val msgParser = new PublicationMessageParser
+
+  lazy val objectStore = PgStore.get(conf.pgConfig)
+  lazy val dataFlusher = new DataFlusher(conf)
+
+  // fill in RRDP/Rsync repositories on the start
+  dataFlusher.initFS()
 
   def verifyContentType(contentType: ContentType) = {
       if (contentType == null) {
@@ -62,8 +64,6 @@ class PublicationService
         }
     }
 
-  import ExecutionContext.Implicits._
-
   val publicationRoutes =
     path("") {
       post {
@@ -84,13 +84,13 @@ class PublicationService
                 } catch {
                   case e: Exception =>
                     Future {
-                      ErrorMsg(BaseError(BaseError.XmlSchemaValidationError, s"XML parsing/validation error: ${e.getMessage}"))
+                      ErrorMsg(BaseError("xml_error", s"XML parsing/validation error: ${e.getMessage}"))
                     }
                 }
               }
 
               mainPipeline {
-                case Success(msg@ErrorMsg(BaseError(BaseError.XmlSchemaValidationError, message))) =>
+                case Success(msg@ErrorMsg(BaseError("xml_error", message))) =>
                   logger.error(s"Error parsing POST request with clientId=$clientId", message)
                   complete(HttpResponse(status = 400, entity = HttpEntity(PublicationService.`rpki-publication`, msg.serialize)))
 
@@ -112,13 +112,67 @@ class PublicationService
     }
 
   private def processRequest[T](parsedMessage: T, clientId: ClientId) = {
-    implicit val timeout: Timeout = Timeout(61.seconds)
-    parsedMessage match {
-      case queryMessage@QueryMessage(_) =>
-        stateActor ? RawMessage(queryMessage, clientId)
-      case ListMessage() =>
-        stateActor ? RawMessage(ListMessage(), clientId)
+    Future {
+      parsedMessage match {
+        case queryMessage@QueryMessage(_) =>
+          processQueryMessage(queryMessage, clientId)
+        case ListMessage() =>
+          // TODO ??? implement tags for list query
+          processListMessage(clientId, None)
+      }
     }
   }
+
+  private def processQueryMessage(queryMessage: QueryMessage, clientId: ClientId) = {
+    try {
+      implicit val m = metrics
+      objectStore.applyChanges(queryMessage, clientId)
+      triggerFlush()
+      ReplyMsg {
+        queryMessage.pdus.map {
+          case PublishQ(uri, tag, _, _) => PublishR(uri, tag)
+          case WithdrawQ(uri, tag, _) => WithdrawR(uri, tag)
+        }
+      }
+    } catch {
+      case e: RollbackException => ErrorMsg(e.error)
+      case e: Exception => ErrorMsg(BaseError("other_error", s"Unknown error: ${e.getMessage}"))
+    }
+  }
+
+  def processListMessage(clientId: ClientId, tag: Option[String]) =
+    ReplyMsg {
+      objectStore.list(clientId).map { case (url, hash) =>
+        ListR(URI.create(url), hash, tag)
+      }
+    }
+
+  var lastTimeFlushed : Option[Instant] = None
+
+  def triggerFlush() = {
+
+    def flush = synchronized {
+      dataFlusher.updateFS()
+      logger.info("Updated FS")
+      lastTimeFlushed = Some(Instant.now())
+    }
+
+    lastTimeFlushed match {
+      case None =>
+        flush
+      case Some(timeBefore) =>
+        val now = Instant.now()
+        val duration =
+          if (timeBefore.isBefore(now.minus(conf.snapshotSyncDelay.toSeconds, ChronoUnit.SECONDS))) {
+            FiniteDuration(100, MILLISECONDS)
+          } else {
+            val between = timeBefore.toEpochMilli - now.toEpochMilli
+            val left = conf.snapshotSyncDelay.toMillis - between
+            FiniteDuration(left, MILLISECONDS)
+          }
+        system.scheduler.scheduleOnce(duration)(flush)
+    }
+  }
+
 }
 

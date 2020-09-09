@@ -1,4 +1,4 @@
-package net.ripe.rpki.publicationserver.store.fs
+package net.ripe.rpki.publicationserver.fs
 
 import java.nio.file.attribute.FileTime
 import java.nio.file.{Files, Path, Paths}
@@ -16,7 +16,7 @@ class RrdpRepositoryWriterTest extends PublicationServerBaseTest {
   lazy val rootDir = Files.createTempDirectory("test_rrdp_writer")
   deleteOnExit(rootDir)
 
-  private val objectStore = PgStore.get(pgTestConfig)
+  private val objectStore = createPgStore
 
   before{
     objectStore.clear()

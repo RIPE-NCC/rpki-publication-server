@@ -4,7 +4,7 @@ import java.io.FileInputStream
 import java.security.KeyStore
 import java.{util => ju}
 
-import akka.actor.{ActorRef, ActorSystem}
+import akka.actor.ActorSystem
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.{ConnectionContext, Http}
@@ -12,23 +12,26 @@ import akka.util.Timeout
 import com.softwaremill.macwire._
 import io.prometheus.client._
 import javax.net.ssl._
-import net.ripe.logging.SysStreamsLogger
 import net.ripe.rpki.publicationserver.metrics._
+import net.ripe.rpki.publicationserver.store.postresql.PgStore
 import org.slf4j.{Logger, LoggerFactory}
 
-import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
-
+import scala.concurrent.{Await, Future}
 
 
 object Boot extends App {
   lazy val conf = wire[AppConfig]
   lazy val logger = setupLogging(conf)
+
+  logger.info("Starting up the publication server ...")
+
+  PgStore.migrateDB(conf.pgConfig)
   new PublicationServerApp(conf, logger).run()
 
   def setupLogging(conf: AppConfig) = {
-    System.setProperty("LOG_FILE", conf.locationLogfile)
-    SysStreamsLogger.bindSystemStreams()
+//    System.setProperty("LOG_FILE", conf.locationLogfile)
+//    SysStreamsLogger.bindSystemStreams()
     LoggerFactory.getLogger(this.getClass)
   }
 }
@@ -43,12 +46,7 @@ class PublicationServerApp(conf: AppConfig, logger: Logger) extends RRDPService 
 
   val healthChecks = new HealthChecks(conf)
 
-  def run() {      
-//    XodusDB.reset()
-//    XodusDB.init(conf.storePath)
-
-    logger.info("Starting up the publication server ...")    
-    logger.info("Server address " + conf.serverAddress)
+  def run(): Unit = {
 
     implicit val timeout = Timeout(5.seconds)
 
@@ -56,10 +54,11 @@ class PublicationServerApp(conf: AppConfig, logger: Logger) extends RRDPService 
     val metrics = Metrics.get(registry)
     val metricsApi = new MetricsApi(registry)
 
-    val stateActor: ActorRef = system.actorOf(StateActor.props(conf, metrics))
+    val publicationService = new PublicationService(conf, metrics)
 
-    val publicationService = new PublicationService(conf, stateActor)
+    logger.info("Server address " + conf.serverAddress)
 
+    // TODO Catch binding errors
     this.httpsBinding = Http().bindAndHandle(
       publicationService.publicationRoutes,
       interface = conf.serverAddress,
@@ -72,7 +71,7 @@ class PublicationServerApp(conf: AppConfig, logger: Logger) extends RRDPService 
       rrdpAndMonitoringRoutes ~ metricsApi.routes,
       interface = conf.serverAddress,
       port = conf.rrdpPort
-    )    
+    )
   }
 
   def shutdown() = {
@@ -81,7 +80,7 @@ class PublicationServerApp(conf: AppConfig, logger: Logger) extends RRDPService 
             .flatMap(_ => 
                 Await.result(httpsBinding, 10.seconds)            
                 .terminate(hardDeadline = 3.seconds))
-            .flatMap(_ => system.terminate)
+            .flatMap(_ => system.terminate())
   }
 
   private def sslContext(): SSLContext = {

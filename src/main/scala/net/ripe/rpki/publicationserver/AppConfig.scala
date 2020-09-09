@@ -3,16 +3,13 @@ package net.ripe.rpki.publicationserver
 import java.net.URI
 import java.nio.file.{Path, Paths}
 import java.util.Map.Entry
-import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 import akka.http.scaladsl.settings.ServerSettings
-import com.typesafe.config.{ConfigFactory, ConfigObject, ConfigValue}
-import net.ripe.rpki.publicationserver.model.{Delta, ServerState}
+import com.typesafe.config.{Config, ConfigFactory, ConfigObject, ConfigValue}
 
-import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
-import com.typesafe.config.Config
+import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 /**
  * Helper class which can be wired into clients while making sure that the config file is loaded only once.
@@ -56,15 +53,12 @@ class AppConfig {
                         getConfig.getString("postgresql.user"),
                         getConfig.getString("postgresql.password")
                     )      
-  
-  def snapshotUrl(serverState: ServerState) = {
-    val ServerState(sessionId, serial) = serverState
+
+  def snapshotUrl(sessionId: String, serial: Long) =
     rrdpRepositoryUri + "/" + sessionId + "/" + serial + "/snapshot.xml"
-  }
 
-  def deltaUrl(delta: Delta) : String = deltaUrl(delta.sessionId, delta.serial)
-
-  def deltaUrl(sessionId: UUID, serial: Long) = rrdpRepositoryUri + "/" + sessionId + "/" + serial + "/delta.xml"
+  def deltaUrl(sessionId: String, serial: Long) =
+    rrdpRepositoryUri + "/" + sessionId + "/" + serial + "/delta.xml"
 }
 
 case class PgConfig(url: String, user: String, password: String)

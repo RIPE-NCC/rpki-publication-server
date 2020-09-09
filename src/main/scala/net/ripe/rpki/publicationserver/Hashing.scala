@@ -10,7 +10,7 @@ trait Hashing {
 
   def stringify(bytes: Array[Byte]): String = Option(bytes).map(bytesToHex).getOrElse("")
 
-  private val HEX_ARRAY = "0123456789ABCDEF".toCharArray
+  private val HEX_ARRAY = "0123456789abcdef".toCharArray
 
   // Copy-pasted from here
   // https://stackoverflow.com/questions/9655181/how-to-convert-a-byte-array-to-a-hex-string-in-java

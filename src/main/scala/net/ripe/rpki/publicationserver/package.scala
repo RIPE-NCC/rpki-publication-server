@@ -7,4 +7,5 @@ package object publicationserver {
   trait RepositoryPath {
     val repositoryPath = wire[AppConfig].rrdpRepositoryPath
   }
+
 }

@@ -4,90 +4,33 @@ import java.net.URI
 
 import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver._
-import net.ripe.rpki.publicationserver.model.ClientId
-import net.ripe.rpki.publicationserver.store.ObjectStore
-import scalikejdbc.{ConnectionPool, ConnectionPoolSettings, DB, DBSession, IsolationLevel, NoExtractor, SQL, scalikejdbcSQLInterpolationImplicitDef}
+import net.ripe.rpki.publicationserver.metrics.Metrics
+import net.ripe.rpki.publicationserver.model._
+import org.flywaydb.core.Flyway
+import org.json4s._
+import org.json4s.native.JsonMethods._
+import scalikejdbc._
+
+
+case class RollbackException(val error: BaseError) extends Exception
 
 class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
 
-  type RRDPObject = (Bytes, Hash, URI, ClientId)
-
-  def inTx[T](f : DBSession => T) : T= {
+  def inRepeatableReadTx[T](f: DBSession => T): T = {
     DB(ConnectionPool.borrow())
-      .isolationLevel(IsolationLevel.Serializable)
+      .isolationLevel(IsolationLevel.RepeatableRead)
       .localTx(f)
   }
 
-  def getInsertSql(obj: RRDPObject): SQL[Nothing, NoExtractor] = {
-    val (Bytes(bytes), Hash(hashStr), uri, ClientId(clientId)) = obj
-    sql"""
-      WITH
-        existing AS (
-          SELECT id FROM objects
-          WHERE hash = ${hashStr}
-        ),
-        inserted AS (
-          INSERT INTO objects (hash, content)
-          SELECT ${hashStr}, ${bytes}
-          WHERE NOT EXISTS (SELECT * FROM existing)
-          RETURNING id
-        )
-        INSERT INTO object_urls
-        SELECT ${uri.toString}, z.id, ${clientId}
-        FROM (
-          SELECT id FROM inserted
-          UNION ALL
-          SELECT id FROM existing
-        ) AS z
-    """
-  }
-
-  def getUpdateSql(oldHash: String, obj: RRDPObject): SQL[Nothing, NoExtractor] = {
-    val (Bytes(bytes), Hash(newHashStr), uri, ClientId(clientId)) = obj
-    sql"""
-      WITH
-        old_ignored AS (
-          DELETE FROM objects
-          WHERE hash = ${oldHash}
-          RETURNING id
-        ),
-        existing AS (
-          SELECT id FROM objects
-          WHERE hash = ${newHashStr}
-        ),
-        new_object AS (
-          INSERT INTO objects (hash, content)
-          SELECT ${newHashStr}, ${bytes}
-          WHERE NOT EXISTS (SELECT * FROM existing)
-          RETURNING id
-        ),
-        new_object_id AS (
-          SELECT id FROM new_object
-          UNION ALL
-          SELECT id FROM existing
-        )
-        INSERT INTO object_urls
-        SELECT ${uri.toString}, z.id, ${clientId}
-        FROM new_object_id AS z
-        ON CONFLICT (url) DO
-            UPDATE SET
-              object_id = (SELECT id FROM new_object_id),
-              client_id = ${clientId}
-    """
-  }
-
-  private def getDeleteSql(hash: String) : SQL[Nothing, NoExtractor] = {
-    sql"""DELETE FROM objects WHERE hash = ${hash}"""
-  }
-
   def clear(): Unit = DB.localTx { implicit session =>
-    sql"DELETE FROM objects".update.apply()
+    sql"TRUNCATE TABLE object_log CASCADE".update().apply()
+    sql"TRUNCATE TABLE object_urls CASCADE".update().apply()
+    sql"TRUNCATE TABLE objects CASCADE".update().apply()
+    sql"TRUNCATE TABLE versions CASCADE".update().apply()
   }
 
-  def getState: ObjectStore.State = DB.localTx { implicit session =>
-    sql"""SELECT hash, url, client_id, content
-         FROM objects o
-         INNER JOIN object_urls ou ON ou.object_id = o.id"""
+  def getState = DB.localTx { implicit session =>
+    sql"SELECT * FROM current_state"
       .map { rs =>
         val hash = Hash(rs.string(1))
         val uri = URI.create(rs.string(2))
@@ -95,32 +38,167 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
         val bytes = Bytes.fromStream(rs.binaryStream(4))
         uri -> (bytes, hash, clientId)
       }
-      .list
-      .apply
+      .list()
+      .apply()
       .toMap
   }
 
-  def applyChanges(changeSet: QueryMessage, clientId: ClientId): Unit = {
-    val toSql: QueryPdu => SQL[Nothing, NoExtractor] = {
-      case WithdrawQ(_, _, hash) =>
-        getDeleteSql(hash)
-      case PublishQ(uri, _, None, bytes) =>
-        val h = hash(bytes)
-        getInsertSql((bytes, h, uri, clientId))
-      case PublishQ(uri, _, Some(oldHash), bytes) =>
-        val h = hash(bytes)
-        getUpdateSql(oldHash, (bytes, h, uri, clientId))
+  def getLog = DB.localTx { implicit session =>
+    sql"""SELECT operation, url, old_hash, content
+         FROM object_log
+         ORDER BY id ASC"""
+      .map { rs =>
+        val operation = rs.string(1)
+        val uri = URI.create(rs.string(2))
+        val hash = rs.stringOpt(3).map(Hash)
+        val bytes = rs.binaryStreamOpt(4).map(Bytes.fromStream)
+        (operation, uri, hash, bytes)
+      }
+      .list()
+      .apply()
+  }
+
+  def readState(f: (URI, Hash, Bytes) => Unit)(implicit session: DBSession) = {
+    session.fetchSize(200)
+    sql"SELECT url, hash, content FROM current_state"
+      .foreach { rs =>
+        val uri = URI.create(rs.string(1))
+        val hash = Hash(rs.string(2))
+        val bytes = Bytes.fromStream(rs.binaryStream(3))
+        f(uri, hash, bytes)
+      }
+  }
+
+  def readDelta(sessionId: String, serial: Long)(f: (String, URI, Option[Hash], Option[Bytes]) => Unit)(implicit session: DBSession) = {
+    session.fetchSize(200)
+    sql"""SELECT operation, url, old_hash, content
+         FROM deltas
+         WHERE session_id = $sessionId AND serial = $serial
+         ORDER BY url ASC"""
+      .foreach { rs =>
+        val operation = rs.string(1)
+        val uri = URI.create(rs.string(2))
+        val oldHash = rs.stringOpt(3).map(Hash)
+        val bytes = rs.binaryStreamOpt(4).map(Bytes.fromStream)
+        f(operation, uri, oldHash, bytes)
+      }
+  }
+
+  def getCurrentSessionInfo(implicit session: DBSession) = {
+    sql"""SELECT session_id, serial
+          FROM versions
+          ORDER BY id DESC LIMIT 1"""
+      .map(rs => (rs.string(1), rs.long(2)))
+      .single()
+      .apply()
+  }
+
+  def getReasonableDeltas(sessionId: String)(implicit session: DBSession) = {
+    sql"""SELECT serial, delta_hash
+          FROM reasonable_deltas
+          WHERE session_id = $sessionId
+          ORDER BY serial DESC"""
+      .map { rs =>
+        (rs.long(1), Hash(rs.string(2)))
+      }
+      .list()
+      .apply()
+  }
+
+  def updateSnapshotInfo(sessionId: String, serial: Long, hash: Hash, size: Long)(implicit session: DBSession): Unit = {
+    sql"""UPDATE versions SET
+            snapshot_hash = ${hash.hash},
+            snapshot_size = $size
+          WHERE session_id = $sessionId AND serial = $serial"""
+      .execute()
+      .apply()
+  }
+
+  def updateDeltaInfo(sessionId: String, serial: Long, hash: Hash, size: Long)(implicit session: DBSession): Unit = {
+    sql"""UPDATE versions SET
+            delta_hash = ${hash.hash},
+            delta_size = ${size}
+          WHERE session_id = $sessionId AND serial = $serial"""
+      .execute()
+      .apply()
+  }
+
+  implicit val formats = org.json4s.DefaultFormats
+
+  def applyChanges(changeSet: QueryMessage, clientId: ClientId)(implicit metrics: Metrics): Unit = {
+
+    def executeSql(sql: SQL[Nothing, NoExtractor], onSuccess: => Unit, onFailure: => Unit)(implicit session: DBSession): Unit = {
+      val r = sql.map(_.string(1)).single().apply()
+      r match {
+        case None =>
+          onSuccess
+        case Some(json) =>
+          onFailure
+          val error = parse(json).extract[BaseError]
+          throw new RollbackException(error)
+      }
     }
 
-    inTx { implicit session =>
-      changeSet.pdus.foreach { pdu =>
-        toSql(pdu).execute().apply()
+    inRepeatableReadTx { implicit session =>
+      // Apply all modification while holding a lock on the client ID
+      // (which most often is the CA owning the objects)
+      sql"SELECT acquire_client_id_lock(${clientId.value})".execute().apply()
+
+      changeSet.pdus.foreach {
+        case PublishQ(uri, _, None, Bytes(bytes)) =>
+          executeSql(
+            sql"SELECT create_object(${bytes},  ${uri.toString}, ${clientId.value})",
+            metrics.publishedObject(),
+            metrics.failedToAdd())
+        case PublishQ(uri, _, Some(oldHash), Bytes(bytes)) =>
+          executeSql(
+            sql"SELECT replace_object(${bytes}, ${oldHash}, ${uri.toString}, ${clientId.value})",
+            {
+              metrics.withdrawnObject()
+              metrics.publishedObject()
+            },
+            metrics.failedToReplace())
+        case WithdrawQ(uri, _, hash) =>
+          executeSql(
+            sql"SELECT delete_object(${uri.toString}, ${hash}, ${clientId.value})",
+            metrics.withdrawnObject(),
+            metrics.failedToDelete())
       }
     }
   }
 
+  def lockVersions(implicit session: DBSession) = {
+    sql"SELECT lock_versions()".execute().apply()
+  }
+
+
+  def freezeVersion(implicit session: DBSession) = {
+    sql"SELECT session_id, serial, created_at FROM freeze_version()"
+      .map(rs => (rs.string(1), rs.long(2), rs.timestamp(3)))
+      .single()
+      .apply()
+      .get
+  }
+
+  // Delete old version (for a certain definition of "old") and return their
+  // session_id and serial.
+  def deleteOldVersions(implicit session: DBSession) = {
+    sql"SELECT session_id, serial FROM delete_old_versions()"
+      .map(rs => (rs.string(1), rs.long(2)))
+      .list()
+      .apply()
+  }
+
+  def changesExist(implicit session: DBSession) = {
+    sql"SELECT changes_exist()"
+      .map(rs => rs.boolean(1))
+      .single()
+      .apply()
+      .get
+  }
+
   def check() = {
-    val z = inTx { implicit session =>
+    val z = inRepeatableReadTx { implicit session =>
       sql"SELECT 1".map(_.int(1)).single().apply()
     }
     z match {
@@ -131,11 +209,18 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
       case _ => ()
     }
   }
+
+  def list(clientId: ClientId) = inRepeatableReadTx { implicit session =>
+    sql"""SELECT url, hash
+           FROM current_state
+           WHERE client_id = ${clientId.value}"""
+      .map(rs => (rs.string(1), rs.string(2)))
+      .list()
+      .apply()
+  }
 }
 
-object PgStore {
-  type State = Map[URI, (Bytes, Hash, ClientId)]
-
+object PgStore extends Logging {
   var pgStore : PgStore = _
 
   def get(pgConfig: PgConfig): PgStore = synchronized {
@@ -154,6 +239,13 @@ object PgStore {
     pgStore
   }
 
+  def migrateDB(pgConfig: PgConfig) = {
+    logger.info("Migrating the database")
+    val flyway = Flyway.configure.dataSource(pgConfig.url, pgConfig.user, pgConfig.password).load
+    flyway.migrate()
+  }
+
 }
+
 
 

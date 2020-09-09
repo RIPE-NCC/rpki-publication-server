@@ -1,6 +1,6 @@
 package net.ripe.rpki.publicationserver
 
-import java.io.InputStream
+import java.io.{InputStream, OutputStream}
 import java.util.{Base64 => B64}
 
 import com.google.common.io.ByteStreams
