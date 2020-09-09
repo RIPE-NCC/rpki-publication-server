@@ -5,9 +5,18 @@ import java.nio.file._
 
 import akka.testkit.TestKit
 import net.ripe.rpki.publicationserver.Binaries.{Base64, Bytes}
-import net.ripe.rpki.publicationserver.store.postresql.PgStore
-import net.ripe.rpki.publicationserver.{AppConfig, Hashing, PgConfig, PublicationServerApp, PublicationServerBaseTest, TestBinaries}
+import net.ripe.rpki.publicationserver.store.ObjectStore
+import net.ripe.rpki.publicationserver.store.fs.RsyncRepositoryWriter
+import net.ripe.rpki.publicationserver.PublicationServerBaseTest
+import net.ripe.rpki.publicationserver.AppConfig
+import net.ripe.rpki.publicationserver.Hashing
 import org.slf4j.LoggerFactory
+import net.ripe.rpki.publicationserver.PublicationServerApp
+import java.nio.file._
+import java.net.URI
+
+import akka.http.scaladsl.model.MediaType
+import akka.http.scaladsl.model.HttpCharsets
 
 class PublicationIntegrationTest
     extends PublicationServerBaseTest
@@ -41,7 +50,7 @@ class PublicationIntegrationTest
       override lazy val publicationServerKeyStorePassword = "123456"
       override lazy val pgConfig = pgTestConfig
     }
-    server = new PublicationServerApp(conf, logger)
+    server = new PublicationServerApp(conf, new SSLHelper(conf, logger).connectionContext.get, logger)
     server.run()
     client = new PublicationServerClient()
   }

@@ -75,6 +75,32 @@ Use following commands to generate and install client's certificate into server'
 > $ keytool -import -alias pub-client -file aClient.cert -keystore serverTrustStore.ks
 
 
+Running the docker container
+----------------------------
+
+```
+docker build . -t rpki-publication-server
+docker run -it \
+  -p 7766:7766 \
+  -p 7788:7788 \
+  -v `pwd`/ssl:/conf/ssl \
+  -e KEYSTORE_PATH=/conf/ssl/serverKeyStore.ks \
+  -e TRUSTSTORE_PATH=/conf/ssl/serverTrustStore.ks \
+  -e KEYSTORE_PASSWORD="123456" \
+  -e TRUSTSTORE_PASSWORD="123456" \
+  --rm rpki-publication-server
+```
+
+#### Environment variables
+    * `DATABASE_PATH`: Path to the internal database (default: `/data/db`)
+    * `RRDP_REPOSITORY_PATH`: Path to RRDP data in container (default: `/data/rrdp`).
+    * `RRDP_REPOSITORY_URI`: Base URI of the RRDP repository.
+    * `KEYSTORE_PATH`: path of the keystore (on mounted volume)
+    * `KEYSTORE_PASSWORD`: keystore password.
+    * `TRUSTSTORE_PATH`: path of the truststore (on mounted volume)
+    * `TRUSTSTORE_PASSWORD`: truststore password.
+
+
 Architecture overview
 ----------------------
 
@@ -96,4 +122,3 @@ From time to time we start a transaction that does the following:
 Important: transaction that generate the files needs to run with at least repeatable read isolation level to capture 
 the current state of the whole database. Repeatable read in PG is stronger than the standard requires and it is 
 enough for our purposes https://www.postgresql.org/docs/12/transaction-iso.html#XACT-REPEATABLE-READ.
-

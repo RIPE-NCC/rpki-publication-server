@@ -1,5 +1,3 @@
-import com.typesafe.sbt.packager.docker.{Cmd, ExecCmd}
-
 val buildNumber = sys.props.getOrElse("build.number", "DEV")
 val nexusUser = sys.props.getOrElse("nexus.user", "?")
 val nexusPassword = sys.props.getOrElse("nexus.password", "?")
@@ -14,6 +12,11 @@ scalaVersion := "2.13.3"
 
 scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8")
 
+// packaging:
+// use sbt assembly plugin and create a fat jar with a predictable name.
+mainClass in assembly := Some("net.ripe.rpki.publicationserver.Boot")
+assemblyJarName in assembly := "rpki-publication-server.jar"
+
 parallelExecution in Test := false
 
 fork in run := true
@@ -21,21 +24,6 @@ fork in run := true
 javaOptions in run ++= Seq("-Xmx2G")
 
 enablePlugins(JavaServerAppPackaging, UniversalDeployPlugin)
-enablePlugins(DockerPlugin)
-
-
-dockerCommands := Seq(
-  Cmd("FROM", "java:latest"),
-  Cmd("MAINTAINER", "SWE Green <swe-green@ripe.net>"),
-  Cmd("WORKDIR",s"/opt/docker"),
-  Cmd("ADD","opt /opt"),
-  Cmd("EXPOSE", "7788:7788"),
-  ExecCmd("ENTRYPOINT","bin/rpki-publication-server.sh", "run"),
-  ExecCmd("CMD", "-c", "../conf/rpki-publication-server.default.conf")
-       )
-
-//dockerTag := "rpki-publication-server"
-
 
 resolvers += "Codehaus Maven2 Repository" at "https://repository.codehaus.org/"
 
