@@ -1,57 +1,42 @@
 package net.ripe.rpki.publicationserver
 
-import java.io.FileInputStream
-import java.security.KeyStore
-
-import akka.actor.{ActorRef, ActorSystem, OneForOneStrategy, SupervisorStrategy}
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.server.Directives._
-import akka.stream.ActorMaterializer
-import akka.util.Timeout
-import com.softwaremill.macwire._
-import com.softwaremill.macwire.akkasupport._
-import com.typesafe.sslconfig.akka.AkkaSSLConfig
-import akka.http.scaladsl.{ConnectionContext, HttpsConnectionContext, Http}
-import javax.net.ssl._
-import net.ripe.logging.SysStreamsLogger
-import net.ripe.rpki.publicationserver.store.XodusDB
-import net.ripe.rpki.publicationserver.metrics._
-import org.slf4j.{LoggerFactory, Logger}
-import akka.pattern.ask
-
-import io.prometheus.client.exporter.common.TextFormat
-import io.prometheus.client._
-
-import scala.concurrent.duration._
-import scala.concurrent.Await
-import scala.concurrent.Future
-import akka.http.scaladsl.Http.ServerBinding
 import java.{util => ju}
 
+import akka.actor.ActorSystem
+import akka.http.scaladsl.Http.ServerBinding
+import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.{ConnectionContext, Http, HttpsConnectionContext}
+import akka.util.Timeout
+import com.softwaremill.macwire._
+import io.prometheus.client._
+import net.ripe.rpki.publicationserver.metrics._
+import net.ripe.rpki.publicationserver.store.postresql.PgStore
+import net.ripe.rpki.publicationserver.util.SSLHelper
+import org.slf4j.Logger
 
+import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
+import scala.util.{Failure, Success}
 
 
 object Boot extends App with Logging {
   lazy val conf = wire[AppConfig]
 
-  override final def main(args: Array[String]) = {
-    val sslHelper = new SSLHelper(conf, logger)
+  logger.info("Starting up the publication server ...")
 
-    logger.info("Starting up the publication server ...")
-
-    val https: HttpsConnectionContext = {
-      sslHelper.connectionContext match {
-        case Success(v) => v
-        case Failure(e) =>
-          logger.error("Error while creating SSL context, exiting", e)
-          // EX_DATAERR (65) The input data was incorrect in some way.
-          sys.exit(65)
-      }
+  val sslHelper = new SSLHelper(conf, logger)
+  val https: HttpsConnectionContext = {
+    sslHelper.connectionContext match {
+      case Success(v) => v
+      case Failure(e) =>
+        logger.error("Error while creating SSL context, exiting", e)
+        // EX_DATAERR (65) The input data was incorrect in some way.
+        sys.exit(65)
     }
-
-    PgStore.migrateDB(conf.pgConfig)
-    new PublicationServerApp(conf, https, logger).run()
   }
+
+  PgStore.migrateDB(conf.pgConfig)
+  new PublicationServerApp(conf, https, logger).run()
 }
 
 class PublicationServerApp(conf: AppConfig, https: ConnectionContext, logger: Logger) extends RRDPService {
