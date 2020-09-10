@@ -127,11 +127,6 @@ BEGIN
 
     SELECT LOWER(encode(sha256(bytes_), 'hex')) INTO hash_;
 
---     PERFORM merge_object(bytes_, hash_, url_, client_id_);
---
---     INSERT INTO object_log(operation, url, old_hash, content)
---     VALUES ('UPD', url_, hash_to_replace, bytes_);
-
     WITH deleted_object AS (
         UPDATE objects SET is_deleted = TRUE
         WHERE hash = LOWER(hash_to_replace)
