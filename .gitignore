@@ -14,3 +14,4 @@ store
 project/metals.sbt
 .scalafmt.conf
 .vscode
+.vagrant
