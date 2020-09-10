@@ -8,6 +8,7 @@ Vagrant.configure("2") do |config|
 
   # Put source in /src but not in /vagrant (because that is often rsync)
   config.vm.synced_folder ".", "/src"
+  config.vm.synced_folder "../data", "/data"
   config.vm.synced_folder ".", "/vagrant", disabled: true
 
   config.vm.provider "virtualbox" do |vb|
