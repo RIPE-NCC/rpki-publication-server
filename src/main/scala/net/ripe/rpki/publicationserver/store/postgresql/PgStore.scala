@@ -24,7 +24,6 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
 
   def clear(): Unit = DB.localTx { implicit session =>
     sql"TRUNCATE TABLE object_log CASCADE".update().apply()
-    sql"TRUNCATE TABLE object_urls CASCADE".update().apply()
     sql"TRUNCATE TABLE objects CASCADE".update().apply()
     sql"TRUNCATE TABLE versions CASCADE".update().apply()
   }
@@ -45,8 +44,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
 
   def getLog = DB.localTx { implicit session =>
     sql"""SELECT operation, url, old_hash, content
-         FROM object_log
-         ORDER BY id ASC"""
+         FROM current_log"""
       .map { rs =>
         val operation = rs.string(1)
         val uri = URI.create(rs.string(2))
@@ -135,7 +133,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
         case Some(json) =>
           onFailure
           val error = parse(json).extract[BaseError]
-          throw new RollbackException(error)
+          throw RollbackException(error)
       }
     }
 

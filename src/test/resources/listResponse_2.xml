@@ -2,5 +2,5 @@
   <list uri="rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"
         hash="6d776a0a90ea55f479f63c15b3bfc8e91cfbea549439cf9c474aab738d741223"/>
   <list uri="rsync://wombat.example/Alice/deadf00d.cer"
-        hash="6d776a0a90ea55f479f63c15b3bfc8e91cfbea549439cf9c474aab738d741223"/>
+        hash="1299495c0014dbec3338e8f177b7161e0778cbef7123ead9899196d8292c74fb"/>
 </msg>

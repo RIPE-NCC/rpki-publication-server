@@ -27,25 +27,21 @@ $$ LANGUAGE SQL;
 CREATE OR REPLACE FUNCTION merge_object(bytes_ BYTEA,
                                         hash_ CHAR(64),
                                         url_ TEXT,
-                                        client_id_ TEXT) RETURNS VOID AS
+                                        client_id_ TEXT) RETURNS SETOF objects AS
 $$
     WITH
         existing AS (
-            SELECT id FROM objects WHERE hash = hash_
+            SELECT * FROM objects WHERE hash = hash_
         ),
         inserted AS (
-            INSERT INTO objects (hash, content)
-            SELECT hash_, bytes_
+            INSERT INTO objects (hash, content, url, client_id)
+            SELECT hash_, bytes_, url_, client_id_
             WHERE NOT EXISTS (SELECT * FROM existing)
-            RETURNING id
+            RETURNING *
         )
-        INSERT INTO object_urls (url, object_id, client_id)
-        SELECT url_, id, client_id_
-        FROM (
-            SELECT id FROM existing
-            UNION ALL
-            SELECT id FROM inserted
-        ) AS z;
+        SELECT * FROM existing
+        UNION ALL
+        SELECT * FROM inserted
 $$ LANGUAGE SQL;
 
 
@@ -63,17 +59,25 @@ DECLARE
     hash_ CHAR(64);
 BEGIN
 
-    IF EXISTS (SELECT * FROM object_urls WHERE url = url_) THEN
+    IF EXISTS (SELECT * FROM live_objects WHERE url = url_) THEN
         RETURN json_build_object('code', 'object_already_present', 'message',
                                  format('An object is already present at this URI [%s].', url_));
     END IF;
 
     SELECT LOWER(encode(sha256(bytes_), 'hex')) INTO hash_;
 
-    PERFORM merge_object(bytes_, hash_, url_, client_id_);
+    IF EXISTS (SELECT * FROM live_objects WHERE hash = hash_) THEN
+        RETURN json_build_object('code', 'object_already_present', 'message',
+                                 format('An object with the same hash is already present with different URI, [%s].', url_));
+    END IF;
 
-    INSERT INTO object_log (operation, url, content)
-    VALUES ('INS', url_, bytes_);
+    WITH merged_object AS (
+        SELECT *
+        FROM merge_object(bytes_, hash_, url_, client_id_)
+    )
+    INSERT INTO object_log (operation, new_object_id)
+    SELECT 'INS', z.id
+    FROM merged_object AS z;
 
     RETURN NULL;
 END
@@ -100,11 +104,10 @@ DECLARE
     existing_hash      CHAR(64);
 BEGIN
 
-    SELECT o.hash, o.id, ou.client_id
+    SELECT hash, id, client_id
     INTO existing_hash, existing_object_id, existing_client_id
-    FROM objects o
-    INNER JOIN object_urls ou ON ou.object_id = o.id
-    WHERE ou.url = url_;
+    FROM live_objects
+    WHERE url = url_;
 
     IF NOT FOUND THEN
         RETURN json_build_object('code', 'no_object_present', 'message',
@@ -122,14 +125,25 @@ BEGIN
                                  format('Not allowed to update an object of another client: [%s].', url_));
     END IF;
 
-    -- NOTE: reference in object_urls will be removed by the cascading constraint
-    DELETE FROM objects WHERE hash = LOWER(hash_to_replace);
-
     SELECT LOWER(encode(sha256(bytes_), 'hex')) INTO hash_;
-    PERFORM merge_object(bytes_, hash_, url_, client_id_);
 
-    INSERT INTO object_log(operation, url, old_hash, content)
-    VALUES ('UPD', url_, hash_to_replace, bytes_);
+--     PERFORM merge_object(bytes_, hash_, url_, client_id_);
+--
+--     INSERT INTO object_log(operation, url, old_hash, content)
+--     VALUES ('UPD', url_, hash_to_replace, bytes_);
+
+    WITH deleted_object AS (
+        UPDATE objects SET is_deleted = TRUE
+        WHERE hash = LOWER(hash_to_replace)
+        RETURNING id
+    ),
+     merged_object AS (
+        SELECT *
+        FROM merge_object(bytes_, hash_, url_, client_id_)
+    )
+    INSERT INTO object_log (operation, new_object_id, old_object_id)
+    SELECT 'UPD', n.id, d.id
+    FROM merged_object AS n, deleted_object AS d;
 
     RETURN NULL;
 
@@ -153,11 +167,10 @@ DECLARE
     existing_hash      CHAR(64);
 BEGIN
 
-    SELECT o.hash, o.id, ou.client_id
+    SELECT hash, id, client_id
     INTO existing_hash, existing_object_id, existing_client_id
-    FROM objects o
-    INNER JOIN object_urls ou ON ou.object_id = o.id
-    WHERE ou.url = url_;
+    FROM live_objects
+    WHERE url = url_;
 
     IF NOT FOUND THEN
         RETURN json_build_object('code', 'no_object_present', 'message',
@@ -175,24 +188,55 @@ BEGIN
                                  format('Not allowed to delete an object of another client: [%s].', url_));
     END IF;
 
-    -- NOTE: reference in object_urls will be removed by the cascading constraint
-    DELETE FROM objects WHERE hash = LOWER(hash_to_delete);
-
-    INSERT INTO object_log(operation, url, old_hash)
-    VALUES ('DEL', url_, hash_to_delete);
+    WITH deleted_object AS (
+        UPDATE objects SET is_deleted = TRUE
+        WHERE hash = LOWER(hash_to_delete)
+        RETURNING id
+    )
+    INSERT INTO object_log(operation, old_object_id)
+    SELECT 'DEL', id
+    FROM deleted_object;
 
     RETURN NULL;
 END
 $body$
     LANGUAGE plpgsql;
 
+--
+CREATE OR REPLACE VIEW live_objects AS
+SELECT * FROM objects WHERE NOT is_deleted;
 
 -- All the objects currently stored
 CREATE OR REPLACE VIEW current_state AS
-SELECT LOWER(hash) as hash, url, client_id, content
+SELECT hash, url, client_id, content
 FROM objects o
-INNER JOIN object_urls ou ON ou.object_id = o.id
+WHERE NOT o.is_deleted
 ORDER BY url;
+
+-- Currently existing log of object changes
+CREATE OR REPLACE VIEW current_log AS
+SELECT * FROM (
+     SELECT ol.id, operation, url, hash AS old_hash, NULL AS content
+     FROM object_log ol
+              INNER JOIN objects o ON o.id = ol.old_object_id
+     WHERE ol.operation = 'DEL'
+
+     UNION ALL
+
+     SELECT ol.id, operation, url, NULL AS old_hash, content
+     FROM object_log ol
+              INNER JOIN objects o ON o.id = ol.new_object_id
+     WHERE ol.operation = 'INS'
+
+     UNION ALL
+
+     SELECT ol.id, operation, new_o.url, old_o.hash AS old_hash, new_o.content
+     FROM object_log ol
+              INNER JOIN objects old_o ON old_o.id = ol.old_object_id
+              INNER JOIN objects new_o ON new_o.id = ol.new_object_id
+     WHERE ol.operation = 'UPD'
+ ) AS z
+ORDER BY id ASC;
 
 
 -- Convenience view for delta meta information (session_id, serial) together
@@ -206,13 +250,13 @@ WITH framed_version AS (
            COALESCE(LAG(last_log_entry_id, 1) OVER (ORDER BY id), 0) AS previous_log_entry_id
     FROM versions
 )
-SELECT id, operation, url, old_hash, content, session_id, serial
-FROM object_log ol
-         INNER JOIN framed_version ON
+SELECT log.id, operation, url, old_hash, content, session_id, serial
+FROM current_log log
+INNER JOIN framed_version ON
      -- objects related to the current delta serial are the ones
      -- with id between last_log_entry_id of this serial and
      -- last_log_entry_id of the previous serial, i.e. previous_log_entry_id
-    ol.id <= last_log_entry_id AND ol.id > previous_log_entry_id
+    log.id <= last_log_entry_id AND log.id > previous_log_entry_id
 ORDER BY id ASC;
 
 
@@ -342,6 +386,18 @@ WITH
                      SELECT last_log_entry_id
                      FROM deleted_versions
                      WHERE ol.id <= last_log_entry_id
+                 )
+             RETURNING id
+     ),
+     deleted_objects AS (
+         DELETE FROM objects o
+             WHERE o.is_deleted
+               AND NOT EXISTS (
+                     SELECT * FROM object_log
+                     WHERE new_object_id = o.id
+                     UNION ALL
+                     SELECT * FROM object_log
+                     WHERE old_object_id = o.id
                  )
              RETURNING id
      )

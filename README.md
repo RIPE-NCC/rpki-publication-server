@@ -108,7 +108,7 @@ The main entry point is PublicationService. The class PgStore operates with the 
 The concrete structure of the database is hidden behind SQL functions and views.
 
 Every publish/withdraw results in 
-a) insertion/deletion in `objects` and `object_urls` tables;
+a) insertion/deletion in `objects` table;
 b) insertion into `object_log` table.
 
 From time to time we start a transaction that does the following: 
