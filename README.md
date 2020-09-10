@@ -100,6 +100,22 @@ docker run -it \
     * `TRUSTSTORE_PATH`: path of the truststore (on mounted volume)
     * `TRUSTSTORE_PASSWORD`: truststore password.
 
+Testing in vagrant
+------------------
+
+Some of the tests were failing on Linux but not on OS X. A laptop with a high
+number of cores was the most reliable way of reproducing the test failures. The
+source is mounted in `/src` in the container.
+
+If you want to run the tests in the container:
+```
+$ vagrant up
+... wait for VM to start ...
+$ vagrant ssh
+... you get a SSH terminal in the vm ...
+$ cd /src
+$ sbt clean test
+```
 
 Architecture overview
 ----------------------
