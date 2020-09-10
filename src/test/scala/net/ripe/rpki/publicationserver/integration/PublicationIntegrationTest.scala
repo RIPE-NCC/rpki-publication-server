@@ -25,7 +25,7 @@ class PublicationIntegrationTest
     deleteOnExit(rsyncRootDir)
     deleteOnExit(storeDir)
 
-    PgStore.get(pgTestConfig).clear()
+    createPgStore.clear()
 
     val conf = new AppConfig {
       override lazy val rsyncRepositoryMapping = Map(
