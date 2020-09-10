@@ -19,7 +19,7 @@ Vagrant.configure("2") do |config|
   config.vm.provision "shell", inline: <<-SHELL
     echo "Updating and installing the JDK"
     dnf update -y --refresh
-    dnf install -y java-11-openjdk postgresql-server
+    dnf install -y java-11-openjdk postgresql-server git
 
     echo "Setting up postgresql"
     postgresql-setup --initdb --unit postgresql
