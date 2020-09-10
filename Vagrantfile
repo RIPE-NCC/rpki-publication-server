@@ -1,7 +1,7 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 Vagrant.configure("2") do |config|
-  config.vm.box = "generic/centos8"
+  config.vm.box = "generic/fedora32"
 
   config.vm.network "forwarded_port", guest: 7766, host: 7766, host_ip: "127.0.0.1"
   config.vm.network "forwarded_port", guest: 7788, host: 7788, host_ip: "127.0.0.1"
@@ -17,13 +17,14 @@ Vagrant.configure("2") do |config|
   end
 
   config.vm.provision "shell", inline: <<-SHELL
-    echo "Updating and installing the JDK"
+    echo "Updating system and installing git, jdk, and postgresql"
     dnf update -y --refresh
     dnf install -y java-11-openjdk postgresql-server git
 
     echo "Setting up postgresql"
     postgresql-setup --initdb --unit postgresql
-    sed -i -e 's/\(all.*all.*\)ident/\1trust/g' /var/lib/pgsql/data/pg_hba.conf
+    systemctl stop postgresql || true
+    sed -i -e 's/ident/trust/g' /var/lib/pgsql/data/pg_hba.conf
     systemctl start postgresql
 
     echo "Creating application database"
