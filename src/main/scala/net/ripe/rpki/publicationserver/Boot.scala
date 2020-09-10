@@ -75,6 +75,15 @@ class PublicationServerApp(conf: AppConfig, https: ConnectionContext, logger: Lo
       interface = conf.serverAddress,
       port = conf.rrdpPort
     )
+
+    httpsBinding.onComplete {
+      case Failure(e) => logger.error("Problem binding to HTTPS", e)
+      case Success(_) => ()
+    }
+    httpBinding.onComplete {
+      case Failure(e) => logger.error("Problem binding to HTTP", e)
+      case Success(_) => ()
+    }
   }
 
   def shutdown() = {
