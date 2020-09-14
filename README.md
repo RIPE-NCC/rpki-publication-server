@@ -25,6 +25,8 @@ Running the server
 Unpack the distribution archive into the directory of your choice.
 
 Inspect *conf/rpki-publication-server.default.conf* file and update it according to your preferences.
+Note that if the machine it runs on does not have IPv6, `server.address` needs
+to be `0.0.0.0` to prevent errors during startup or tests.
 
 Use *bin/rpki-publication-server.sh* script to start and stop the server:
 
