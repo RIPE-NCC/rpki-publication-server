@@ -31,7 +31,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
   def initFS() = pgStore.inRepeatableReadTx { implicit session =>
     pgStore.lockVersions
 
-    val thereAreChangesSinceTheLastFreeze = pgStore.changesExist
+    val thereAreChangesSinceTheLastFreeze = pgStore.changesExist()
 
     val (sessionId, latestSerial, _) = pgStore.freezeVersion
     val (snapshotHash, snapshotSize) =

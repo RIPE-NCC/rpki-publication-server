@@ -187,8 +187,8 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
       .apply()
   }
 
-  def changesExist(implicit session: DBSession) = {
-    sql"SELECT changes_exist()"
+  def changesExist(syncDelayInSeconds: Long = 0)(implicit session: DBSession) = {
+    sql"SELECT changes_exist($syncDelayInSeconds)"
       .map(rs => rs.boolean(1))
       .single()
       .apply()
@@ -209,8 +209,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
   }
 
   def list(clientId: ClientId) = inRepeatableReadTx { implicit session =>
-    sql"""SELECT url, hash
-           FROM current_state
+    sql"""SELECT url, hash FROM current_state
            WHERE client_id = ${clientId.value}"""
       .map(rs => (rs.string(1), rs.string(2)))
       .list()
