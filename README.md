@@ -25,6 +25,8 @@ Running the server
 Unpack the distribution archive into the directory of your choice.
 
 Inspect *conf/rpki-publication-server.default.conf* file and update it according to your preferences.
+Note that if the machine it runs on does not have IPv6, `server.address` needs
+to be `0.0.0.0` to prevent errors during startup or tests.
 
 Use *bin/rpki-publication-server.sh* script to start and stop the server:
 
@@ -100,6 +102,22 @@ docker run -it \
     * `TRUSTSTORE_PATH`: path of the truststore (on mounted volume)
     * `TRUSTSTORE_PASSWORD`: truststore password.
 
+Testing in vagrant
+------------------
+
+Some of the tests were failing on Linux but not on OS X. A laptop with a high
+number of cores was the most reliable way of reproducing the test failures. The
+source is mounted in `/src` in the container.
+
+If you want to run the tests in the container:
+```
+$ vagrant up
+... wait for VM to start ...
+$ vagrant ssh
+... you get a SSH terminal in the vm ...
+$ cd /src
+$ sbt clean test
+```
 
 Architecture overview
 ----------------------
