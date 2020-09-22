@@ -10,6 +10,7 @@ import com.typesafe.config.{Config, ConfigFactory, ConfigObject, ConfigValue}
 
 import scala.concurrent.duration.Duration
 import scala.jdk.CollectionConverters.CollectionHasAsScala
+import scala.util.{Failure, Try, Success}
 
 /**
  * Helper class which can be wired into clients while making sure that the config file is loaded only once.
@@ -59,6 +60,17 @@ class AppConfig {
 
   def deltaUrl(sessionId: String, serial: Long) =
     rrdpRepositoryUri + "/" + sessionId + "/" + serial + "/delta.xml"
+
+  lazy val writeRsync = isMode("rsync")
+  lazy val writeRrdp = isMode("rrdp")
+
+  def isMode(mode: String) = {
+    Try(getConfig.getString("publication.server.write-mode")) match {
+      case Failure(_) => true
+      case Success(writeMode) => writeMode == "both" || writeMode == mode
+    }
+  }
+
 }
 
 case class PgConfig(url: String, user: String, password: String)
