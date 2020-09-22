@@ -64,12 +64,11 @@ class AppConfig {
   lazy val writeRsync = isMode("rsync")
   lazy val writeRrdp = isMode("rrdp")
 
-  def isMode(mode: String) = {
-    Try(getConfig.getString("publication.server.write-mode")) match {
+  def isMode(dataType: String) =
+    Try(getConfig.getBoolean(s"publication.server.write-$dataType")) match {
       case Failure(_) => true
-      case Success(writeMode) => writeMode == "both" || writeMode == mode
+      case Success(data) => data
     }
-  }
 
 }
 
