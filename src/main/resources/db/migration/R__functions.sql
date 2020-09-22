@@ -335,7 +335,7 @@ $body$
 -- Returns if there's any entry in the object_log table since
 -- the last frozen version. Filter out changes that happen
 -- within `snapshot_delay` seconds ago.
-CREATE OR REPLACE FUNCTION changes_exist(snapshot_delay BIGINT) RETURNS BOOLEAN AS
+CREATE OR REPLACE FUNCTION changes_exist() RETURNS BOOLEAN AS
 $body$
 BEGIN
     IF (EXISTS (SELECT * FROM versions)) THEN
@@ -344,7 +344,6 @@ BEGIN
             WHERE id > (
                 SELECT last_log_entry_id
                 FROM versions
-                WHERE created_at < NOW() - snapshot_delay * INTERVAL '1 SECOND'
                 ORDER BY id DESC
                 LIMIT 1)
             );

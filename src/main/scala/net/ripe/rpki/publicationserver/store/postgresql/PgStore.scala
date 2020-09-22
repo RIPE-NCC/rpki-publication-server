@@ -187,8 +187,8 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
       .apply()
   }
 
-  def changesExist(syncDelayInSeconds: Long = 0)(implicit session: DBSession) = {
-    sql"SELECT changes_exist($syncDelayInSeconds)"
+  def changesExist()(implicit session: DBSession) = {
+    sql"SELECT changes_exist()"
       .map(rs => rs.boolean(1))
       .single()
       .apply()

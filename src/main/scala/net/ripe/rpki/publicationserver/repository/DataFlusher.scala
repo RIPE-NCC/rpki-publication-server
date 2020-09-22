@@ -47,7 +47,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
   def updateFS() = pgStore.inRepeatableReadTx { implicit session =>
     pgStore.lockVersions
 
-    if (pgStore.changesExist(conf.snapshotSyncDelay.toSeconds)) {
+    if (pgStore.changesExist) {
       val ((sessionId, serial, _), duration) = Time.timed(pgStore.freezeVersion)
       logger.info(s"Froze version $sessionId, $serial, took ${duration}ms")
       if (conf.writeRrdp) {
