@@ -333,8 +333,7 @@ $body$
 
 
 -- Returns if there's any entry in the object_log table since
--- the last frozen version. Filter out changes that happen
--- within `snapshot_delay` seconds ago.
+-- the last frozen version.
 CREATE OR REPLACE FUNCTION changes_exist() RETURNS BOOLEAN AS
 $body$
 BEGIN
