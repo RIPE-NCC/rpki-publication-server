@@ -26,6 +26,9 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
 
   lazy val pgStore = PgStore.get(conf.pgConfig)
 
+  // The latest serial for which version freeze was initiated by this server instance.
+  private var latestFrozenSerial : Option[Long] = None
+
   // Write initial state of the database into RRDP and rsync repositories
   // Do not change anything in the DB here.
   def initFS() = pgStore.inRepeatableReadTx { implicit session =>
@@ -41,41 +44,66 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
       initRsyncFS(sessionId, latestSerial)
     }
     initialRrdpRepositoryCleanup(UUID.fromString(sessionId))
+
+    latestFrozenSerial = Some(latestSerial)
   }
 
   // Write current state of the database into RRDP snapshot and delta and rsync repositories
   def updateFS() = pgStore.inRepeatableReadTx { implicit session =>
     pgStore.lockVersions
 
-    if (pgStore.changesExist) {
+    if (pgStore.changesExist()) {
       val ((sessionId, serial, _), duration) = Time.timed(pgStore.freezeVersion)
       logger.info(s"Froze version $sessionId, $serial, took ${duration}ms")
       if (conf.writeRrdp) {
-        updateRrdpFS(sessionId, serial)
+        updateRrdpFS(sessionId, serial, latestFrozenSerial)
       }
       if (conf.writeRsync) {
         writeRsyncDelta(sessionId, serial)
       }
+      val (_, cleanupDuration) = Time.timed {
+        updateRrdpRepositoryCleanup()
+      }
+      logger.info(s"Cleanup $sessionId, $serial, took ${cleanupDuration}ms")
+
+      latestFrozenSerial = Some(serial)
     }
   }
 
-  private def updateRrdpFS(sessionId: String, serial: Long)(implicit session: DBSession) = {
+  private def updateRrdpFS(sessionId: String, serial: Long, latestFrozenPreviously: Option[Long])(implicit session: DBSession) = {
+
+    // Generate snapshot for the latest serial, we are only able to general the latest snapshot
     val ((snapshotHash, snapshotSize), snapshotDuration) = Time.timed {
       withOS(snapshotStream(sessionId, serial)) { snapshotOs =>
         writeRrdpSnapshot(sessionId, serial, snapshotOs)
       }
     }
     logger.info(s"Generated snapshot $sessionId, $serial, took ${snapshotDuration}ms")
-
-    val ((deltaHash, deltaSize), deltaDuration) = Time.timed {
-      withOS(deltaStream(sessionId, serial)) { deltaOs =>
-        writeRrdpDelta(sessionId, serial, deltaOs)
-      }
-    }
-    logger.info(s"Generated delta $sessionId, $serial, took ${deltaDuration}ms")
-
-    pgStore.updateDeltaInfo(sessionId, serial, deltaHash, deltaSize)
     pgStore.updateSnapshotInfo(sessionId, serial, snapshotHash, snapshotSize)
+
+    // Convenience function
+    def writeDelta(s: Long) = {
+      val ((deltaHash, deltaSize), deltaDuration) = Time.timed {
+        withOS(deltaStream(sessionId, s)) { deltaOs =>
+          writeRrdpDelta(sessionId, s, deltaOs)
+        }
+      }
+      logger.info(s"Generated delta $sessionId, $s, took ${deltaDuration}ms")
+      pgStore.updateDeltaInfo(sessionId, s, deltaHash, deltaSize)
+    }
+
+    latestFrozenPreviously match {
+      case None =>
+        // Generate only the latest delta, it's the first time
+        writeDelta(serial)
+
+      case Some(previous) =>
+        // Catch up on deltas, i.e. generate deltas from `latestFrozenPreviously` to `serial`.
+        // This is to cover the case if version freeze was initiated by some other instance
+        for (s <- (previous + 1) to serial) {
+          writeDelta(s)
+        }
+    }
 
     val (_, d) = Time.timed {
       val deltas = pgStore.getReasonableDeltas(sessionId)
@@ -85,10 +113,6 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
     }
     logger.info(s"Generated notification $sessionId, $serial, took ${d}ms")
 
-    val (_, cleanupDuration) = Time.timed {
-      updateRrdpRepositoryCleanup()
-    }
-    logger.info(s"Cleanup $sessionId, $serial, took ${cleanupDuration}ms")
   }
 
   private def initRrdpFS(thereAreChangesSinceTheLastFreeze: Boolean, sessionId: String, latestSerial: Long)(implicit session: DBSession) = {

@@ -2,7 +2,7 @@ package net.ripe.rpki.publicationserver.repository
 
 import java.net.URI
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, NoSuchFileException}
+import java.nio.file.{Files, NoSuchFileException, Path}
 
 import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver._
@@ -12,29 +12,34 @@ import scala.concurrent.duration._
 
 class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
-  val rsyncRootDir1 = Files.createTempDirectory( "test_pub_server_rsync_")
-  val rsyncRootDir2 = Files.createTempDirectory( "test_pub_server_rsync_")
+  private var rsyncRootDir1: Path = _
+  private var rsyncRootDir2: Path = _
+  private var rrdpRootDfir: Path = _
 
-  val rrdpRootDfir = Files.createTempDirectory( "test_pub_server_rrdp_")
-  val pgStore = createPgStore
+  private val pgStore = createPgStore
 
-  val urlPrefix1 = "rsync://host1.com"
-  val urlPrefix2 = "rsync://host2.com"
+  private val urlPrefix1 = "rsync://host1.com"
+  private val urlPrefix2 = "rsync://host2.com"
 
-  private val conf = new AppConfig() {
-    override lazy val pgConfig = pgTestConfig
-    override lazy val rrdpRepositoryPath = rrdpRootDfir.toAbsolutePath.toString
-    override lazy val unpublishedFileRetainPeriod = Duration(20, MILLISECONDS)
-    override lazy val rsyncRepositoryMapping = Map(
-      URI.create(urlPrefix1) -> rsyncRootDir1,
-      URI.create(urlPrefix2) -> rsyncRootDir2
-    )
-  }
-
-  val flusher = new DataFlusher(conf)
+  private var conf: AppConfig = _
+  private var flusher: DataFlusher = _
 
   before {
     pgStore.clear()
+
+    rsyncRootDir1 = Files.createTempDirectory( "test_pub_server_rsync_")
+    rsyncRootDir2 = Files.createTempDirectory( "test_pub_server_rsync_")
+    rrdpRootDfir = Files.createTempDirectory( "test_pub_server_rrdp_")
+    conf = new AppConfig() {
+      override lazy val pgConfig = pgTestConfig
+      override lazy val rrdpRepositoryPath = rrdpRootDfir.toAbsolutePath.toString
+      override lazy val unpublishedFileRetainPeriod = Duration(20, MILLISECONDS)
+      override lazy val rsyncRepositoryMapping = Map(
+        URI.create(urlPrefix1) -> rsyncRootDir1,
+        URI.create(urlPrefix2) -> rsyncRootDir2
+      )
+    }
+    flusher = new DataFlusher(conf)
   }
 
   def waitForRrdpCleanup() = Thread.sleep(200)
@@ -244,11 +249,6 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     }
 
     verifyDeltaDoesntExist(sessionId, serial-2)
-//    val deltaBytes1 = verifyExpectedDelta(sessionId, serial-2) {
-//      s"""<delta version="1" session_id="${sessionId}" serial="${serial-2}" xmlns="http://www.ripe.net/rpki/rrdp">
-//          <publish uri="${uri1}">${base64_1}</publish>
-//      </delta>"""
-//    }
 
     val deltaBytes2 = verifyExpectedDelta(sessionId, serial-1) {
       s"""<delta version="1" session_id="${sessionId}" serial="${serial-1}" xmlns="http://www.ripe.net/rpki/rrdp">
@@ -271,16 +271,7 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     }
   }
 
-
-  private def verifySessionAndSerial = {
-    val version = pgStore.inRepeatableReadTx { implicit session =>
-      pgStore.getCurrentSessionInfo
-    }
-    version.isDefined should be(true)
-    version.get
-  }
-
-  test("Should publish, create a session and serial and generate XML files") {
+  test("Should publish, create a session and serial and generate XML files with updateFS") {
 
     val clientId = ClientId("client1")
 
@@ -569,6 +560,14 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     val generatedSnapshot = new String(bytes, StandardCharsets.US_ASCII)
     trim(generatedSnapshot) should be(trim(expected))
     bytes
+  }
+
+  private def verifySessionAndSerial = {
+    val version = pgStore.inRepeatableReadTx { implicit session =>
+      pgStore.getCurrentSessionInfo
+    }
+    version.isDefined should be(true)
+    version.get
   }
 
   private def verifyExpectedNotification(expected: String) = {
