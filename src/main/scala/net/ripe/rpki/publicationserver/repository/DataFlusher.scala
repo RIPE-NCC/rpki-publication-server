@@ -37,13 +37,14 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
     val thereAreChangesSinceTheLastFreeze = pgStore.changesExist()
     val (sessionId, latestSerial, _) = pgStore.freezeVersion
 
-    if (conf.writeRrdp) {
-      initRrdpFS(thereAreChangesSinceTheLastFreeze, sessionId, latestSerial)
-    }
     if (conf.writeRsync) {
       initRsyncFS(sessionId, latestSerial)
     }
-    initialRrdpRepositoryCleanup(UUID.fromString(sessionId))
+
+    if (conf.writeRrdp) {
+      initRrdpFS(thereAreChangesSinceTheLastFreeze, sessionId, latestSerial)
+      initialRrdpRepositoryCleanup(UUID.fromString(sessionId))
+    }
 
     latestFrozenSerial = Some(latestSerial)
   }
@@ -55,16 +56,18 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
     if (pgStore.changesExist()) {
       val ((sessionId, serial, _), duration) = Time.timed(pgStore.freezeVersion)
       logger.info(s"Froze version $sessionId, $serial, took ${duration}ms")
-      if (conf.writeRrdp) {
-        updateRrdpFS(sessionId, serial, latestFrozenSerial)
-      }
+
       if (conf.writeRsync) {
         writeRsyncDelta(sessionId, serial)
       }
-      val (_, cleanupDuration) = Time.timed {
-        updateRrdpRepositoryCleanup()
+
+      if (conf.writeRrdp) {
+        updateRrdpFS(sessionId, serial, latestFrozenSerial)
+        val (_, cleanupDuration) = Time.timed {
+          updateRrdpRepositoryCleanup()
+        }
+        logger.info(s"Cleanup $sessionId, $serial, took ${cleanupDuration}ms")
       }
-      logger.info(s"Cleanup $sessionId, $serial, took ${cleanupDuration}ms")
 
       latestFrozenSerial = Some(serial)
     }
