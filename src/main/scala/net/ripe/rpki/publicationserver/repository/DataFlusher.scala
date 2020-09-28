@@ -100,6 +100,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
       case Some(previous) =>
         // Catch up on deltas, i.e. generate deltas from `latestFrozenPreviously` to `serial`.
         // This is to cover the case if version freeze was initiated by some other instance
+        // and this instance is lagging behind.
         for (s <- (previous + 1) to serial) {
           writeDelta(s)
         }
