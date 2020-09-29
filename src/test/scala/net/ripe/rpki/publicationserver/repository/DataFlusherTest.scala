@@ -515,16 +515,16 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     def verifyRrpdFiles(sessionId : String, serial: Long) = {
       val snapshotBytes = verifyExpectedSnapshot(sessionId, serial) {
         s"""<snapshot version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
-          <publish uri="${uri1}">${base64_1}</publish>
-          <publish uri="${uri2}">${base64_2}</publish>
-      </snapshot>"""
+              <publish uri="${uri1}">${base64_1}</publish>
+              <publish uri="${uri2}">${base64_2}</publish>
+          </snapshot>"""
       }
 
       val deltaBytes = verifyExpectedDelta(sessionId, serial) {
         s"""<delta version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
-          <publish uri="${uri1}">${base64_1}</publish>
-          <publish uri="${uri2}">${base64_2}</publish>
-      </delta>"""
+              <publish uri="${uri1}">${base64_1}</publish>
+              <publish uri="${uri2}">${base64_2}</publish>
+          </delta>"""
       }
 
       verifyExpectedNotification {
@@ -636,7 +636,45 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
     Bytes(Files.readAllBytes(rsyncRootDir1.resolve("online").resolve("path1.roa"))) should be(bytes2)
 
+    val (sessionId, serial) = verifySessionAndSerial
+    serial should be(3L)
+
+    verifySnapshotDoesntExist(sessionId, serial - 1)
+    verifySnapshotDoesntExist(sessionId, serial)
+    verifyDeltaDoesntExist(sessionId, serial - 1)
+    verifyDeltaDoesntExist(sessionId, serial)
+
+    rrdpRootDfir.resolve("notification.xml").toFile.exists() should be(false)
+  }
+
+
+  test("Should update rrdp and rsync when DB is modified by `another instance` in the meantime") {
+    val flusher = newFlusher()
+    flusher.initFS()
+    waitForRrdpCleanup()
+
+    val clientId = ClientId("client1")
+
+    val uri1 = new URI(urlPrefix1 + "/path1.roa")
+
+    val (bytes1, _) = TestBinaries.generateObject(1000)
+    val (bytes2, _) = TestBinaries.generateObject(200)
+
+    pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = None, bytes1))), clientId)
+    flusher.updateFS()
+    waitForRrdpCleanup()
+
+    pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = Some(hash(bytes1).hash), bytes2))), clientId)
+
+    // Freeze version but do not do updateFS, as if some
+    // other instance has frozen the version.
+    pgStore.inRepeatableReadTx { implicit s =>
+      pgStore.freezeVersion
+    }
+
     pgStore.applyChanges(QueryMessage(Seq(WithdrawQ(uri1, tag = None, hash = hash(bytes2).hash))), clientId)
+
+    // this one should catch up and generate two deltas and modify two objects to the rsync repo
     flusher.updateFS()
     waitForRrdpCleanup()
 
@@ -647,12 +685,24 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
     verifySnapshotDoesntExist(sessionId, serial - 2)
     verifySnapshotDoesntExist(sessionId, serial - 1)
-    verifySnapshotDoesntExist(sessionId, serial)
     verifyDeltaDoesntExist(sessionId, serial - 2)
     verifyDeltaDoesntExist(sessionId, serial - 1)
-    verifyDeltaDoesntExist(sessionId, serial)
 
-    rrdpRootDfir.resolve("notification.xml").toFile.exists() should be(false)
+    val snapshotBytes = verifyExpectedSnapshot(sessionId, serial) {
+      s"""<snapshot version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp"></snapshot>"""
+    }
+
+    verifyExpectedDelta(sessionId, serial) {
+      s"""<delta version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
+            <withdraw uri="${uri1}" hash="${hash(bytes2).hash}"/>
+        </delta>"""
+    }
+
+    verifyExpectedNotification {
+      s"""<notification version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
+            <snapshot uri="http://localhost:7788/${sessionId}/${serial}/snapshot.xml" hash="${hash(Bytes(snapshotBytes)).hash}"/>
+          </notification>"""
+    }
   }
 
 

@@ -91,7 +91,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
           writeRrdpDelta(sessionId, s, deltaOs)
         }
       }
-      logger.info(s"Generated delta $sessionId, $s, took ${deltaDuration}ms")
+      logger.info(s"Generated delta, session id = $sessionId, serial = $s, took ${deltaDuration}ms")
       pgStore.updateDeltaInfo(sessionId, s, deltaHash, deltaSize)
     }
 
