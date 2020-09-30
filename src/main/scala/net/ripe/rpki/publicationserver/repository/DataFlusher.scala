@@ -236,16 +236,6 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
     IOStream.string("</publish>\n", stream)
   }
 
-//  def withOS(createStream: => HashingSizedStream)(f : HashingSizedStream => Unit) = {
-//    val stream = createStream
-//    try {
-//      f(stream)
-//      stream.summary
-//    } finally {
-//      stream.close()
-//    }
-//  }
-
   def withTmpStream(targetFile: Path)(f : HashingSizedStream => Unit) = {
     val tmpFile = Files.createTempFile(targetFile.getParent, "", ".xml")
     val tmpStream = new HashingSizedStream(new FileOutputStream(tmpFile.toFile))
