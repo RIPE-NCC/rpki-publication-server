@@ -77,11 +77,15 @@ class PublicationServerApp(conf: AppConfig, https: ConnectionContext, logger: Lo
     )
 
     httpsBinding.onComplete {
-      case Failure(e) => logger.error("Problem binding to HTTPS", e)
+      case Failure(e) =>
+        logger.error("Problem binding to HTTPS, exiting", e)
+        System.exit(1)
       case Success(_) => ()
     }
     httpBinding.onComplete {
-      case Failure(e) => logger.error("Problem binding to HTTP", e)
+      case Failure(e) =>
+        logger.error("Problem binding to HTTP, exiting", e)
+        System.exit(1)
       case Success(_) => ()
     }
   }

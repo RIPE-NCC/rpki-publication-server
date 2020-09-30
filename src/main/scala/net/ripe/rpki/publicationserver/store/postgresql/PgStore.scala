@@ -29,7 +29,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
   }
 
   def getState = DB.localTx { implicit session =>
-    sql"SELECT * FROM current_state"
+    sql"SELECT * FROM current_state ORDER BY url"
       .map { rs =>
         val hash = Hash(rs.string(1))
         val uri = URI.create(rs.string(2))
@@ -44,7 +44,8 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
 
   def getLog = DB.localTx { implicit session =>
     sql"""SELECT operation, url, old_hash, content
-         FROM current_log"""
+         FROM current_log
+         ORDER BY id ASC"""
       .map { rs =>
         val operation = rs.string(1)
         val uri = URI.create(rs.string(2))
@@ -58,7 +59,9 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
 
   def readState(f: (URI, Hash, Bytes) => Unit)(implicit session: DBSession) = {
     session.fetchSize(200)
-    sql"SELECT url, hash, content FROM current_state"
+    sql"""SELECT url, hash, content
+          FROM current_state
+          ORDER BY url ASC"""
       .foreach { rs =>
         val uri = URI.create(rs.string(1))
         val hash = Hash(rs.string(2))
