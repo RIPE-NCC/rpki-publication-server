@@ -3,7 +3,7 @@ package net.ripe.rpki.publicationserver.repository
 import java.io.FileOutputStream
 import java.net.URI
 import java.nio.file.attribute.FileTime
-import java.nio.file.{Files, Paths}
+import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.{Date, UUID}
@@ -77,7 +77,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
 
     // Generate snapshot for the latest serial, we are only able to general the latest snapshot
     val ((snapshotHash, snapshotSize), snapshotDuration) = Time.timed {
-      withOS(snapshotStream(sessionId, serial)) { snapshotOs =>
+      withTmpStream(snapshotPath(sessionId, serial)) { snapshotOs =>
         writeRrdpSnapshot(sessionId, serial, snapshotOs)
       }
     }
@@ -87,8 +87,8 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
     // Convenience function
     def writeDelta(s: Long) = {
       val ((deltaHash, deltaSize), deltaDuration) = Time.timed {
-        withOS(deltaStream(sessionId, s)) { deltaOs =>
-          writeRrdpDelta(sessionId, s, deltaOs)
+        withTmpStream(deltaPath(sessionId, serial)) { snapshotOs =>
+          writeRrdpDelta(sessionId, serial, snapshotOs)
         }
       }
       logger.info(s"Generated delta, session id = $sessionId, serial = $s, took ${deltaDuration}ms")
@@ -121,14 +121,14 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
 
   private def initRrdpFS(thereAreChangesSinceTheLastFreeze: Boolean, sessionId: String, latestSerial: Long)(implicit session: DBSession) = {
     val (snapshotHash, snapshotSize) =
-      withOS(snapshotStream(sessionId, latestSerial)) { snapshotOs =>
+      withTmpStream(snapshotPath(sessionId, latestSerial)) { snapshotOs =>
         writeRrdpSnapshot(sessionId, latestSerial, snapshotOs)
       }
     pgStore.updateSnapshotInfo(sessionId, latestSerial, snapshotHash, snapshotSize)
 
     if (thereAreChangesSinceTheLastFreeze) {
       val (latestDeltaHash, latestDeltaSize) =
-        withOS(deltaStream(sessionId, latestSerial)) { deltaOs =>
+        withTmpStream(deltaPath(sessionId, latestSerial)) { deltaOs =>
           writeRrdpDelta(sessionId, latestSerial, deltaOs)
         }
       pgStore.updateDeltaInfo(sessionId, latestSerial, latestDeltaHash, latestDeltaSize)
@@ -139,7 +139,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
     val deltas = pgStore.getReasonableDeltas(sessionId)
 
     deltas.filter(_._1 != latestSerial).foreach { case (serial, _) =>
-      withOS(deltaStream(sessionId, serial)) { deltaOs =>
+      withTmpStream(deltaPath(sessionId, serial)) { deltaOs =>
         writeRrdpDelta(sessionId, serial, deltaOs)
       }
     }
@@ -197,16 +197,11 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
     IOStream.string("</notification>", stream)
   }
 
-  def deltaStream(sessionId: String, serial: Long): HashingSizedStream =
-    new HashingSizedStream(rrdpFileStream(sessionId, serial, Rrdp.deltaFilename))
+  def snapshotPath(sessionId: String, serial: Long): Path =
+    Files.createDirectories(Paths.get(conf.rrdpRepositoryPath, sessionId, String.valueOf(serial))).resolve(Rrdp.snapshotFilename)
 
-  def snapshotStream(sessionId: String, serial: Long): HashingSizedStream =
-    new HashingSizedStream(rrdpFileStream(sessionId, serial, Rrdp.snapshotFilename))
-
-  private def rrdpFileStream(sessionId: String, serial: Long, localName: String) = {
-    val stateDir = Files.createDirectories(Paths.get(conf.rrdpRepositoryPath, sessionId, String.valueOf(serial)))
-    new FileOutputStream(stateDir.resolve(localName).toFile)
-  }
+  def deltaPath(sessionId: String, serial: Long): Path =
+    Files.createDirectories(Paths.get(conf.rrdpRepositoryPath, sessionId, String.valueOf(serial))).resolve(Rrdp.deltaFilename)
 
   protected def writeLogEntryToRsync(operation: String, uri: URI, bytes: Option[Bytes]) =
     (operation, bytes) match {
@@ -241,13 +236,26 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
     IOStream.string("</publish>\n", stream)
   }
 
-  def withOS(createStream: => HashingSizedStream)(f : HashingSizedStream => Unit) = {
-    val stream = createStream
+//  def withOS(createStream: => HashingSizedStream)(f : HashingSizedStream => Unit) = {
+//    val stream = createStream
+//    try {
+//      f(stream)
+//      stream.summary
+//    } finally {
+//      stream.close()
+//    }
+//  }
+
+  def withTmpStream(targetFile: Path)(f : HashingSizedStream => Unit) = {
+    val tmpFile = Files.createTempFile(targetFile.getParent, "", ".xml")
+    val tmpStream = new HashingSizedStream(new FileOutputStream(tmpFile.toFile))
     try {
-      f(stream)
-      stream.summary
+      f(tmpStream)
+      Files.move(tmpFile, targetFile.toAbsolutePath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+      tmpStream.summary
     } finally {
-      stream.close()
+      tmpStream.close()
+      Files.deleteIfExists(tmpFile)
     }
   }
 
@@ -268,11 +276,11 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
     rrdpWriter.cleanRepositoryExceptOneSessionOlderThan(conf.rrdpRepositoryPath, oldEnough, sessionId)
 
     // Wait for the time T and delete those which are older than `now`
-    system.scheduler.scheduleOnce(conf.unpublishedFileRetainPeriod)({
+    system.scheduler.scheduleOnce(conf.unpublishedFileRetainPeriod) {
       logger.info(s"Removing all the older sessions in RRDP repository except for $sessionId")
       rrdpWriter.cleanRepositoryExceptOneSessionOlderThan(conf.rrdpRepositoryPath, FileTime.from(now), sessionId)
       ()
-    })
+    }
   }
 
 
