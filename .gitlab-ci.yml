@@ -41,7 +41,7 @@ build_tagged_image:
   only:
     - master@rpki/rpki-publication-server
 
-build_manual_image:
+build_branch_image:
   stage: deploy
   when: manual
   image: docker:latest
@@ -49,8 +49,10 @@ build_manual_image:
     - docker:dind
   script:
     - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
-    - docker build --tag $CI_REGISTRY_IMAGE:dev .
-    - docker push $CI_REGISTRY_IMAGE:dev
+    - docker build --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG .
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
+  except:
+    - master
 
 deploy-prepdev:
   variables:
