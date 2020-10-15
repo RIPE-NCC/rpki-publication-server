@@ -52,7 +52,6 @@ CREATE TABLE versions
 CREATE UNIQUE INDEX idx_objects_hash ON objects (hash);
 CREATE UNIQUE INDEX idx_objects_url ON objects (url) WHERE NOT is_deleted;
 
--- Only one version in the pending state is allowed (it must be the last one)
 CREATE UNIQUE INDEX idx_uniq_versions_generates ON versions (session_id, serial);
 
 COMMIT;

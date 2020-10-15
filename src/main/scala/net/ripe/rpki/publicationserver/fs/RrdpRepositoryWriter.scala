@@ -18,7 +18,7 @@ class RrdpRepositoryWriter extends Logging {
   }
 
   def cleanRepositoryExceptOneSessionOlderThan(rootDir: String, timestamp: FileTime, sessionId: UUID): Path = {
-    Files.walkFileTree(Paths.get(rootDir), new RemoveAllVisitorExceptOneSession(sessionId.toString, timestamp))
+      Files.walkFileTree(Paths.get(rootDir), new RemoveAllVisitorExceptOneSession(sessionId.toString, timestamp))
   }
 
   private val fileAttributes = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-r--r--"))
@@ -49,7 +49,7 @@ class RrdpRepositoryWriter extends Logging {
 
   def cleanUpEmptyDir(rootDir: String, sessionId: UUID, serial: Long) = {
     val dir = Paths.get(rootDir, sessionId.toString, serial.toString)
-    if (FSUtil.isEmptyDir(dir)) {
+    if (dir.toFile.exists() && FSUtil.isEmptyDir(dir)) {
       Files.deleteIfExists(dir)
     }
   }
