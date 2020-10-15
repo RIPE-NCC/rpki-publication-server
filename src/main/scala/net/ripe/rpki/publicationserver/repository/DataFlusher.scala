@@ -31,45 +31,55 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
 
   // Write initial state of the database into RRDP and rsync repositories
   // Do not change anything in the DB here.
-  def initFS() = pgStore.inRepeatableReadTx { implicit session =>
-    pgStore.lockVersions
+  def initFS() = {
+    // do not do anything at all if neither `writeRsync` nor `writeRrdp` is set.
+    if (conf.writeRsync || conf.writeRrdp) {
+      pgStore.inRepeatableReadTx { implicit session =>
+        pgStore.lockVersions
 
-    val thereAreChangesSinceTheLastFreeze = pgStore.changesExist()
-    val (sessionId, latestSerial, _) = pgStore.freezeVersion
+        val thereAreChangesSinceTheLastFreeze = pgStore.changesExist()
+        val (sessionId, latestSerial, _) = pgStore.freezeVersion
 
-    if (conf.writeRsync) {
-      initRsyncFS(sessionId, latestSerial)
+        if (conf.writeRsync) {
+          initRsyncFS(sessionId, latestSerial)
+        }
+
+        if (conf.writeRrdp) {
+          initRrdpFS(thereAreChangesSinceTheLastFreeze, sessionId, latestSerial)
+          initialRrdpRepositoryCleanup(UUID.fromString(sessionId))
+        }
+
+        latestFrozenSerial = Some(latestSerial)
+      }
     }
-
-    if (conf.writeRrdp) {
-      initRrdpFS(thereAreChangesSinceTheLastFreeze, sessionId, latestSerial)
-      initialRrdpRepositoryCleanup(UUID.fromString(sessionId))
-    }
-
-    latestFrozenSerial = Some(latestSerial)
   }
 
   // Write current state of the database into RRDP snapshot and delta and rsync repositories
-  def updateFS() = pgStore.inRepeatableReadTx { implicit session =>
-    pgStore.lockVersions
+  def updateFS() = {
+    // do not do anything at all if neither `writeRsync` nor `writeRrdp` is set.
+    if (conf.writeRsync || conf.writeRrdp) {
+      pgStore.inRepeatableReadTx { implicit session =>
+        pgStore.lockVersions
 
-    if (pgStore.changesExist()) {
-      val ((sessionId, serial, _), duration) = Time.timed(pgStore.freezeVersion)
-      logger.info(s"Froze version $sessionId, $serial, took ${duration}ms")
+        if (pgStore.changesExist()) {
+          val ((sessionId, serial, _), duration) = Time.timed(pgStore.freezeVersion)
+          logger.info(s"Froze version $sessionId, $serial, took ${duration}ms")
 
-      if (conf.writeRsync) {
-        writeRsyncDelta(sessionId, serial)
-      }
+          if (conf.writeRsync) {
+            writeRsyncDelta(sessionId, serial)
+          }
 
-      if (conf.writeRrdp) {
-        updateRrdpFS(sessionId, serial, latestFrozenSerial)
-        val (_, cleanupDuration) = Time.timed {
-          updateRrdpRepositoryCleanup()
+          if (conf.writeRrdp) {
+            updateRrdpFS(sessionId, serial, latestFrozenSerial)
+            val (_, cleanupDuration) = Time.timed {
+              updateRrdpRepositoryCleanup()
+            }
+            logger.info(s"Cleanup $sessionId, $serial, took ${cleanupDuration}ms")
+          }
+
+          latestFrozenSerial = Some(serial)
         }
-        logger.info(s"Cleanup $sessionId, $serial, took ${cleanupDuration}ms")
       }
-
-      latestFrozenSerial = Some(serial)
     }
   }
 
