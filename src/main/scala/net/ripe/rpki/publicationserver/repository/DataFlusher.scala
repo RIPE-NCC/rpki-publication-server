@@ -261,7 +261,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
 
     // Cleanup files that are left from some previously existing sessions
     //
-    // First remove the ones that are more than time T old
+    // First remove the ones that are more than `oldEnough`
     logger.info(s"Removing all the sessions in RRDP repository except for $sessionId")
     rrdpWriter.cleanRepositoryExceptOneSessionOlderThan(conf.rrdpRepositoryPath, oldEnough, sessionId)
 
