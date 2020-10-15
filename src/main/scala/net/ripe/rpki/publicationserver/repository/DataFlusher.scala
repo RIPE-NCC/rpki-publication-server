@@ -38,7 +38,8 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
         pgStore.lockVersions
 
         val thereAreChangesSinceTheLastFreeze = pgStore.changesExist()
-        val (sessionId, latestSerial, _) = pgStore.freezeVersion
+        val ((sessionId, latestSerial, _), duration) = Time.timed(pgStore.freezeVersion)
+        logger.info(s"Froze version $sessionId, $latestSerial, took ${duration}ms")
 
         if (conf.writeRsync) {
           initRsyncFS(sessionId, latestSerial)
@@ -101,7 +102,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
           writeRrdpDelta(sessionId, serial, snapshotOs)
         }
       }
-      logger.info(s"Generated delta, session id = $sessionId, serial = $s, took ${deltaDuration}ms")
+      logger.info(s"Generated delta $sessionId/$s, took ${deltaDuration}ms")
       pgStore.updateDeltaInfo(sessionId, s, deltaHash, deltaSize)
     }
 
@@ -125,38 +126,46 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
         writeNotification(sessionId, serial, snapshotHash, deltas, new HashingSizedStream(os))
       }
     }
-    logger.info(s"Generated notification $sessionId, $serial, took ${d}ms")
+    logger.info(s"Generated notification $sessionId/$serial, took ${d}ms")
 
   }
 
   private def initRrdpFS(thereAreChangesSinceTheLastFreeze: Boolean, sessionId: String, latestSerial: Long)(implicit session: DBSession) = {
-    val (snapshotHash, snapshotSize) =
+    val ((snapshotHash, snapshotSize), snapshotDuration) = Time.timed {
       withAtomicStream(snapshotPath(sessionId, latestSerial)) { snapshotOs =>
         writeRrdpSnapshot(sessionId, latestSerial, snapshotOs)
       }
+    }
+    logger.error(s"Wrote RRDP delta for ${sessionId}/${latestSerial}, took ${snapshotDuration}ms.")
     pgStore.updateSnapshotInfo(sessionId, latestSerial, snapshotHash, snapshotSize)
 
     if (thereAreChangesSinceTheLastFreeze) {
-      val (latestDeltaHash, latestDeltaSize) =
+      val ((latestDeltaHash, latestDeltaSize), deltaDuration) = Time.timed {
         withAtomicStream(deltaPath(sessionId, latestSerial)) { deltaOs =>
           writeRrdpDelta(sessionId, latestSerial, deltaOs)
         }
+      }
+      logger.info(s"Generated delta $sessionId/$latestSerial, took ${deltaDuration}ms")
       pgStore.updateDeltaInfo(sessionId, latestSerial, latestDeltaHash, latestDeltaSize)
     }
 
-    // After version free this list of deltas contains the latest one as well
-    // so it is correct to use it for the notifications.xml
     val deltas = pgStore.getReasonableDeltas(sessionId)
 
     deltas.filter(_._1 != latestSerial).foreach { case (serial, _) =>
-      withAtomicStream(deltaPath(sessionId, serial)) { deltaOs =>
-        writeRrdpDelta(sessionId, serial, deltaOs)
+      val (_, deltaDuration) = Time.timed {
+        withAtomicStream(deltaPath(sessionId, serial)) { deltaOs =>
+          writeRrdpDelta(sessionId, serial, deltaOs)
+        }
       }
+      logger.info(s"Generated delta $sessionId/$serial, took ${deltaDuration}ms")
     }
 
-    rrdpWriter.writeNotification(conf.rrdpRepositoryPath) { os =>
-      writeNotification(sessionId, latestSerial, snapshotHash, deltas, new HashingSizedStream(os))
+    val (_, duration) = Time.timed {
+      rrdpWriter.writeNotification(conf.rrdpRepositoryPath) { os =>
+        writeNotification(sessionId, latestSerial, snapshotHash, deltas, new HashingSizedStream(os))
+      }
     }
+    logger.info(s"Generated notification $sessionId/$latestSerial, took ${duration}ms")
   }
 
   private def initRsyncFS(sessionId: String, latestSerial: Long)(implicit session: DBSession) = {
@@ -176,25 +185,35 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
 
   // Write snapshot objects to rsync repository.
   def writeRsyncSnapshot()(implicit session: DBSession) = {
-    val directoryMapping = rsyncWriter.startSnapshot
-    pgStore.readState { (uri, _, bytes) =>
-      rsyncWriter.writeFileInSnapshot(uri, bytes, directoryMapping)
+    val (_, duration) = Time.timed {
+      val directoryMapping = rsyncWriter.startSnapshot
+      pgStore.readState { (uri, _, bytes) =>
+        rsyncWriter.writeFileInSnapshot(uri, bytes, directoryMapping)
+      }
+      rsyncWriter.promoteAllStagingToOnline(directoryMapping)
     }
-    rsyncWriter.promoteAllStagingToOnline(directoryMapping)
+    logger.error(s"Wrote rsync snapshot, took ${duration}ms.")
   }
 
   def writeRrdpDelta(sessionId: String, serial: Long, deltaOs: HashingSizedStream)(implicit session: DBSession) = {
-    IOStream.string(s"""<delta version="1" session_id="$sessionId" serial="$serial" xmlns="http://www.ripe.net/rpki/rrdp">\n""", deltaOs)
-    pgStore.readDelta(sessionId, serial) { (operation, uri, oldHash, bytes) =>
-      writeLogEntryToDeltaFile(operation, uri, oldHash, bytes, deltaOs)
+    val (_, duration) = Time.timed {
+      IOStream.string(s"""<delta version="1" session_id="$sessionId" serial="$serial" xmlns="http://www.ripe.net/rpki/rrdp">\n""", deltaOs)
+      pgStore.readDelta(sessionId, serial) { (operation, uri, oldHash, bytes) =>
+        writeLogEntryToDeltaFile(operation, uri, oldHash, bytes, deltaOs)
+      }
+      IOStream.string("</delta>\n", deltaOs)
     }
-    IOStream.string("</delta>\n", deltaOs)
+    logger.error(s"Wrote RRDP delta for ${sessionId}/${serial}, took ${duration}ms.")
   }
 
-  def writeRsyncDelta(sessionId: String, serial: Long)(implicit session: DBSession) =
-    pgStore.readDelta(sessionId, serial) { (operation, uri, _, bytes) =>
+  def writeRsyncDelta(sessionId: String, serial: Long)(implicit session: DBSession) = {
+    val (_, duration) = Time.timed {
+      pgStore.readDelta(sessionId, serial) { (operation, uri, _, bytes) =>
         writeLogEntryToRsync(operation, uri, bytes)
+      }
     }
+    logger.error(s"Wrote rsync delta for ${sessionId}/${serial}, took ${duration}ms.")
+  }
 
 
   def writeNotification(sessionId: String, serial: Long, snapshotHash: Hash, deltas: Seq[(Long, Hash)], stream: HashingSizedStream) = {
@@ -273,12 +292,12 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
     //
     // First remove the ones that are more than `oldEnough`
     logger.info(s"Removing all the sessions in RRDP repository except for $sessionId")
-    rrdpWriter.cleanRepositoryExceptOneSessionOlderThan(conf.rrdpRepositoryPath, oldEnough, sessionId)
+    rrdpWriter.cleanSessionsOlderThanExceptForOne(conf.rrdpRepositoryPath, oldEnough, sessionId)
 
     // Wait for the time T and delete those which are older than `now`
     system.scheduler.scheduleOnce(conf.unpublishedFileRetainPeriod) {
       logger.info(s"Removing all the older sessions in RRDP repository except for $sessionId")
-      rrdpWriter.cleanRepositoryExceptOneSessionOlderThan(conf.rrdpRepositoryPath, FileTime.from(now), sessionId)
+      rrdpWriter.cleanSessionsOlderThanExceptForOne(conf.rrdpRepositoryPath, FileTime.from(now), sessionId)
       ()
     }
   }

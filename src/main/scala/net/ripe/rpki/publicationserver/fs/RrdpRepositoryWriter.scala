@@ -17,7 +17,7 @@ class RrdpRepositoryWriter extends Logging {
     Files.createDirectories(Paths.get(rootDir, sessionId.toString, String.valueOf(serial)))
   }
 
-  def cleanRepositoryExceptOneSessionOlderThan(rootDir: String, timestamp: FileTime, sessionId: UUID): Path = {
+  def cleanSessionsOlderThanExceptForOne(rootDir: String, timestamp: FileTime, sessionId: UUID): Path = {
       Files.walkFileTree(Paths.get(rootDir), new RemoveAllVisitorExceptOneSession(sessionId.toString, timestamp))
   }
 
