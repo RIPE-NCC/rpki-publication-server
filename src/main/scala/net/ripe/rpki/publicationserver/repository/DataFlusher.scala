@@ -77,7 +77,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
 
     // Generate snapshot for the latest serial, we are only able to general the latest snapshot
     val ((snapshotHash, snapshotSize), snapshotDuration) = Time.timed {
-      withTmpStream(snapshotPath(sessionId, serial)) { snapshotOs =>
+      withAtomicStream(snapshotPath(sessionId, serial)) { snapshotOs =>
         writeRrdpSnapshot(sessionId, serial, snapshotOs)
       }
     }
@@ -87,7 +87,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
     // Convenience function
     def writeDelta(s: Long) = {
       val ((deltaHash, deltaSize), deltaDuration) = Time.timed {
-        withTmpStream(deltaPath(sessionId, serial)) { snapshotOs =>
+        withAtomicStream(deltaPath(sessionId, serial)) { snapshotOs =>
           writeRrdpDelta(sessionId, serial, snapshotOs)
         }
       }
@@ -121,14 +121,14 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
 
   private def initRrdpFS(thereAreChangesSinceTheLastFreeze: Boolean, sessionId: String, latestSerial: Long)(implicit session: DBSession) = {
     val (snapshotHash, snapshotSize) =
-      withTmpStream(snapshotPath(sessionId, latestSerial)) { snapshotOs =>
+      withAtomicStream(snapshotPath(sessionId, latestSerial)) { snapshotOs =>
         writeRrdpSnapshot(sessionId, latestSerial, snapshotOs)
       }
     pgStore.updateSnapshotInfo(sessionId, latestSerial, snapshotHash, snapshotSize)
 
     if (thereAreChangesSinceTheLastFreeze) {
       val (latestDeltaHash, latestDeltaSize) =
-        withTmpStream(deltaPath(sessionId, latestSerial)) { deltaOs =>
+        withAtomicStream(deltaPath(sessionId, latestSerial)) { deltaOs =>
           writeRrdpDelta(sessionId, latestSerial, deltaOs)
         }
       pgStore.updateDeltaInfo(sessionId, latestSerial, latestDeltaHash, latestDeltaSize)
@@ -139,7 +139,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
     val deltas = pgStore.getReasonableDeltas(sessionId)
 
     deltas.filter(_._1 != latestSerial).foreach { case (serial, _) =>
-      withTmpStream(deltaPath(sessionId, serial)) { deltaOs =>
+      withAtomicStream(deltaPath(sessionId, serial)) { deltaOs =>
         writeRrdpDelta(sessionId, serial, deltaOs)
       }
     }
@@ -236,7 +236,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
     IOStream.string("</publish>\n", stream)
   }
 
-  def withTmpStream(targetFile: Path)(f : HashingSizedStream => Unit) = {
+  def withAtomicStream(targetFile: Path)(f : HashingSizedStream => Unit) = {
     val tmpFile = Files.createTempFile(targetFile.getParent, "", ".xml")
     val tmpStream = new HashingSizedStream(new FileOutputStream(tmpFile.toFile))
     try {
