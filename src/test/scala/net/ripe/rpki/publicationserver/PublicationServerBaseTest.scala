@@ -28,7 +28,7 @@ abstract class PublicationServerBaseTest extends AnyFunSuite with BeforeAndAfter
 
   var tempXodusDir: File = _
 
-  val pgTestConfig = PgConfig(url = "jdbc:postgresql://localhost:5432/pubserver_test", user = "pubserver", password = "pubserver")
+  val pgTestConfig = new AppConfig().pgConfig
 
   protected def createPgStore = {
     PgStore.migrateDB(pgTestConfig)
