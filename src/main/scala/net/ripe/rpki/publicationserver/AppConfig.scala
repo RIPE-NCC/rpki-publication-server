@@ -74,5 +74,5 @@ class AppConfig {
 case class PgConfig(url: String, user: String, password: String)
 
 object AppConfig {
-  lazy val config : Config = ConfigFactory.load()
+  lazy val config: Config = ConfigFactory.systemEnvironmentOverrides().withFallback(ConfigFactory.load())
 }
