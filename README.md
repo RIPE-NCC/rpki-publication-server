@@ -47,7 +47,7 @@ To create self-signed server's certificate, use following commands:
 
 * Generate the server key pair and certificate:
 
-> $ keytool -genkey -alias pub-server -keystore serverKeyStore.ks
+> $ keytool -genkey -alias pub-server -keystore serverKeyStore.ks -keyalg RSA -keysize 4096
 
 * Export server's certificate to a file (to be used by a client):
 
@@ -86,6 +86,7 @@ docker run -it \
   -p 7766:7766 \
   -p 7788:7788 \
   -v `pwd`/ssl:/conf/ssl \
+  -e ENABLE_SSL=on \
   -e KEYSTORE_PATH=/conf/ssl/serverKeyStore.ks \
   -e TRUSTSTORE_PATH=/conf/ssl/serverTrustStore.ks \
   -e KEYSTORE_PASSWORD="123456" \
