@@ -16,6 +16,7 @@ scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8")
 // use sbt assembly plugin and create a fat jar with a predictable name.
 mainClass in assembly := Some("net.ripe.rpki.publicationserver.Boot")
 assemblyJarName in assembly := "rpki-publication-server.jar"
+test in assembly := {}
 
 parallelExecution in Test := false
 
