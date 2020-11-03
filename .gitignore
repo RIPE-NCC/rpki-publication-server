@@ -1,4 +1,7 @@
-target
+/target
+/snapshots
+/store
+/project/metals.sbt
 *.iml
 *.log*
 *.db
@@ -9,7 +12,4 @@ target
 .store
 .bloop
 .metals
-snapshots
-store
-project/metals.sbt
 .scalafmt.conf
