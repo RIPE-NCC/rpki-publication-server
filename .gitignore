@@ -15,3 +15,5 @@
 .scalafmt.conf
 .vscode
 .vagrant
+project/project
+project/target

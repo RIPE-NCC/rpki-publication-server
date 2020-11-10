@@ -85,7 +85,7 @@ docker build . -t rpki-publication-server
 docker run -it \
   -p 7766:7766 \
   -p 7788:7788 \
-  -v `pwd`/ssl:/conf/ssl \
+  -v `pwd`/src/test/resources/certificates/:/conf/ssl \
   -e ENABLE_SSL=on \
   -e KEYSTORE_PATH=/conf/ssl/serverKeyStore.ks \
   -e TRUSTSTORE_PATH=/conf/ssl/serverTrustStore.ks \
