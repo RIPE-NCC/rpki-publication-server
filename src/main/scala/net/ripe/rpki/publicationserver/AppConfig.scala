@@ -22,6 +22,9 @@ class AppConfig {
   lazy val rrdpPort = getConfig.getInt("rrdp.port")
   lazy val rrdpRepositoryPath = getConfig.getString("locations.rrdp.repository.path")
   lazy val rrdpRepositoryUri  = getConfig.getString("locations.rrdp.repository.uri")
+
+  lazy val publicationEntitySizeLimit = getConfig.getMemorySize("publication.max-entity-size").toBytes
+
   lazy val unpublishedFileRetainPeriod = Duration(getConfig.getDuration("unpublished-file-retain-period", TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS)
   lazy val snapshotSyncDelay = Duration(getConfig.getDuration("snapshot-sync-delay", TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS)
   lazy val defaultTimeout = Duration(getConfig.getDuration("default.timeout", TimeUnit.MINUTES), TimeUnit.MINUTES)
