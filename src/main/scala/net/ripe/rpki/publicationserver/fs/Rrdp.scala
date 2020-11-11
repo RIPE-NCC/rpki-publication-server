@@ -1,4 +1,4 @@
-package net.ripe.rpki.publicationserver.store.fs
+package net.ripe.rpki.publicationserver.fs
 
 object Rrdp {
   val notificationFilename = "notification.xml"

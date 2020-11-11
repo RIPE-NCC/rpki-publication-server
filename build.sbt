@@ -8,7 +8,7 @@ name := "rpki-publication-server"
 
 version := "1.1-SNAPSHOT"
 
-scalaVersion := "2.12.11"
+scalaVersion := "2.13.3"
 
 scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8")
 
@@ -16,12 +16,13 @@ scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8")
 // use sbt assembly plugin and create a fat jar with a predictable name.
 mainClass in assembly := Some("net.ripe.rpki.publicationserver.Boot")
 assemblyJarName in assembly := "rpki-publication-server.jar"
+test in assembly := {}
 
 parallelExecution in Test := false
 
 fork in run := true
 
-javaOptions in run ++= Seq("-Xmx2G", "-XX:+UseConcMarkSweepGC")
+javaOptions in run ++= Seq("-Xmx2G")
 
 enablePlugins(JavaServerAppPackaging, UniversalDeployPlugin)
 
@@ -42,7 +43,7 @@ libraryDependencies ++= {
     "com.typesafe.akka"        %% "akka-actor"            % akkaV,
     "com.typesafe.akka"        %% "akka-testkit"          % akkaV     % "test",
     "com.typesafe.akka"        %% "akka-slf4j"            % akkaV,
-    "org.scalatest"            %% "scalatest"             % "3.0.4"   % "test",
+    "org.scalatest"            %% "scalatest"             % "3.1.4"   % "test",
     "org.mockito"               % "mockito-all"           % "1.10.19" % "test",
     "org.codehaus.woodstox"     % "woodstox-core-asl"     % "4.4.1",
     "com.sun.xml.bind"          % "jaxb1-impl"            % "2.2.5.1",
@@ -57,7 +58,12 @@ libraryDependencies ++= {
     "org.apache.commons"       % "commons-io"             % "1.3.2",
     "io.prometheus"            % "simpleclient"           % "0.9.0",
     "io.prometheus"            % "simpleclient_common"    % "0.9.0",
-    "org.scala-lang.modules"   %% "scala-xml"             % "1.2.0"
+    "org.scala-lang.modules"   %% "scala-xml"             % "1.2.0",
+    "org.scalikejdbc"          %% "scalikejdbc"           % "3.5.+",
+    "org.postgresql"           % "postgresql"             % "42.2.15",
+    "org.json4s"               %% "json4s-native"         % "3.7.0-M6",
+    "org.flywaydb"             % "flyway-core"            % "6.5.5",
+    "org.scala-lang.modules" %% "scala-parallel-collections" % "0.2.0"
   )
 }
 

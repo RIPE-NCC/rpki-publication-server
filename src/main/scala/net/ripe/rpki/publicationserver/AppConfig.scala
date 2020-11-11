@@ -3,16 +3,14 @@ package net.ripe.rpki.publicationserver
 import java.net.URI
 import java.nio.file.{Path, Paths}
 import java.util.Map.Entry
-import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 import akka.http.scaladsl.settings.ServerSettings
-import com.typesafe.config.{ConfigFactory, ConfigObject, ConfigValue}
-import net.ripe.rpki.publicationserver.model.{Delta, ServerState}
+import com.typesafe.config.{Config, ConfigFactory, ConfigObject, ConfigValue}
 
-import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
-import com.typesafe.config.Config
+import scala.jdk.CollectionConverters.CollectionHasAsScala
+import scala.util.{Failure, Try, Success}
 
 /**
  * Helper class which can be wired into clients while making sure that the config file is loaded only once.
@@ -24,6 +22,9 @@ class AppConfig {
   lazy val rrdpPort = getConfig.getInt("rrdp.port")
   lazy val rrdpRepositoryPath = getConfig.getString("locations.rrdp.repository.path")
   lazy val rrdpRepositoryUri  = getConfig.getString("locations.rrdp.repository.uri")
+
+  lazy val publicationEntitySizeLimit = getConfig.getMemorySize("publication.max-entity-size").toBytes
+
   lazy val unpublishedFileRetainPeriod = Duration(getConfig.getDuration("unpublished-file-retain-period", TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS)
   lazy val snapshotSyncDelay = Duration(getConfig.getDuration("snapshot-sync-delay", TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS)
   lazy val defaultTimeout = Duration(getConfig.getDuration("default.timeout", TimeUnit.MINUTES), TimeUnit.MINUTES)
@@ -50,17 +51,31 @@ class AppConfig {
   lazy val publicationServerTrustStoreLocation = getConfig.getString("publication.server.truststore.location")
   lazy val publicationServerTrustStorePassword = getConfig.getString("publication.server.truststore.password")
   lazy val storePath = getConfig.getString("xodus.path")
+  lazy val pgConfig = PgConfig(
+                        getConfig.getString("postgresql.url"),
+                        getConfig.getString("postgresql.user"),
+                        getConfig.getString("postgresql.password")
+                    )      
 
-  def snapshotUrl(serverState: ServerState) = {
-    val ServerState(sessionId, serial) = serverState
+  def snapshotUrl(sessionId: String, serial: Long) =
     rrdpRepositoryUri + "/" + sessionId + "/" + serial + "/snapshot.xml"
-  }
 
-  def deltaUrl(delta: Delta) : String = deltaUrl(delta.sessionId, delta.serial)
+  def deltaUrl(sessionId: String, serial: Long) =
+    rrdpRepositoryUri + "/" + sessionId + "/" + serial + "/delta.xml"
 
-  def deltaUrl(sessionId: UUID, serial: Long) = rrdpRepositoryUri + "/" + sessionId + "/" + serial + "/delta.xml"
+  lazy val writeRsync = isMode("rsync")
+  lazy val writeRrdp = isMode("rrdp")
+
+  def isMode(dataType: String) =
+    Try(getConfig.getBoolean(s"publication.server.write-$dataType")) match {
+      case Failure(_) => true
+      case Success(data) => data
+    }
+
 }
 
+case class PgConfig(url: String, user: String, password: String)
+
 object AppConfig {
-  lazy val config : Config = ConfigFactory.load()
+  lazy val config: Config = ConfigFactory.systemEnvironmentOverrides().withFallback(ConfigFactory.load())
 }

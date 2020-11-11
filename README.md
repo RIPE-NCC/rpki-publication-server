@@ -13,6 +13,11 @@ It has been tested with Oracle's JDK, but should work with other implementations
 
 Use `sbt universal:packageZipTarball` to create a distribution archive from sources.
 
+For running and testing locally one would need to create PostgreSQL databases
+
+    createuser -R -S -D pubserver
+    createdb -O pubserver pubserver
+    createdb -O pubserver pubserver_test
 
 Running the server
 ------------------
@@ -20,6 +25,8 @@ Running the server
 Unpack the distribution archive into the directory of your choice.
 
 Inspect *conf/rpki-publication-server.default.conf* file and update it according to your preferences.
+Note that if the machine it runs on does not have IPv6, `server.address` needs
+to be `0.0.0.0` to prevent errors during startup or tests.
 
 Use *bin/rpki-publication-server.sh* script to start and stop the server:
 
@@ -31,10 +38,10 @@ Use *bin/rpki-publication-server.sh* script to start and stop the server:
 Configuring HTTPS for publication protocol
 ------------------------------------------
 
-It is possible to use HTTPS for publication protocol, with or without client authentication.
+The publication server **requires** HTTPS for the publication protocol with client authentication. This mitigates the
+risk of publication server from being launched without HTTPS in a production setting by accident (ROS 2.15.3).
 
-To enable HTTPS for publication protocol, set publication.spray.can.server.ssl-encryption parameter to "on", and 
-define publication.server.keystore.\* properties.
+**Keep in mind** that client authentication needs to be setup both on the side of the publisher as well.
 
 To create self-signed server's certificate, use following commands:
 
@@ -78,7 +85,7 @@ docker build . -t rpki-publication-server
 docker run -it \
   -p 7766:7766 \
   -p 7788:7788 \
-  -v `pwd`/ssl:/conf/ssl \
+  -v `pwd`/src/test/resources/certificates/:/conf/ssl \
   -e ENABLE_SSL=on \
   -e KEYSTORE_PATH=/conf/ssl/serverKeyStore.ks \
   -e TRUSTSTORE_PATH=/conf/ssl/serverTrustStore.ks \
@@ -95,3 +102,42 @@ docker run -it \
     * `KEYSTORE_PASSWORD`: keystore password.
     * `TRUSTSTORE_PATH`: path of the truststore (on mounted volume)
     * `TRUSTSTORE_PASSWORD`: truststore password.
+
+Testing in vagrant
+------------------
+
+Some of the tests were failing on Linux but not on OS X. A laptop with a high
+number of cores was the most reliable way of reproducing the test failures. The
+source is mounted in `/src` in the container.
+
+If you want to run the tests in the container:
+```
+$ vagrant up
+... wait for VM to start ...
+$ vagrant ssh
+... you get a SSH terminal in the vm ...
+$ cd /src
+$ sbt clean test
+```
+
+Architecture overview
+----------------------
+
+The main entry point is PublicationService. The class PgStore operates with the database. 
+The concrete structure of the database is hidden behind SQL functions and views.
+
+Every publish/withdraw results in 
+a) insertion/deletion in `objects` table;
+b) insertion into `object_log` table.
+
+From time to time we start a transaction that does the following: 
+1) "freeze" the version, i.e. generate new serial (with some corner cases with empty tables in the beginning);
+2) read the objects to generate snapshot.xml for the latest frozen serial;
+3) read the object_log to generate the delta and update rsync repository;
+4) clean up older versions if needed (they are too old, or their overall size is too big);
+5) clean up corresponding entries in object_log;
+6) cleanup files in the file system.
+
+Important: transaction that generate the files needs to run with at least repeatable read isolation level to capture 
+the current state of the whole database. Repeatable read in PG is stronger than the standard requires and it is 
+enough for our purposes https://www.postgresql.org/docs/12/transaction-iso.html#XACT-REPEATABLE-READ.

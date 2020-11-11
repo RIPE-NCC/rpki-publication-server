@@ -1,9 +1,10 @@
-package net.ripe.rpki.publicationserver.store.fs
+package net.ripe.rpki.publicationserver.fs
 
 import java.nio.file.attribute.FileTime
 import java.nio.file.{Files, Path, Paths}
 
 import net.ripe.rpki.publicationserver.PublicationServerBaseTest
+import net.ripe.rpki.publicationserver.store.postresql.PgStore
 import org.scalatest.Ignore
 
 import scala.util.Random
@@ -15,13 +16,12 @@ class RrdpRepositoryWriterTest extends PublicationServerBaseTest {
   lazy val rootDir = Files.createTempDirectory("test_rrdp_writer")
   deleteOnExit(rootDir)
 
+  private val objectStore = createPgStore
+
   before{
-    initStore()
+    objectStore.clear()
   }
 
-  after{
-    cleanStore()
-  }
   test("should delete old snapshots") {
     val timestamp = System.currentTimeMillis()
     val repoFiles = setupTestRepo(timestamp)

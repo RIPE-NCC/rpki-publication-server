@@ -1,4 +1,4 @@
-package net.ripe.rpki.publicationserver.store.fs
+package net.ripe.rpki.publicationserver.fs
 
 import java.io.ByteArrayInputStream
 import java.net.URI
@@ -7,10 +7,7 @@ import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 
 import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver._
-import net.ripe.rpki.publicationserver.store.ObjectStore
 import org.apache.commons.io.FileUtils
-
-import scala.collection.JavaConversions._
 
 case class RsyncFsLocation(base: Path, relative: Path)
 
@@ -22,37 +19,6 @@ class RsyncRepositoryWriter(conf: AppConfig) extends Logging {
   val tempDirPrefix = "temp-"
 
   logger.info(s"Using following URL mapping:\n${conf.rsyncRepositoryMapping}")
-
-  def writeSnapshot(state: ObjectStore.State): Unit = {
-    groupByBaseDir(state).foreach { case (baseDir, objects) =>
-      val tempRepoDir = createTempRepoDir(baseDir)
-      try {
-        objects.foreach { case (base64, rsyncFsLocation) =>
-          writeObjectUnderDir(base64, tempRepoDir, rsyncFsLocation.relative)
-        }
-        promoteStagingToOnline(tempRepoDir)
-      } finally {
-        FileUtils.deleteDirectory(tempRepoDir.toFile)
-      }
-    }
-  }
-
-  def updateRepo(message: QueryMessage): Unit = {
-    message.pdus.foreach {
-      case PublishQ(uri, _, _, bytes) =>
-        writeFile(uri, bytes)
-      case WithdrawQ(uri, _, _) =>
-        removeFile(uri)
-      case unknown =>
-        throw new UnsupportedOperationException(s"Unknown PDU in ValidatedMessage: $unknown")
-    }
-  }
-
-  private def groupByBaseDir(state: ObjectStore.State): Map[Path, Seq[(Bytes, RsyncFsLocation)]] = {
-    state.toSeq.map {
-      case (uri, (bytes, _, _)) => (bytes, resolvePath(uri))
-    }.groupBy(_._2.base)
-  }
 
   private def writeObjectUnderDir(bytes: Bytes, baseDir: Path, relative: Path): Unit = {
     val file: Path = baseDir.resolve(relative)
@@ -77,7 +43,26 @@ class RsyncRepositoryWriter(conf: AppConfig) extends Logging {
     }
   }
 
-  private def writeFile(uri: URI, bytes: Bytes): Unit = {
+  def startSnapshot: Map[Path, Path] =
+    conf.rsyncRepositoryMapping.map {
+      case (_, baseDir) => (baseDir, createTempRepoDir(baseDir))
+    }
+
+  def writeFileInSnapshot(uri: URI, bytes: Bytes, tempDirs: Map[Path, Path]): Unit = {
+    val RsyncFsLocation(base, relative) = resolvePath(uri)
+    writeObjectUnderDir(bytes, tempDirs(base), relative)
+  }
+
+  def promoteAllStagingToOnline(tempDirs: Map[Path, Path]) =
+    tempDirs.foreach { case (_, tmpDir) =>
+      try {
+        promoteStagingToOnline(tmpDir)
+      } finally {
+        FileUtils.deleteDirectory(tmpDir.toFile)
+      }
+    }
+
+  def writeFile(uri: URI, bytes: Bytes): Unit = {
     val fsLocation = resolvePath(uri)
 
     val stagingDir: Path = stagingDirFor(fsLocation.base)
@@ -91,9 +76,11 @@ class RsyncRepositoryWriter(conf: AppConfig) extends Logging {
     logger.debug(s"Written $targetFile")
   }
 
-  private def removeFile(uri: URI): Unit = {
+  def removeFile(uri: URI): Unit = {
     val target = onlineFileFor(resolvePath(uri))
-    if (Files.deleteIfExists(target)) logger.info(s"Deleted $target")
+    if (Files.deleteIfExists(target)) {
+      logger.info(s"Deleted $target")
+    }
     else logger.warn(s"File to delete ($target) does not exist")
   }
 
@@ -114,21 +101,6 @@ class RsyncRepositoryWriter(conf: AppConfig) extends Logging {
     val parentDir: Path = stagingDirFor(baseDir)
     Files.createDirectories(parentDir, directoryPermissions)
     Files.createTempDirectory(parentDir, tempDirPrefix, directoryPermissions)
-  }
-
-  def cleanUpTemporaryDirs(): Unit = {
-    val rsyncDirs = conf.rsyncRepositoryMapping.values.toSet
-    rsyncDirs.foreach { baseDir =>
-      val parentDir: Path = stagingDirFor(baseDir)
-      if (parentDir.toFile.exists()) {
-        logger.info("Cleaning up temporary directories")
-        Files.newDirectoryStream(parentDir).iterator().foreach { path =>
-          if (path.startsWith(tempDirPrefix)) {
-            FileUtils.deleteDirectory(path.toFile)
-          }
-        }
-      }
-    }
   }
 
   private def stagingDirFor(base: Path): Path = base.resolve(conf.rsyncRepositoryStagingDirName)

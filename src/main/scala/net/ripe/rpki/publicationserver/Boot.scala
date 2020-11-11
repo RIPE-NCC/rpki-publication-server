@@ -1,45 +1,42 @@
 package net.ripe.rpki.publicationserver
 
-import akka.actor.{ActorRef, ActorSystem, OneForOneStrategy, SupervisorStrategy}
-import akka.http.scaladsl.server.Directives._
-import akka.util.Timeout
-import com.softwaremill.macwire._
-import akka.http.scaladsl.{ConnectionContext, Http, HttpsConnectionContext}
-import net.ripe.rpki.publicationserver.store.XodusDB
-import net.ripe.rpki.publicationserver.metrics._
-import org.slf4j.{Logger, LoggerFactory}
-import io.prometheus.client._
-
-import scala.concurrent.duration._
-import scala.concurrent.Await
-import scala.concurrent.Future
-import akka.http.scaladsl.Http.ServerBinding
 import java.{util => ju}
 
+import akka.actor.ActorSystem
+import akka.http.scaladsl.Http.ServerBinding
+import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.{ConnectionContext, Http, HttpsConnectionContext}
+import akka.util.Timeout
+import com.softwaremill.macwire._
+import io.prometheus.client._
+import net.ripe.rpki.publicationserver.metrics._
+import net.ripe.rpki.publicationserver.store.postresql.PgStore
 import net.ripe.rpki.publicationserver.util.SSLHelper
+import org.slf4j.Logger
 
-import scala.util.{Failure, Success, Try}
-
+import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
+import scala.util.{Failure, Success}
 
 
 object Boot extends App with Logging {
   lazy val conf = wire[AppConfig]
 
-  override final def main(args: Array[String]) = {
-    val sslHelper = new SSLHelper(conf, logger)
+  logger.info("Starting up the publication server ...")
 
-    val https: HttpsConnectionContext = {
-      sslHelper.connectionContext match {
-        case Success(v) => v
-        case Failure(e) =>
-          logger.error("Error while creating SSL context, exiting", e)
-          // EX_DATAERR (65) The input data was incorrect in some way.
-          sys.exit(65)
-      }
+  val sslHelper = new SSLHelper(conf, logger)
+  val https: HttpsConnectionContext = {
+    sslHelper.connectionContext match {
+      case Success(v) => v
+      case Failure(e) =>
+        logger.error("Error while creating SSL context, exiting", e)
+        // EX_DATAERR (65) The input data was incorrect in some way.
+        sys.exit(65)
     }
-
-    new PublicationServerApp(conf, https, logger).run()
   }
+
+  PgStore.migrateDB(conf.pgConfig)
+  new PublicationServerApp(conf, https, logger).run()
 }
 
 class PublicationServerApp(conf: AppConfig, https: ConnectionContext, logger: Logger) extends RRDPService {
@@ -50,12 +47,9 @@ class PublicationServerApp(conf: AppConfig, https: ConnectionContext, logger: Lo
   var httpBinding: Future[ServerBinding] = _
   var httpsBinding: Future[ServerBinding] = _
 
-  def run() {      
-    XodusDB.reset()
-    XodusDB.init(conf.storePath)    
+  val healthChecks = new HealthChecks(conf)
 
-    logger.info("Starting up the publication server ...")    
-    logger.info("Server address " + conf.serverAddress)
+  def run(): Unit = {
 
     implicit val timeout = Timeout(5.seconds)
 
@@ -63,10 +57,11 @@ class PublicationServerApp(conf: AppConfig, https: ConnectionContext, logger: Lo
     val metrics = Metrics.get(registry)
     val metricsApi = new MetricsApi(registry)
 
-    val stateActor: ActorRef = system.actorOf(StateActor.props(conf, metrics))
+    val publicationService = new PublicationService(conf, metrics)
 
-    val publicationService = new PublicationService(conf, stateActor)
+    logger.info("Server address " + conf.serverAddress)
 
+    // TODO Catch binding errors
     this.httpsBinding = Http().bindAndHandle(
       publicationService.publicationRoutes,
       interface = conf.serverAddress,
@@ -79,7 +74,20 @@ class PublicationServerApp(conf: AppConfig, https: ConnectionContext, logger: Lo
       rrdpAndMonitoringRoutes ~ metricsApi.routes,
       interface = conf.serverAddress,
       port = conf.rrdpPort
-    )    
+    )
+
+    httpsBinding.onComplete {
+      case Failure(e) =>
+        logger.error("Problem binding to HTTPS, exiting", e)
+        System.exit(1)
+      case Success(_) => ()
+    }
+    httpBinding.onComplete {
+      case Failure(e) =>
+        logger.error("Problem binding to HTTP, exiting", e)
+        System.exit(1)
+      case Success(_) => ()
+    }
   }
 
   def shutdown() = {
@@ -88,6 +96,6 @@ class PublicationServerApp(conf: AppConfig, https: ConnectionContext, logger: Lo
             .flatMap(_ => 
                 Await.result(httpsBinding, 10.seconds)            
                 .terminate(hardDeadline = 3.seconds))
-            .flatMap(_ => system.terminate)
+            .flatMap(_ => system.terminate())
   }
 }

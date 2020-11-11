@@ -1,7 +1,7 @@
 package net.ripe.rpki.publicationserver
 
 import java.io.File
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, Path}
 import java.util.{Comparator, UUID}
 
 import akka.http.scaladsl.model.headers.RawHeader
@@ -11,35 +11,31 @@ import akka.testkit.TestKit.awaitCond
 import io.prometheus.client.CollectorRegistry
 import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver.metrics.Metrics
-import net.ripe.rpki.publicationserver.model.ClientId
-import net.ripe.rpki.publicationserver.store.XodusDB
-import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfter, FunSuite, Matchers}
+import net.ripe.rpki.publicationserver.model._
+import net.ripe.rpki.publicationserver.store.postresql.PgStore
+import org.scalatest.BeforeAndAfter
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 import scala.io.Source
 import scala.util.Try
 import scala.xml.Elem
 
-abstract class PublicationServerBaseTest extends FunSuite with BeforeAndAfter with Matchers with MockitoSugar with TestLogSetup with ScalatestRouteTest {
+abstract class PublicationServerBaseTest extends AnyFunSuite with BeforeAndAfter with Matchers with TestLogSetup with ScalatestRouteTest {
 
   protected def waitTime: FiniteDuration = 30.seconds
 
   var tempXodusDir: File = _
 
-  def initStore(prefix: String = "") = {
-    tempXodusDir = Files.createTempDirectory(s"$prefix-rpki-pub-server-test").toFile
-    XodusDB.reset()
-    XodusDB.init(tempXodusDir.getAbsolutePath)
-    deleteOnExit(tempXodusDir.toPath)
-    tempXodusDir.deleteOnExit()
+  val pgTestConfig = new AppConfig().pgConfig
+
+  protected def createPgStore = {
+    PgStore.migrateDB(pgTestConfig)
+    PgStore.get(pgTestConfig)
   }
 
-  def testMetrics = Metrics.get(new CollectorRegistry(true));
-
-  def cleanStore() = {
-    cleanDir(tempXodusDir.toPath)
-  }
+  implicit lazy val testMetrics = Metrics.get(new CollectorRegistry(true));
 
   def cleanDir(path: Path) = {
     Try {
@@ -113,7 +109,6 @@ abstract class PublicationServerBaseTest extends FunSuite with BeforeAndAfter wi
 
 
   def updateState(service: PublicationService, pdus: Seq[QueryPdu], clientId: ClientId = ClientId("1234")) = {
-
     POST(s"/?clientId=${clientId.value}", xmlSeq(pdus).mkString) ~> service.publicationRoutes ~> check {
       status.value should be("200 OK")
     }

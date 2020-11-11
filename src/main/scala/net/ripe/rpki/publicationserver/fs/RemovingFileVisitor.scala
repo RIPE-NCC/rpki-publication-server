@@ -1,4 +1,4 @@
-package net.ripe.rpki.publicationserver.store.fs
+package net.ripe.rpki.publicationserver.fs
 
 import java.io.IOException
 import java.nio.file._

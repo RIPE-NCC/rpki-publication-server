@@ -1,8 +1,8 @@
 package net.ripe.rpki.publicationserver.parsing
 
 import java.io.{Reader, StringReader}
-import javax.xml.stream.{XMLInputFactory, XMLStreamConstants, XMLStreamReader}
 
+import javax.xml.stream.{XMLInputFactory, XMLStreamConstants, XMLStreamReader}
 import org.codehaus.stax2.validation.{XMLValidationSchema, XMLValidationSchemaFactory}
 import org.codehaus.stax2.{XMLInputFactory2, XMLStreamReader2}
 

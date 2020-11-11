@@ -1,23 +1,10 @@
 package net.ripe.rpki.publicationserver.metrics
 
-import java.net.URI
-
-import akka.actor.{Actor, Props, Status}
-import akka.actor.{Actor, OneForOneStrategy, Props, Status, SupervisorStrategy}
-
-import akka.http.scaladsl.marshalling.{ToEntityMarshaller, Marshaller}
-import akka.http.scaladsl.model._
-import akka.http.scaladsl.server.Directives._
-
-import net.ripe.rpki.publicationserver.Binaries.Bytes
-import net.ripe.rpki.publicationserver.messaging.Accumulator
-import net.ripe.rpki.publicationserver.model.ClientId
-import net.ripe.rpki.publicationserver.store.ObjectStore
-import net.ripe.rpki.publicationserver.store.ObjectStore.State
 import java.io.StringWriter
-import io.prometheus.client.exporter.common.TextFormat
-import io.prometheus.client._
 
+import akka.http.scaladsl.server.Directives._
+import io.prometheus.client._
+import io.prometheus.client.exporter.common.TextFormat
 
 object Metrics {
     var metrics : Map[CollectorRegistry, Metrics] = Map()

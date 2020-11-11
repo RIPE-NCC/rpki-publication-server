@@ -1,0 +1,47 @@
+name: Scala build and test
+on: [push, pull_request]
+
+jobs:
+  # Label of the container job
+  sbt-build-test:
+    # Containers must run in Linux based operating systems
+    runs-on: ubuntu-latest
+    # Docker Hub image that `container-job` executes in
+    container: mozilla/sbt
+
+    # Service containers to run with `container-job`
+    services:
+      # Label used to access the service container
+      postgres:
+        # Docker Hub image
+        image: postgres
+        # Provide the password for postgres
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: pubserver_test
+          POSTGRES_USER: pubserver
+        # Set health checks to wait until postgres has started
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      # Downloads a copy of the code in your repository before running CI tests
+      - name: Check out repository code
+        uses: actions/checkout@v2
+
+      - name: Compile
+        run: sbt compile
+        env:
+          POSTGRES_URL: "jdbc:postgresql://postgres:5432/pubserver_test"
+          POSTGRES_PASSWORD: postgres
+          CI_COMMIT_SHA: "${GITHUB_SHA}"
+
+      - name: Test & package
+        run: sbt test assembly
+        env:
+          POSTGRES_URL: "jdbc:postgresql://postgres:5432/pubserver_test"
+          POSTGRES_PASSWORD: postgres
+          CI_COMMIT_SHA: "${GITHUB_SHA}"
