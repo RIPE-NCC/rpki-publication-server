@@ -26,7 +26,7 @@ import scala.util.{Failure, Success}
 object PublicationService {
     val MediaTypeString = "application/rpki-publication"
     val `rpki-publication` = MediaType.customWithFixedCharset("application", "rpki-publication", HttpCharsets.`UTF-8`)
-} 
+}
 
 class PublicationService(conf: AppConfig, metrics: Metrics)
     (implicit val system: ActorSystem) extends Logging {
@@ -51,12 +51,12 @@ class PublicationService(conf: AppConfig, metrics: Metrics)
 
   // TODO Support proper streaming
   implicit val BufferedSourceUnmarshaller: Unmarshaller[HttpEntity, BufferedSource] =
-    Unmarshaller.withMaterializer { _ => 
+    Unmarshaller.withMaterializer { _ =>
         implicit mat => {
-            case HttpEntity.Strict(contentType, data) => 
+            case HttpEntity.Strict(contentType, data) =>
                 verifyContentType(contentType)
-                FastFuture.successful(Source.fromInputStream(new ByteArrayInputStream(data.toArray)))            
-            case entity                     => 
+                FastFuture.successful(Source.fromInputStream(new ByteArrayInputStream(data.toArray)))
+            case entity                     =>
                 verifyContentType(entity.contentType)
                 entity.dataBytes
                     .runFold(ByteString.empty)(_ ++ _)
@@ -178,4 +178,3 @@ class PublicationService(conf: AppConfig, metrics: Metrics)
   }
 
 }
-
