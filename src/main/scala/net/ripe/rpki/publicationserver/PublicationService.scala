@@ -64,10 +64,12 @@ class PublicationService
 
   import ExecutionContext.Implicits._
 
-  val publicationRoutes =
-    path("") {
-      post {
-        parameter("clientId") { clientId =>          
+  logger.info(s"size limit on publication endpoint: ${conf.publicationEntitySizeLimit} bytes.")
+  // The exception to maximum entity size is only applied to publication endpoint, which has client TLS, preventing DOS attacks
+  val publicationRoutes = withSizeLimit(conf.publicationEntitySizeLimit) {
+      path("") {
+        post {
+          parameter("clientId") { clientId =>
             entity(as[BufferedSource]) { xmlMessage =>
               val mainPipeline = onComplete {
                 try {
@@ -107,7 +109,8 @@ class PublicationService
                   complete(500, error.getMessage)
               }
             }
-          }        
+          }
+        }
       }
     }
 
