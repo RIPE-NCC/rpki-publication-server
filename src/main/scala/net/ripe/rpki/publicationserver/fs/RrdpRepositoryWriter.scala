@@ -21,7 +21,7 @@ class RrdpRepositoryWriter extends Logging {
       Files.walkFileTree(Paths.get(rootDir), new RemoveAllVisitorExceptOneSession(sessionId.toString, timestamp))
   }
 
-  private val fileAttributes = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-r--r--"))
+  val fileAttributes: FileAttributes = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-r--r--"))
 
   def writeNotification(rootDir: String)(writeF : OutputStream => Unit): Option[FileTime] = {
     val root = getRootFolder(rootDir)

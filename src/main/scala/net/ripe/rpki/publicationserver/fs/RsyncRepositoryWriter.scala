@@ -14,7 +14,7 @@ case class RsyncFsLocation(base: Path, relative: Path)
 class RsyncRepositoryWriter(conf: AppConfig) extends Logging {
 
   val directoryPermissions = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString(conf.rsyncDirectoryPermissions))
-  val filePermissions = PosixFilePermissions.fromString(conf.rsyncFilePermissions)
+  val filePermissions: FilePermissions = PosixFilePermissions.fromString(conf.rsyncFilePermissions)
 
   val tempDirPrefix = "temp-"
 
