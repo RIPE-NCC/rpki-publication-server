@@ -37,6 +37,8 @@ build:
   image: docker-registry.ripe.net/swe/gitlab-ci/debian-deployenv
   script:
     - if [ -z "${SALT_DEPLOY_TARGET}" ]; then echo "set SALT_DEPLOY_TARGET"; exit 2; fi;
+    - if [ -z "${DEPLOY_USER}" ]; then echo "set DEPLOY_USER"; exit 2; fi;
+    - if [ -z "${MONITORING_URL}" ]; then echo "set MONITORING_URL"; exit 2; fi;
     - echo "SALT_DEPLOY_TARGET=${SALT_DEPLOY_TARGET}"
     - echo "Logging into salt-api"
     - >
@@ -80,9 +82,6 @@ deploy-on-premise:prepdev:
   environment:
     name: prepdev
     url: https://publish-1.rpki.prepdev.ripe.net
-  only:
-    - development@rpki/rpki-publication-server
-    - master@rpki/rpki-publication-server
 
 deploy-on-premise:production:
   <<: *deploy_on_premise_template
