@@ -43,7 +43,7 @@ build:
     - if [ -z "${MONITORING_URL}" ]; then echo "set MONITORING_URL"; exit 2; fi;    
     - echo "Logging into salt-api"
     - >
-      curl -ik ${SALT_URL} \
+      curl -ik ${SALT_URL}/login \
         -c ~/cookies.txt \
         -H 'Accept: application/x-yaml' \
         -d username='$DEPLOY_USER' \
