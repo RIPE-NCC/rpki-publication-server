@@ -32,6 +32,18 @@ build:
 #     manual
 
 
+# deploy-prepdev:
+#   variables:
+#     DEPLOY_TARGET: "prepdev"
+#   <<: *deploy_env
+
+# deploy-prod:
+#   variables:
+#     DEPLOY_TARGET: "prod"
+#   <<: *deploy_env
+#   only:
+#     - master
+
 .deploy_on_premise_template: &deploy_on_premise_template
   stage: deploy
   image: docker-registry.ripe.net/swe/gitlab-ci/debian-deployenv
@@ -124,14 +136,3 @@ build_prepdev_image:
     - master
 
 
-deploy-prepdev:
-  variables:
-    DEPLOY_TARGET: "prepdev"
-  <<: *deploy_env
-
-deploy-prod:
-  variables:
-    DEPLOY_TARGET: "prod"
-  <<: *deploy_env
-  only:
-    - master
