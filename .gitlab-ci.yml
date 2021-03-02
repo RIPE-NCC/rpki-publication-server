@@ -50,8 +50,8 @@ build:
   script:
     - if [ -z "${SALT_DEPLOY_TARGET}" ]; then echo "set SALT_DEPLOY_TARGET"; exit 2; fi;
     - if [ -z "${DEPLOY_USER_PASS}" ]; then echo "set DEPLOY_USER_PASS"; exit 2; fi;
-    - if [ -z "${SALT_URL}" ]; then echo "set SALT_URL"; exit 2; fi;    
-    - if [ -z "${MONITORING_URL}" ]; then echo "set MONITORING_URL"; exit 2; fi;    
+    - if [ -z "${SALT_URL}" ]; then echo "set SALT_URL"; exit 2; fi;
+    - if [ -z "${MONITORING_URL}" ]; then echo "set MONITORING_URL"; exit 2; fi;
     - echo "Logging into salt-api"
     - >
       curl -ik ${SALT_URL}/login \
