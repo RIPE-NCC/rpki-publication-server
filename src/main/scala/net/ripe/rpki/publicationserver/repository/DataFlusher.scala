@@ -136,7 +136,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
         writeRrdpSnapshot(sessionId, latestSerial, snapshotOs)
       }
     }
-    logger.error(s"Wrote RRDP delta for ${sessionId}/${latestSerial}, took ${snapshotDuration}ms.")
+    logger.info(s"Wrote RRDP delta for ${sessionId}/${latestSerial}, took ${snapshotDuration}ms.")
     pgStore.updateSnapshotInfo(sessionId, latestSerial, snapshotHash, snapshotSize)
 
     if (thereAreChangesSinceTheLastFreeze) {
@@ -192,7 +192,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
       }
       rsyncWriter.promoteAllStagingToOnline(directoryMapping)
     }
-    logger.error(s"Wrote rsync snapshot, took ${duration}ms.")
+    logger.info(s"Wrote rsync snapshot, took ${duration}ms.")
   }
 
   def writeRrdpDelta(sessionId: String, serial: Long, deltaOs: HashingSizedStream)(implicit session: DBSession) = {
@@ -203,7 +203,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
       }
       IOStream.string("</delta>\n", deltaOs)
     }
-    logger.error(s"Wrote RRDP delta for ${sessionId}/${serial}, took ${duration}ms.")
+    logger.info(s"Wrote RRDP delta for ${sessionId}/${serial}, took ${duration}ms.")
   }
 
   def writeRsyncDelta(sessionId: String, serial: Long)(implicit session: DBSession) = {
@@ -212,7 +212,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
         writeLogEntryToRsync(operation, uri, bytes)
       }
     }
-    logger.error(s"Wrote rsync delta for ${sessionId}/${serial}, took ${duration}ms.")
+    logger.info(s"Wrote rsync delta for ${sessionId}/${serial}, took ${duration}ms.")
   }
 
 
