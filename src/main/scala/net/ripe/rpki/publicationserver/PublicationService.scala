@@ -1,23 +1,22 @@
 package net.ripe.rpki.publicationserver
 
-import java.io.ByteArrayInputStream
-import java.net.URI
-import java.time.Instant
-import java.time.temporal.ChronoUnit
-
 import akka.actor._
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.unmarshalling.Unmarshaller
 import akka.http.scaladsl.util.FastFuture
 import akka.util.ByteString
-import javax.xml.stream.XMLStreamException
 import net.ripe.rpki.publicationserver.metrics.Metrics
 import net.ripe.rpki.publicationserver.model._
 import net.ripe.rpki.publicationserver.parsing.PublicationMessageParser
 import net.ripe.rpki.publicationserver.repository.DataFlusher
 import net.ripe.rpki.publicationserver.store.postresql.{PgStore, RollbackException}
 
+import java.io.ByteArrayInputStream
+import java.net.URI
+import java.time.Instant
+import java.time.temporal.ChronoUnit
+import javax.xml.stream.XMLStreamException
 import scala.concurrent.Future
 import scala.concurrent.duration.{FiniteDuration, MILLISECONDS}
 import scala.io.{BufferedSource, Source}
@@ -166,25 +165,27 @@ class PublicationService(conf: AppConfig, metrics: Metrics)
       }
     }
 
-    lastTimeFlushed match {
-      case None =>
-        flush()
-      case Some(timeFlushed) =>
-        if (!scheduled) {
-          val now = Instant.now()
-          val duration =
-            if (timeFlushed.isBefore(now.minus(conf.snapshotSyncDelay.toSeconds, ChronoUnit.SECONDS))) {
-              logger.info(s"Flushed last at ${timeFlushed}, it's time to flush again")
-              FiniteDuration(100, MILLISECONDS)
-            } else {
-              val between = timeFlushed.toEpochMilli - now.toEpochMilli
-              val left = conf.snapshotSyncDelay.toMillis - between
-              logger.info(s"Flushed last at ${timeFlushed}, it's been ${between}ms ago, scheduling flush in ${left}ms.")
-              FiniteDuration(left, MILLISECONDS)
-            }
-          system.scheduler.scheduleOnce(duration)(flush())
-          scheduled = true
-        }
+    synchronized {
+      lastTimeFlushed match {
+        case None =>
+          flush()
+        case Some(timeFlushed) =>
+          if (!scheduled) {
+            val now = Instant.now()
+            val duration =
+              if (timeFlushed.isBefore(now.minus(conf.snapshotSyncDelay.toSeconds, ChronoUnit.SECONDS))) {
+                logger.info(s"Flushed last at ${timeFlushed}, it's time to flush again")
+                FiniteDuration(100, MILLISECONDS)
+              } else {
+                val between = timeFlushed.toEpochMilli - now.toEpochMilli
+                val left = conf.snapshotSyncDelay.toMillis - between
+                logger.info(s"Flushed last at ${timeFlushed}, it's been ${between}ms ago, scheduling flush in ${left}ms.")
+                FiniteDuration(left, MILLISECONDS)
+              }
+            system.scheduler.scheduleOnce(duration)(flush())
+            scheduled = true
+          }
+      }
     }
   }
 
