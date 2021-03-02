@@ -151,29 +151,40 @@ class PublicationService(conf: AppConfig, metrics: Metrics)
     }
 
   var lastTimeFlushed : Option[Instant] = None
+  var scheduled = false
 
   def triggerFlush() = {
 
-    def flush = synchronized {
-      dataFlusher.updateFS()
-      logger.info("Updated FS")
-      lastTimeFlushed = Some(Instant.now())
+    def flush() = synchronized {
+      try {
+        logger.info("Flushing data to FS")
+        dataFlusher.updateFS()
+        logger.info("Updated FS")
+        lastTimeFlushed = Some(Instant.now())
+      } finally {
+        scheduled = false
+      }
     }
 
     lastTimeFlushed match {
       case None =>
-        flush
-      case Some(timeBefore) =>
-        val now = Instant.now()
-        val duration =
-          if (timeBefore.isBefore(now.minus(conf.snapshotSyncDelay.toSeconds, ChronoUnit.SECONDS))) {
-            FiniteDuration(100, MILLISECONDS)
-          } else {
-            val between = timeBefore.toEpochMilli - now.toEpochMilli
-            val left = conf.snapshotSyncDelay.toMillis - between
-            FiniteDuration(left, MILLISECONDS)
-          }
-        system.scheduler.scheduleOnce(duration)(flush)
+        flush()
+      case Some(timeFlushed) =>
+        if (!scheduled) {
+          val now = Instant.now()
+          val duration =
+            if (timeFlushed.isBefore(now.minus(conf.snapshotSyncDelay.toSeconds, ChronoUnit.SECONDS))) {
+              logger.info(s"Flushed last at ${timeFlushed}, it's time to flush again")
+              FiniteDuration(100, MILLISECONDS)
+            } else {
+              val between = timeFlushed.toEpochMilli - now.toEpochMilli
+              val left = conf.snapshotSyncDelay.toMillis - between
+              logger.info(s"Flushed last at ${timeFlushed}, it's been ${between}ms ago, scheduling flush in ${left}ms.")
+              FiniteDuration(left, MILLISECONDS)
+            }
+          system.scheduler.scheduleOnce(duration)(flush())
+          scheduled = true
+        }
     }
   }
 
