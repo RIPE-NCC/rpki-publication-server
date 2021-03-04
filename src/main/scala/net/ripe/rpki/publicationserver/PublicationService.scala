@@ -37,8 +37,7 @@ class PublicationService(conf: AppConfig, metrics: Metrics)
   lazy val objectStore = PgStore.get(conf.pgConfig)
   lazy val dataFlusher = new DataFlusher(conf)
 
-  // fill in RRDP/Rsync repositories on the start
-  dataFlusher.initFS()
+  def initFS() = dataFlusher.initFS()
 
   def verifyContentType(contentType: ContentType) = {
       if (contentType == null) {
