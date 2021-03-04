@@ -34,6 +34,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
   def initFS() = {
     // do not do anything at all if neither `writeRsync` nor `writeRrdp` is set.
     if (conf.writeRsync || conf.writeRrdp) {
+      logger.info("Initialising FS content")
       pgStore.inRepeatableReadTx { implicit session =>
         pgStore.lockVersions
 
@@ -52,6 +53,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
 
         latestFrozenSerial = Some(latestSerial)
       }
+      logger.info("Done initialising FS content")
     }
   }
 
