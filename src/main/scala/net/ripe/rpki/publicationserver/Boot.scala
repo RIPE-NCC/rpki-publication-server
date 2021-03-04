@@ -36,12 +36,13 @@ object Boot extends App with Logging {
   }
 
   PgStore.migrateDB(conf.pgConfig)
+  logger.info("Migrated the DB")
   new PublicationServerApp(conf, https, logger).run()
 }
 
 class PublicationServerApp(conf: AppConfig, https: ConnectionContext, logger: Logger) extends RRDPService {
     
-  implicit val system = ActorSystem.create(Math.abs(new ju.Random().nextLong()).toString())
+  implicit val system = ActorSystem.create(Math.abs(new ju.Random().nextLong()).toString)
   implicit val dispatcher = system.dispatcher
 
   var httpBinding: Future[ServerBinding] = _
@@ -59,7 +60,11 @@ class PublicationServerApp(conf: AppConfig, https: ConnectionContext, logger: Lo
 
     val publicationService = new PublicationService(conf, metrics)
 
-    logger.info("Server address " + conf.serverAddress)
+    // Run it asynchronously as it can be quite long, but we want
+    // to start accepting HTTP(S) connections ASAP.
+    val asyncLongFSInit = Future { publicationService.initFS() }
+
+    logger.info("Server address: " + conf.serverAddress)
 
     // TODO Catch binding errors
     this.httpsBinding = Http().bindAndHandle(
@@ -88,6 +93,9 @@ class PublicationServerApp(conf: AppConfig, https: ConnectionContext, logger: Lo
         System.exit(1)
       case Success(_) => ()
     }
+
+    // wait for the full FS sync
+    Await.ready(asyncLongFSInit, Duration.Inf)
   }
 
   def shutdown() = {
