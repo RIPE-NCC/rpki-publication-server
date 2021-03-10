@@ -187,6 +187,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
 
   // Write snapshot objects to rsync repository.
   def writeRsyncSnapshot()(implicit session: DBSession) = {
+    logger.info(s"Writing rsync snapshot  .")
     val (_, duration) = Time.timed {
       val directoryMapping = rsyncWriter.startSnapshot
       pgStore.readState { (uri, _, bytes) =>
