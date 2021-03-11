@@ -91,30 +91,6 @@ deploy_aws_prod:
             " | jq -R '. as $raw | try fromjson catch $raw'
 
 
-deploy-on-premise:prepdev:
-  <<: *deploy_on_premise_template
-  stage: deploy
-  dependencies:
-    - prepdev_image
-  environment:
-    name: prepdev
-    url: https://publish-1.rpki.prepdev.ripe.net
-  when:
-    manual
-
-deploy-on-premise:production:
-  <<: *deploy_on_premise_template
-  stage: deploy
-  dependencies:
-    - production_image
-  environment:
-    name: production
-    url: https://publish-1.rpki.ripe.net
-  only:
-    - tags@rpki/rpki-publication-server
-  when:
-    manual
-
 .build_and_tag_images: &build_and_tag_images
   stage: deploy
   image: docker:latest
@@ -144,3 +120,28 @@ production_image:
     IMAGE_TAG: "production"
   only:
     - master
+
+deploy-on-premise:prepdev:
+  <<: *deploy_on_premise_template
+  stage: deploy
+  dependencies:
+    - prepdev_image
+  environment:
+    name: prepdev
+    url: https://publish-1.rpki.prepdev.ripe.net
+  when:
+    manual
+
+deploy-on-premise:production:
+  <<: *deploy_on_premise_template
+  stage: deploy
+  dependencies:
+    - production_image
+  environment:
+    name: production
+    url: https://publish-1.rpki.ripe.net
+  only:
+    - tags@rpki/rpki-publication-server
+  when:
+    manual
+
