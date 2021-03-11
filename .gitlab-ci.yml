@@ -121,6 +121,8 @@ production_image:
   <<: *build_and_tag_images
   variables:
     IMAGE_TAG: "production"
+  when:
+      manual
   only:
     - master
 
