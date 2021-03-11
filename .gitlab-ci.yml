@@ -14,35 +14,35 @@ build:
       - target/universal/rpki-publication-server-1.1-SNAPSHOT.tgz
       - target/rpki-publication-server.jar
 
-# .deploy_template: &deploy_env
-#   stage: deploy
-#   image: docker:latest
-#   dependencies:
-#     - build
-#   services:
-#     - docker:dind
-#   before_script:
-#     - apk add --update curl
-#     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-#   script:
-#     - docker build -f Dockerfile.artifact_container --tag $CI_REGISTRY_IMAGE/artifacts:$CI_COMMIT_SHA .
-#     - docker push $CI_REGISTRY_IMAGE/artifacts:$CI_COMMIT_SHA
-#     - curl -X POST -F "token=$RPKI_AWS_TOKEN" -F "ref=$BRANCH_TARGET" -F "variables[DEPLOY_TARGET]=$DEPLOY_TARGET" -F "variables[IMAGE_TARGET]=$CI_COMMIT_SHA"  "$AWS_PIPELINE_TRIGGER"
-#   when:
-#     manual
+ .deploy_template: &deploy_aws_env
+   stage: deploy
+   image: docker:latest
+   dependencies:
+     - build
+   services:
+     - docker:dind
+   before_script:
+     - apk add --update curl
+     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+   script:
+     - docker build -f Dockerfile.artifact_container --tag $CI_REGISTRY_IMAGE/artifacts:$CI_COMMIT_SHA .
+     - docker push $CI_REGISTRY_IMAGE/artifacts:$CI_COMMIT_SHA
+     - curl -X POST -F "token=$RPKI_AWS_TOKEN" -F "ref=$BRANCH_TARGET" -F "variables[DEPLOY_TARGET]=$DEPLOY_TARGET" -F "variables[IMAGE_TARGET]=$CI_COMMIT_SHA"  "$AWS_PIPELINE_TRIGGER"
+   when:
+     manual
 
 
-# deploy-prepdev:
-#   variables:
-#     DEPLOY_TARGET: "prepdev"
-#   <<: *deploy_env
+ deploy-aws-prepdev:
+   variables:
+     DEPLOY_TARGET: "prepdev"
+   <<: *deploy_aws_env
 
-# deploy-prod:
-#   variables:
-#     DEPLOY_TARGET: "prod"
-#   <<: *deploy_env
-#   only:
-#     - master
+ deploy-aws-prod:
+   variables:
+     DEPLOY_TARGET: "prod"
+   <<: *deploy_aws_env
+   only:
+     - master
 
 .deploy_on_premise_template: &deploy_on_premise_template
   stage: deploy
@@ -108,31 +108,40 @@ deploy-on-premise:production:
   when:
     manual
 
-build_tagged_image:
+#production_image:
+#  stage: deploy
+#  image: docker:latest
+#  services:
+#    - docker:dind
+#  script:
+#    - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
+#    - echo "Releasing ${CI_COMMIT_SHORT_SHA} as :production image"
+#    - docker build --tag $CI_REGISTRY_IMAGE:production .
+#    - docker push $CI_REGISTRY_IMAGE:production
+#  only:
+#    - tags@rpki/rpki-publication-server
+
+
+prepdev_image:
+    variables:
+      IMAGE_TAG: "prepdev"
+    <<: *build_images
+
+production_image:
+    variables:
+      IMAGE_TAG: "production"
+    <<: *build_images
+
+.build_and_tag_images: &build_images
   stage: deploy
   image: docker:latest
+  dependencies:
+    - build
   services:
     - docker:dind
   script:
     - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
-    - echo "Releasing ${CI_COMMIT_SHORT_SHA} as :production image"
-    - docker build --tag $CI_REGISTRY_IMAGE:production .
-    - docker push $CI_REGISTRY_IMAGE:production
-  only:
-    - tags@rpki/rpki-publication-server
-
-
-build_prepdev_image:
-  stage: deploy
-  when: manual
-  image: docker:latest
-  services:
-    - docker:dind
-  script:
-    - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
-    - docker build --tag $CI_REGISTRY_IMAGE:prepdev .
-    - docker push $CI_REGISTRY_IMAGE:prepdev
-  except:
-    - master
-
-
+    - docker build --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA --tag $CI_REGISTRY_IMAGE:$IMAGE_TAG .
+    - echo "Releasing this image as :$IMAGE_TAG and :${CI_COMMIT_SHORT_SHA}"
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+    - docker push $CI_REGISTRY_IMAGE:$IMAGE_TAG
