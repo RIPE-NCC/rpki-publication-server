@@ -92,7 +92,7 @@ deploy_aws_prod:
 
 
 .build_and_tag_images: &build_and_tag_images
-  stage: deploy
+  stage: package
   image: docker:latest
   dependencies:
     - build
@@ -107,7 +107,6 @@ deploy_aws_prod:
 
 prepdev_image:
   <<: *build_and_tag_images
-  stage: deploy
   variables:
     IMAGE_TAG: "prepdev"
   when:
@@ -115,7 +114,6 @@ prepdev_image:
 
 production_image:
   <<: *build_and_tag_images
-  stage: deploy
   variables:
     IMAGE_TAG: "production"
   only:
