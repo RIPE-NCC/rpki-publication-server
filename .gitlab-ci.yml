@@ -14,7 +14,7 @@ build:
       - target/universal/rpki-publication-server-1.1-SNAPSHOT.tgz
       - target/rpki-publication-server.jar
 
- .deploy_template: &deploy_aws_env
+ .deploy_aws_template: &deploy_aws_template
    stage: deploy
    image: docker:latest
    dependencies:
@@ -32,15 +32,19 @@ build:
      manual
 
 
- deploy-aws-prepdev:
+ deploy_aws_prepdev:
+  environment:
+    name: prepdev
    variables:
      DEPLOY_TARGET: "prepdev"
-   <<: *deploy_aws_env
+   <<: *deploy_aws_template
 
- deploy-aws-prod:
+ deploy_aws_prod:
+   environment:
+     name: production
    variables:
      DEPLOY_TARGET: "prod"
-   <<: *deploy_aws_env
+   <<: *deploy_aws_template
    only:
      - master
 
@@ -91,6 +95,8 @@ build:
 deploy-on-premise:prepdev:
   <<: *deploy_on_premise_template
   stage: deploy
+  dependencies:
+    - prepdev_image
   environment:
     name: prepdev
     url: https://publish-1.rpki.prepdev.ripe.net
@@ -100,6 +106,8 @@ deploy-on-premise:prepdev:
 deploy-on-premise:production:
   <<: *deploy_on_premise_template
   stage: deploy
+  dependencies:
+    - production_image
   environment:
     name: production
     url: https://publish-1.rpki.ripe.net
@@ -108,31 +116,7 @@ deploy-on-premise:production:
   when:
     manual
 
-#production_image:
-#  stage: deploy
-#  image: docker:latest
-#  services:
-#    - docker:dind
-#  script:
-#    - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
-#    - echo "Releasing ${CI_COMMIT_SHORT_SHA} as :production image"
-#    - docker build --tag $CI_REGISTRY_IMAGE:production .
-#    - docker push $CI_REGISTRY_IMAGE:production
-#  only:
-#    - tags@rpki/rpki-publication-server
-
-
-prepdev_image:
-    variables:
-      IMAGE_TAG: "prepdev"
-    <<: *build_images
-
-production_image:
-    variables:
-      IMAGE_TAG: "production"
-    <<: *build_images
-
-.build_and_tag_images: &build_images
+.build_and_tag_images: &build_and_tag_images
   stage: deploy
   image: docker:latest
   dependencies:
@@ -145,3 +129,19 @@ production_image:
     - echo "Releasing this image as :$IMAGE_TAG and :${CI_COMMIT_SHORT_SHA}"
     - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
     - docker push $CI_REGISTRY_IMAGE:$IMAGE_TAG
+
+prepdev_image:
+  <<: *build_and_tag_images
+  stage: deploy
+  variables:
+    IMAGE_TAG: "prepdev"
+  when:
+    manual
+
+production_image:
+  <<: *build_and_tag_images
+  stage: deploy
+  variables:
+    IMAGE_TAG: "production"
+  only:
+    - master
