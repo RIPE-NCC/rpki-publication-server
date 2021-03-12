@@ -118,7 +118,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
   def updateDeltaInfo(sessionId: String, serial: Long, hash: Hash, size: Long)(implicit session: DBSession): Unit = {
     sql"""UPDATE versions SET
             delta_hash = ${hash.hash},
-            delta_size = ${size}
+            delta_size = $size
           WHERE session_id = $sessionId AND serial = $serial"""
       .execute()
       .apply()
