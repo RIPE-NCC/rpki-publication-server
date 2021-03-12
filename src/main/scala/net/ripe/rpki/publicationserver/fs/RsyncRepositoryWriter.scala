@@ -16,7 +16,7 @@ class RsyncRepositoryWriter(conf: AppConfig) extends Logging {
   val directoryPermissions = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString(conf.rsyncDirectoryPermissions))
   val filePermissions: FilePermissions = PosixFilePermissions.fromString(conf.rsyncFilePermissions)
 
-  val tempDirPrefix = "temp-"
+  private val tempDirPrefix = "temp-"
 
   logger.info(s"Using following URL mapping:\n${conf.rsyncRepositoryMapping}")
 
