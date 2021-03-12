@@ -126,7 +126,7 @@ production_image:
   only:
     - master
 
-deploy-on-premise:prepdev:
+deploy_prepdev_premise:
   <<: *deploy_on_premise_template
   stage: deploy
   dependencies:
@@ -137,7 +137,7 @@ deploy-on-premise:prepdev:
   when:
     manual
 
-deploy-on-premise:production:
+deploy_production_premise:
   <<: *deploy_on_premise_template
   stage: deploy
   dependencies:
