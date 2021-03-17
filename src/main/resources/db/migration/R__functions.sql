@@ -5,7 +5,7 @@ BEGIN;
 -- Auxiliary functions for client_id lock
 CREATE OR REPLACE FUNCTION acquire_client_id_lock(client_id_ TEXT) RETURNS VOID AS
 $$
-    SELECT pg_advisory_xact_lock(1234567, CAST(hashed % 1234567 AS INT))
+    SELECT pg_advisory_xact_lock(hashed)
     FROM (
         -- Here md5 used just as an instance of reasonable string -> int conversion.
         -- We only need it to return preferably different integers for different strings
@@ -208,29 +208,30 @@ FROM objects o
 WHERE NOT o.is_deleted
 ORDER BY url;
 
+
 -- Currently existing log of object changes
 CREATE OR REPLACE VIEW current_log AS
-SELECT * FROM (
-     SELECT ol.id, operation, url, hash AS old_hash, NULL AS content
-     FROM object_log ol
-              INNER JOIN objects o ON o.id = ol.old_object_id
-     WHERE ol.operation = 'DEL'
-
-     UNION ALL
-
-     SELECT ol.id, operation, url, NULL AS old_hash, content
-     FROM object_log ol
-              INNER JOIN objects o ON o.id = ol.new_object_id
-     WHERE ol.operation = 'INS'
-
-     UNION ALL
-
-     SELECT ol.id, operation, new_o.url, old_o.hash AS old_hash, new_o.content
-     FROM object_log ol
-              INNER JOIN objects old_o ON old_o.id = ol.old_object_id
-              INNER JOIN objects new_o ON new_o.id = ol.new_object_id
-     WHERE ol.operation = 'UPD'
- ) AS z
+SELECT
+    ol.id,
+    operation,
+    CASE operation
+        WHEN 'DEL' THEN old_o.url
+        WHEN 'INS' THEN new_o.url
+        WHEN 'UPD' THEN new_o.url
+    END AS url,
+    CASE operation
+        WHEN 'DEL' THEN old_o.hash
+        WHEN 'INS' THEN NULL
+        WHEN 'UPD' THEN old_o.hash
+    END AS old_hash,
+    CASE operation
+        WHEN 'DEL' THEN NULL
+        WHEN 'INS' THEN new_o.content
+        WHEN 'UPD' THEN new_o.content
+    END AS content
+FROM object_log ol
+LEFT JOIN objects old_o ON old_o.id = ol.old_object_id
+LEFT JOIN objects new_o ON new_o.id = ol.new_object_id
 ORDER BY id ASC;
 
 
@@ -362,13 +363,12 @@ $body$
 CREATE OR REPLACE FUNCTION delete_old_versions()
     RETURNS SETOF versions AS
 $$
-WITH
-     latest_version AS (
-        SELECT *
-        FROM versions
-        ORDER BY id DESC
-        LIMIT 1
-     ),
+WITH latest_version AS (
+    SELECT *
+    FROM versions
+    ORDER BY id DESC
+    LIMIT 1
+),
      deleted_versions AS (
          DELETE FROM versions
              WHERE id NOT IN (SELECT id FROM reasonable_deltas)
@@ -386,19 +386,31 @@ WITH
      ),
      deleted_objects AS (
          DELETE FROM objects o
-             WHERE o.is_deleted
-               AND NOT EXISTS (
-                     SELECT * FROM object_log
-                     WHERE new_object_id = o.id
-                     UNION ALL
-                     SELECT * FROM object_log
-                     WHERE old_object_id = o.id
-                 )
+             WHERE o.id IN (
+                 SELECT id
+                 FROM objects o
+                 WHERE o.is_deleted
+                   AND NOT EXISTS(
+                         SELECT *
+                         FROM object_log
+                         WHERE new_object_id = o.id
+                     )
+                 UNION ALL
+                 SELECT id
+                 FROM objects o
+                 WHERE o.is_deleted
+                   AND NOT EXISTS(
+                         SELECT *
+                         FROM object_log
+                         WHERE old_object_id = o.id
+                     )
+             )
              RETURNING id
      )
 SELECT *
 FROM deleted_versions;
 
 $$ LANGUAGE SQL;
+
 
 COMMIT;
