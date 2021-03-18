@@ -165,16 +165,18 @@ class PublicationService(conf: AppConfig, metrics: Metrics)
     }
 
     synchronized {
+      val almostNow = FiniteDuration(50, MILLISECONDS)
       lastTimeFlushed match {
         case None =>
-          flush()
+          system.scheduler.scheduleOnce(almostNow)(flush())
+          scheduled = true
         case Some(timeFlushed) =>
           if (!scheduled) {
             val now = Instant.now()
             val duration =
               if (timeFlushed.isBefore(now.minus(conf.snapshotSyncDelay.toSeconds, ChronoUnit.SECONDS))) {
                 logger.info(s"Flushed last at ${timeFlushed}, it's time to flush again")
-                FiniteDuration(100, MILLISECONDS)
+                almostNow
               } else {
                 val between = timeFlushed.toEpochMilli - now.toEpochMilli
                 val left = conf.snapshotSyncDelay.toMillis - between
