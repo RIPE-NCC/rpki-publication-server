@@ -414,10 +414,6 @@ WITH latest_version AS (
                          FROM object_log
                          WHERE new_object_id = o.id
                      )
-                 UNION ALL
-                 SELECT id
-                 FROM objects o
-                 WHERE o.is_deleted
                    AND NOT EXISTS(
                          SELECT *
                          FROM object_log
