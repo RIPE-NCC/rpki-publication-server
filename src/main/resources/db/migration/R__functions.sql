@@ -235,25 +235,44 @@ LEFT JOIN objects new_o ON new_o.id = ol.new_object_id
 ORDER BY id ASC;
 
 
--- Convenience view for delta meta information (session_id, serial) together
--- with the object_log entries related to the delta.
-CREATE OR REPLACE VIEW deltas AS
-WITH framed_version AS (
-    SELECT session_id,
-           serial,
-           last_log_entry_id,
-           -- last_log_entry_id of the previous delta
-           COALESCE(LAG(last_log_entry_id, 1) OVER (ORDER BY id), 0) AS previous_log_entry_id
+CREATE OR REPLACE FUNCTION read_delta(session_id_ TEXT, serial_ BIGINT)
+    RETURNS SETOF current_log AS
+$body$
+DECLARE
+    last_log_entry_id_     BIGINT;
+    previous_log_entry_id_ BIGINT;
+BEGIN
+    -- get the last log entry pointer for the current serial
+    SELECT last_log_entry_id
+    INTO last_log_entry_id_
     FROM versions
-)
-SELECT log.id, operation, url, old_hash, content, session_id, serial
-FROM current_log log
-INNER JOIN framed_version ON
-     -- objects related to the current delta serial are the ones
-     -- with id between last_log_entry_id of this serial and
-     -- last_log_entry_id of the previous serial, i.e. previous_log_entry_id
-    log.id <= last_log_entry_id AND log.id > previous_log_entry_id
-ORDER BY id ASC;
+    WHERE session_id = session_id_
+      AND serial = serial_;
+
+    -- get the last log entry pointer for the previous serial
+    SELECT last_log_entry_id
+    INTO previous_log_entry_id_
+    FROM versions
+    WHERE session_id = session_id_
+      AND serial < serial_
+    ORDER BY serial DESC
+    LIMIT 1;
+
+    IF NOT FOUND THEN
+        previous_log_entry_id_ = 0;
+    END IF;
+
+    -- objects related to the current delta serial are the ones
+    -- with id between last_log_entry_id of this serial and
+    -- last_log_entry_id of the previous serial, i.e. previous_log_entry_id_
+    RETURN QUERY SELECT *
+                 FROM current_log
+                 WHERE id <= last_log_entry_id_
+                   AND id > previous_log_entry_id_
+                 ORDER BY url ASC;
+END
+$body$
+    LANGUAGE plpgsql;
 
 
 -- Return deltas that reasonable to put into the notification.xml file.

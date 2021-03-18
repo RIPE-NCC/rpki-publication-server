@@ -73,9 +73,8 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
   def readDelta(sessionId: String, serial: Long)(f: (String, URI, Option[Hash], Option[Bytes]) => Unit)(implicit session: DBSession) = {
     session.fetchSize(200)
     sql"""SELECT operation, url, old_hash, content
-         FROM deltas
-         WHERE session_id = $sessionId AND serial = $serial
-         ORDER BY url ASC"""
+         FROM read_delta($sessionId, $serial)
+         ORDER BY url"""
       .foreach { rs =>
         val operation = rs.string(1)
         val uri = URI.create(rs.string(2))
