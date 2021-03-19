@@ -23,9 +23,9 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
   }
 
   def clear(): Unit = DB.localTx { implicit session =>
-    sql"TRUNCATE TABLE object_log CASCADE".update().apply()
-    sql"TRUNCATE TABLE objects CASCADE".update().apply()
-    sql"TRUNCATE TABLE versions CASCADE".update().apply()
+    sql"DELETE FROM object_log".update().apply()
+    sql"DELETE FROM objects".update().apply()
+    sql"DELETE FROM versions".update().apply()
   }
 
   def getState = DB.localTx { implicit session =>
