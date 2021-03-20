@@ -79,7 +79,7 @@ class RsyncRepositoryWriter(conf: AppConfig) extends Logging {
   def removeFile(uri: URI): Unit = {
     val target = onlineFileFor(resolvePath(uri))
     if (Files.deleteIfExists(target)) {
-      logger.info(s"Deleted $target")
+      logger.debug(s"Deleted $target")
     }
     else logger.warn(s"File to delete ($target) does not exist")
   }
