@@ -23,9 +23,9 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
   }
 
   def clear(): Unit = DB.localTx { implicit session =>
-    sql"TRUNCATE TABLE object_log CASCADE".update().apply()
-    sql"TRUNCATE TABLE objects CASCADE".update().apply()
-    sql"TRUNCATE TABLE versions CASCADE".update().apply()
+    sql"DELETE FROM object_log".update().apply()
+    sql"DELETE FROM objects".update().apply()
+    sql"DELETE FROM versions".update().apply()
   }
 
   def getState = DB.localTx { implicit session =>
@@ -73,9 +73,8 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
   def readDelta(sessionId: String, serial: Long)(f: (String, URI, Option[Hash], Option[Bytes]) => Unit)(implicit session: DBSession) = {
     session.fetchSize(200)
     sql"""SELECT operation, url, old_hash, content
-         FROM deltas
-         WHERE session_id = $sessionId AND serial = $serial
-         ORDER BY url ASC"""
+         FROM read_delta($sessionId, $serial)
+         ORDER BY url"""
       .foreach { rs =>
         val operation = rs.string(1)
         val uri = URI.create(rs.string(2))
@@ -118,7 +117,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
   def updateDeltaInfo(sessionId: String, serial: Long, hash: Hash, size: Long)(implicit session: DBSession): Unit = {
     sql"""UPDATE versions SET
             delta_hash = ${hash.hash},
-            delta_size = ${size}
+            delta_size = $size
           WHERE session_id = $sessionId AND serial = $serial"""
       .execute()
       .apply()

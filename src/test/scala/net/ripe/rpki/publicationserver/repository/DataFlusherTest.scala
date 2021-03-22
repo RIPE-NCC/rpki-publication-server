@@ -715,8 +715,8 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
   private def verifyExpectedDelta(sessionId: String, serial: Long)(expected: String) = {
     val bytes = Files.readAllBytes(rrdpRootDfir.resolve(sessionId).resolve(serial.toString).resolve("delta.xml"))
-    val generatedSnapshot = new String(bytes, StandardCharsets.US_ASCII)
-    trim(generatedSnapshot) should be(trim(expected))
+    val generatedDelta = new String(bytes, StandardCharsets.US_ASCII)
+    trim(generatedDelta) should be(trim(expected))
     bytes
   }
 

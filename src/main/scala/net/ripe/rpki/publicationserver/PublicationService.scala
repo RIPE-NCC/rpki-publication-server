@@ -1,23 +1,22 @@
 package net.ripe.rpki.publicationserver
 
-import java.io.ByteArrayInputStream
-import java.net.URI
-import java.time.Instant
-import java.time.temporal.ChronoUnit
-
 import akka.actor._
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.unmarshalling.Unmarshaller
 import akka.http.scaladsl.util.FastFuture
 import akka.util.ByteString
-import javax.xml.stream.XMLStreamException
 import net.ripe.rpki.publicationserver.metrics.Metrics
 import net.ripe.rpki.publicationserver.model._
 import net.ripe.rpki.publicationserver.parsing.PublicationMessageParser
 import net.ripe.rpki.publicationserver.repository.DataFlusher
 import net.ripe.rpki.publicationserver.store.postresql.{PgStore, RollbackException}
 
+import java.io.ByteArrayInputStream
+import java.net.URI
+import java.time.Instant
+import java.time.temporal.ChronoUnit
+import javax.xml.stream.XMLStreamException
 import scala.concurrent.Future
 import scala.concurrent.duration.{FiniteDuration, MILLISECONDS}
 import scala.io.{BufferedSource, Source}
@@ -26,7 +25,7 @@ import scala.util.{Failure, Success}
 object PublicationService {
     val MediaTypeString = "application/rpki-publication"
     val `rpki-publication` = MediaType.customWithFixedCharset("application", "rpki-publication", HttpCharsets.`UTF-8`)
-} 
+}
 
 class PublicationService(conf: AppConfig, metrics: Metrics)
     (implicit val system: ActorSystem) extends Logging {
@@ -38,8 +37,7 @@ class PublicationService(conf: AppConfig, metrics: Metrics)
   lazy val objectStore = PgStore.get(conf.pgConfig)
   lazy val dataFlusher = new DataFlusher(conf)
 
-  // fill in RRDP/Rsync repositories on the start
-  dataFlusher.initFS()
+  def initFS() = dataFlusher.initFS()
 
   def verifyContentType(contentType: ContentType) = {
       if (contentType == null) {
@@ -51,12 +49,12 @@ class PublicationService(conf: AppConfig, metrics: Metrics)
 
   // TODO Support proper streaming
   implicit val BufferedSourceUnmarshaller: Unmarshaller[HttpEntity, BufferedSource] =
-    Unmarshaller.withMaterializer { _ => 
+    Unmarshaller.withMaterializer { _ =>
         implicit mat => {
-            case HttpEntity.Strict(contentType, data) => 
+            case HttpEntity.Strict(contentType, data) =>
                 verifyContentType(contentType)
-                FastFuture.successful(Source.fromInputStream(new ByteArrayInputStream(data.toArray)))            
-            case entity                     => 
+                FastFuture.successful(Source.fromInputStream(new ByteArrayInputStream(data.toArray)))
+            case entity                     =>
                 verifyContentType(entity.contentType)
                 entity.dataBytes
                     .runFold(ByteString.empty)(_ ++ _)
@@ -151,31 +149,41 @@ class PublicationService(conf: AppConfig, metrics: Metrics)
     }
 
   var lastTimeFlushed : Option[Instant] = None
+  var scheduled = false
 
   def triggerFlush() = {
 
-    def flush = synchronized {
-      dataFlusher.updateFS()
-      logger.info("Updated FS")
-      lastTimeFlushed = Some(Instant.now())
+    def flush() = synchronized {
+      try {
+        dataFlusher.updateFS()
+        lastTimeFlushed = Some(Instant.now())
+      } finally {
+        scheduled = false
+      }
     }
 
-    lastTimeFlushed match {
-      case None =>
-        flush
-      case Some(timeBefore) =>
-        val now = Instant.now()
-        val duration =
-          if (timeBefore.isBefore(now.minus(conf.snapshotSyncDelay.toSeconds, ChronoUnit.SECONDS))) {
-            FiniteDuration(100, MILLISECONDS)
-          } else {
-            val between = timeBefore.toEpochMilli - now.toEpochMilli
-            val left = conf.snapshotSyncDelay.toMillis - between
-            FiniteDuration(left, MILLISECONDS)
+    synchronized {
+      val almostNow = FiniteDuration(50, MILLISECONDS)
+      lastTimeFlushed match {
+        case None =>
+          system.scheduler.scheduleOnce(almostNow)(flush())
+          scheduled = true
+        case Some(timeFlushed) =>
+          if (!scheduled) {
+            scheduled = true
+            val now = Instant.now()
+            val duration =
+              if (timeFlushed.isBefore(now.minus(conf.snapshotSyncDelay.toSeconds, ChronoUnit.SECONDS))) {
+                almostNow
+              } else {
+                val between = timeFlushed.toEpochMilli - now.toEpochMilli
+                val left = conf.snapshotSyncDelay.toMillis - between
+                FiniteDuration(left, MILLISECONDS)
+              }
+            system.scheduler.scheduleOnce(duration)(flush())
           }
-        system.scheduler.scheduleOnce(duration)(flush)
+      }
     }
   }
 
 }
-

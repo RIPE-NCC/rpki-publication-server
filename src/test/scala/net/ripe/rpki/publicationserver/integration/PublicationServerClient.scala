@@ -1,27 +1,19 @@
 package net.ripe.rpki.publicationserver.integration
 
-import akka.http.scaladsl.model._
-import java.net.URL
-
-import javax.net.ssl._
-import net.ripe.rpki.publicationserver.PublicationService
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
-import akka.http.scaladsl.{ConnectionContext, Http, HttpExt, HttpsConnectionContext}
-
-import scala.concurrent.duration._
-import java.security.KeyStore
-import java.io.FileInputStream
-
-import com.typesafe.sslconfig.akka.AkkaSSLConfig
+import akka.http.scaladsl.model._
+import akka.http.scaladsl.{ConnectionContext, Http, HttpExt}
 import akka.util.ByteString
-import java.nio.charset.Charset
+import com.typesafe.sslconfig.akka.AkkaSSLConfig
+import net.ripe.rpki.publicationserver.PublicationService
+
+import java.io.FileInputStream
 import java.nio.charset.StandardCharsets
-
-import scala.xml.NodeSeq
-import akka.http.scaladsl.Http
-
+import java.security.KeyStore
+import javax.net.ssl._
 import scala.concurrent.Await
+import scala.concurrent.duration._
+import scala.xml.NodeSeq
 
 class PublicationServerClient() {
 

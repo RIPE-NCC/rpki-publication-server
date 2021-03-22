@@ -1,13 +1,5 @@
 package net.ripe.rpki.publicationserver.repository
 
-import java.io.FileOutputStream
-import java.net.URI
-import java.nio.file.attribute.FileTime
-import java.nio.file.{Files, Path, Paths, StandardCopyOption}
-import java.time.Instant
-import java.time.temporal.ChronoUnit
-import java.util.{Date, UUID}
-
 import akka.actor.ActorSystem
 import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver._
@@ -15,6 +7,14 @@ import net.ripe.rpki.publicationserver.fs.{Rrdp, RrdpRepositoryWriter, RsyncRepo
 import net.ripe.rpki.publicationserver.store.postresql.PgStore
 import net.ripe.rpki.publicationserver.util.Time
 import scalikejdbc.DBSession
+
+import java.io.FileOutputStream
+import java.net.URI
+import java.nio.file.attribute.FileTime
+import java.nio.file.{Files, Path, Paths, StandardCopyOption}
+import java.time.Instant
+import java.time.temporal.ChronoUnit
+import java.util.{Date, UUID}
 
 class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
   extends Hashing with Formatting with Logging {
@@ -34,6 +34,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
   def initFS() = {
     // do not do anything at all if neither `writeRsync` nor `writeRrdp` is set.
     if (conf.writeRsync || conf.writeRrdp) {
+      logger.info("Initialising FS content")
       pgStore.inRepeatableReadTx { implicit session =>
         pgStore.lockVersions
 
@@ -52,6 +53,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
 
         latestFrozenSerial = Some(latestSerial)
       }
+      logger.info("Done initialising FS content")
     }
   }
 
@@ -87,22 +89,18 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
   private def updateRrdpFS(sessionId: String, serial: Long, latestFrozenPreviously: Option[Long])(implicit session: DBSession) = {
 
     // Generate snapshot for the latest serial, we are only able to general the latest snapshot
-    val ((snapshotHash, snapshotSize), snapshotDuration) = Time.timed {
+    val (snapshotHash, snapshotSize) =
       withAtomicStream(snapshotPath(sessionId, serial), rrdpWriter.fileAttributes) {
         writeRrdpSnapshot(sessionId, serial, _)
       }
-    }
-    logger.info(s"Generated snapshot $sessionId, $serial, took ${snapshotDuration}ms")
     pgStore.updateSnapshotInfo(sessionId, serial, snapshotHash, snapshotSize)
 
     // Convenience function
     def writeDelta(s: Long) = {
-      val ((deltaHash, deltaSize), deltaDuration) = Time.timed {
-        withAtomicStream(deltaPath(sessionId, serial), rrdpWriter.fileAttributes) {
-          writeRrdpDelta(sessionId, serial, _)
+      val (deltaHash, deltaSize) =
+        withAtomicStream(deltaPath(sessionId, s), rrdpWriter.fileAttributes) {
+          writeRrdpDelta(sessionId, s, _)
         }
-      }
-      logger.info(s"Generated delta $sessionId/$s, took ${deltaDuration}ms")
       pgStore.updateDeltaInfo(sessionId, s, deltaHash, deltaSize)
     }
 
@@ -130,34 +128,30 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
 
   }
 
-  private def initRrdpFS(thereAreChangesSinceTheLastFreeze: Boolean, sessionId: String, latestSerial: Long)(implicit session: DBSession) = {
-    val ((snapshotHash, snapshotSize), snapshotDuration) = Time.timed {
+  private def initRrdpFS(thereAreChangesSinceTheLastFreeze: Boolean,
+                         sessionId: String,
+                         latestSerial: Long)(implicit session: DBSession) = {
+    val (snapshotHash, snapshotSize) =
       withAtomicStream(snapshotPath(sessionId, latestSerial), rrdpWriter.fileAttributes) {
         writeRrdpSnapshot(sessionId, latestSerial, _)
       }
-    }
-    logger.error(s"Wrote RRDP delta for ${sessionId}/${latestSerial}, took ${snapshotDuration}ms.")
     pgStore.updateSnapshotInfo(sessionId, latestSerial, snapshotHash, snapshotSize)
 
     if (thereAreChangesSinceTheLastFreeze) {
-      val ((latestDeltaHash, latestDeltaSize), deltaDuration) = Time.timed {
+      val (latestDeltaHash, latestDeltaSize) =
         withAtomicStream(deltaPath(sessionId, latestSerial), rrdpWriter.fileAttributes) {
           writeRrdpDelta(sessionId, latestSerial, _)
         }
-      }
-      logger.info(s"Generated delta $sessionId/$latestSerial, took ${deltaDuration}ms")
+
       pgStore.updateDeltaInfo(sessionId, latestSerial, latestDeltaHash, latestDeltaSize)
     }
 
     val deltas = pgStore.getReasonableDeltas(sessionId)
 
     deltas.filter(_._1 != latestSerial).foreach { case (serial, _) =>
-      val (_, deltaDuration) = Time.timed {
-        withAtomicStream(deltaPath(sessionId, serial), rrdpWriter.fileAttributes) {
-          writeRrdpDelta(sessionId, serial, _)
-        }
+      withAtomicStream(deltaPath(sessionId, serial), rrdpWriter.fileAttributes) {
+        writeRrdpDelta(sessionId, serial, _)
       }
-      logger.info(s"Generated delta $sessionId/$serial, took ${deltaDuration}ms")
     }
 
     val (_, duration) = Time.timed {
@@ -176,15 +170,19 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
   // Write snapshot, i.e. the current state of the dataset into RRDP snapshot.xml file
   // and in rsync repository at the same time.
   def writeRrdpSnapshot(sessionId: String, serial: Long, snapshotOs: HashingSizedStream)(implicit session: DBSession) = {
-    IOStream.string(s"""<snapshot version="1" session_id="$sessionId" serial="$serial" xmlns="http://www.ripe.net/rpki/rrdp">\n""", snapshotOs)
-    pgStore.readState { (uri, _, bytes) =>
-      writeObjectToSnapshotFile(uri, bytes, snapshotOs)
+    val (_, duration) = Time.timed {
+      IOStream.string(s"""<snapshot version="1" session_id="$sessionId" serial="$serial" xmlns="http://www.ripe.net/rpki/rrdp">\n""", snapshotOs)
+      pgStore.readState { (uri, _, bytes) =>
+        writeObjectToSnapshotFile(uri, bytes, snapshotOs)
+      }
+      IOStream.string("</snapshot>\n", snapshotOs)
     }
-    IOStream.string("</snapshot>\n", snapshotOs)
+    logger.info(s"Wrote RRDP snapshot, took ${duration}ms.")
   }
 
   // Write snapshot objects to rsync repository.
   def writeRsyncSnapshot()(implicit session: DBSession) = {
+    logger.info(s"Writing rsync snapshot.")
     val (_, duration) = Time.timed {
       val directoryMapping = rsyncWriter.startSnapshot
       pgStore.readState { (uri, _, bytes) =>
@@ -192,7 +190,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
       }
       rsyncWriter.promoteAllStagingToOnline(directoryMapping)
     }
-    logger.error(s"Wrote rsync snapshot, took ${duration}ms.")
+    logger.info(s"Wrote rsync snapshot, took ${duration}ms.")
   }
 
   def writeRrdpDelta(sessionId: String, serial: Long, deltaOs: HashingSizedStream)(implicit session: DBSession) = {
@@ -203,7 +201,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
       }
       IOStream.string("</delta>\n", deltaOs)
     }
-    logger.error(s"Wrote RRDP delta for ${sessionId}/${serial}, took ${duration}ms.")
+    logger.info(s"Wrote RRDP delta for ${sessionId}/${serial}, took ${duration}ms.")
   }
 
   def writeRsyncDelta(sessionId: String, serial: Long)(implicit session: DBSession) = {
@@ -212,7 +210,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
         writeLogEntryToRsync(operation, uri, bytes)
       }
     }
-    logger.error(s"Wrote rsync delta for ${sessionId}/${serial}, took ${duration}ms.")
+    logger.info(s"Wrote rsync delta for ${sessionId}/${serial}, took ${duration}ms.")
   }
 
 
