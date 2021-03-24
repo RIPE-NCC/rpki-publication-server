@@ -357,17 +357,19 @@ $body$
 CREATE OR REPLACE FUNCTION changes_exist() RETURNS BOOLEAN AS
 $body$
 BEGIN
-    IF (EXISTS (SELECT * FROM versions)) THEN
-        RETURN EXISTS (
-            SELECT * FROM object_log
+    IF (EXISTS(SELECT * FROM versions)) THEN
+        RETURN (
+            -- force index backwards scan by using MAX instead of EXISTS
+            SELECT MAX(id) IS NOT NULL
+            FROM object_log
             WHERE id > (
                 SELECT last_log_entry_id
                 FROM versions
                 ORDER BY id DESC
                 LIMIT 1)
-            );
+        );
     ELSE
-        RETURN EXISTS (SELECT * FROM object_log);
+        RETURN EXISTS(SELECT * FROM object_log);
     END IF;
 END
 $body$
