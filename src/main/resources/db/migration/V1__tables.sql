@@ -11,10 +11,10 @@ CREATE TABLE objects
     url        TEXT    NOT NULL,
     client_id  TEXT    NOT NULL,
     content    BYTEA   NOT NULL,
-    is_deleted BOOLEAN NOT NULL DEFAULT FALSE
+    deleted_at TIMESTAMP WITH TIME ZONE
 );
 
-CREATE UNIQUE INDEX idx_objects_url ON objects (url) WHERE NOT is_deleted;
+CREATE UNIQUE INDEX idx_objects_url ON objects (url) WHERE deleted_at IS NULL;
 CREATE UNIQUE INDEX idx_objects_hash ON objects (hash);
 CREATE INDEX idx_objects_client_id ON objects (client_id);
 

@@ -32,7 +32,7 @@ $$
     INSERT INTO objects (hash, content, url, client_id)
          VALUES (hash_, bytes_, url_, client_id_)
     ON CONFLICT (hash) DO UPDATE
-            SET is_deleted = false
+            SET deleted_at = NULL
       RETURNING *;
 $$ LANGUAGE SQL;
 
@@ -120,7 +120,7 @@ BEGIN
     SELECT LOWER(encode(sha256(bytes_), 'hex')) INTO hash_;
 
     WITH deleted_object AS (
-        UPDATE objects SET is_deleted = TRUE
+        UPDATE objects SET deleted_at = NOW()
         WHERE hash = LOWER(hash_to_replace)
         RETURNING id
     ),
@@ -176,7 +176,7 @@ BEGIN
     END IF;
 
     WITH deleted_object AS (
-        UPDATE objects SET is_deleted = TRUE
+        UPDATE objects SET deleted_at = NOW()
         WHERE hash = LOWER(hash_to_delete)
         RETURNING id
     )
@@ -191,13 +191,13 @@ $body$
 
 --
 CREATE OR REPLACE VIEW live_objects AS
-SELECT * FROM objects WHERE NOT is_deleted;
+SELECT * FROM objects WHERE deleted_at IS NULL;
 
 -- All the objects currently stored
 CREATE OR REPLACE VIEW current_state AS
 SELECT hash, url, client_id, content
 FROM objects o
-WHERE NOT o.is_deleted
+WHERE o.deleted_at IS NULL
 ORDER BY url;
 
 
@@ -404,7 +404,7 @@ WITH latest_version AS (
              WHERE o.id IN (
                  SELECT id
                  FROM objects o
-                 WHERE o.is_deleted
+                 WHERE o.deleted_at IS NOT NULL
                    AND NOT EXISTS(
                          SELECT *
                          FROM object_log
