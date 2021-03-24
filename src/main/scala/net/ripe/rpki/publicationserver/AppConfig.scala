@@ -72,6 +72,11 @@ class AppConfig {
       case Success(data) => data
     }
 
+  lazy val repositoryFlushInterval = getConfig.getDuration(
+    "publication.server.repository-write-interval",
+    TimeUnit.MILLISECONDS
+  )
+
 }
 
 case class PgConfig(url: String, user: String, password: String)
