@@ -11,6 +11,7 @@ CREATE TABLE objects
     url        TEXT    NOT NULL,
     client_id  TEXT    NOT NULL,
     content    BYTEA   NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMP WITH TIME ZONE
 );
 
@@ -24,6 +25,7 @@ CREATE TABLE object_log
     operation     TEXT   NOT NULL,
     new_object_id BIGINT,
     old_object_id BIGINT,
+    created_at    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     CHECK (CASE operation
            WHEN 'INS' THEN old_object_id IS NULL AND new_object_id IS NOT NULL
            WHEN 'UPD' THEN new_object_id IS NOT NULL AND new_object_id IS NOT NULL
@@ -48,7 +50,7 @@ CREATE TABLE versions
     delta_hash        TEXT,
     snapshot_size     BIGINT,
     delta_size        BIGINT,
-    created_at        TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_at        TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     CONSTRAINT delta_field_in_sync CHECK (
             delta_size IS NULL AND delta_hash IS NULL OR
             delta_size IS NOT NULL AND delta_hash IS NOT NULL
