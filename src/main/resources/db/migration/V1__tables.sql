@@ -12,7 +12,11 @@ CREATE TABLE objects
     client_id  TEXT    NOT NULL,
     content    BYTEA   NOT NULL,
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    CONSTRAINT hash_is_unique UNIQUE (hash)
 );
+
+CREATE UNIQUE INDEX idx_objects_url ON objects (url) WHERE NOT is_deleted;
+CREATE INDEX idx_objects_client_id ON objects (client_id);
 
 CREATE TABLE object_log
 (
@@ -20,13 +24,19 @@ CREATE TABLE object_log
     operation     TEXT   NOT NULL,
     new_object_id BIGINT,
     old_object_id BIGINT,
-    CHECK (operation IN ('INS', 'UPD', 'DEL')),
-    CHECK (
-            operation = 'INS' AND old_object_id IS NULL AND new_object_id IS NOT NULL OR
-            operation = 'UPD' AND new_object_id IS NOT NULL AND new_object_id IS NOT NULL OR
-            operation = 'DEL' AND old_object_id IS NOT NULL AND new_object_id IS NULL
-        )
+    CHECK (CASE operation
+           WHEN 'INS' THEN old_object_id IS NULL AND new_object_id IS NOT NULL
+           WHEN 'UPD' THEN new_object_id IS NOT NULL AND new_object_id IS NOT NULL
+           WHEN 'DEL' THEN old_object_id IS NOT NULL AND new_object_id IS NULL
+           ELSE FALSE
+           END
+        ),
+    FOREIGN KEY (new_object_id) REFERENCES objects (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    FOREIGN KEY (old_object_id) REFERENCES objects (id) ON DELETE RESTRICT ON UPDATE RESTRICT
 );
+
+CREATE INDEX idx_object_log_new_object_id ON object_log (new_object_id) WHERE new_object_id IS NOT NULL;
+CREATE INDEX idx_object_log_old_object_id ON object_log (old_object_id) WHERE old_object_id IS NOT NULL;
 
 CREATE TABLE versions
 (
@@ -46,12 +56,8 @@ CREATE TABLE versions
     CONSTRAINT snapshot_field_in_sync CHECK (
             snapshot_hash IS NULL AND snapshot_size IS NULL OR
             snapshot_hash IS NOT NULL AND snapshot_size IS NOT NULL
-        )
+        ),
+    CONSTRAINT unique_versions UNIQUE (session_id, serial)
 );
-
-CREATE UNIQUE INDEX idx_objects_hash ON objects (hash);
-CREATE UNIQUE INDEX idx_objects_url ON objects (url) WHERE NOT is_deleted;
-
-CREATE UNIQUE INDEX idx_uniq_versions_generates ON versions (session_id, serial);
 
 COMMIT;
