@@ -81,6 +81,7 @@ Running the docker container
 ----------------------------
 
 ```
+sbt assembly
 docker build . -t rpki-publication-server
 docker run -it \
   -p 7766:7766 \
@@ -91,6 +92,7 @@ docker run -it \
   -e TRUSTSTORE_PATH=/conf/ssl/serverTrustStore.ks \
   -e KEYSTORE_PASSWORD="123456" \
   -e TRUSTSTORE_PASSWORD="123456" \
+  -e POSTGRES_URL="jdbc:postgresql://host.docker.internal/pubserver" \
   --rm rpki-publication-server
 ```
 
