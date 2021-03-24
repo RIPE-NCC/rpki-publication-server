@@ -307,6 +307,8 @@ $body$
 BEGIN
     -- NOTE This one is safe from race conditions only if
     -- lock_versions is called before in the same transaction.
+    PERFORM lock_versions();
+
     IF EXISTS(SELECT * FROM versions) THEN
         -- create a new session-id+serial entry only in case there are
         -- new entries in the log since the last session-id+serial.
