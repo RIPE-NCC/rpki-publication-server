@@ -6,18 +6,18 @@ DROP TABLE IF EXISTS versions CASCADE;
 
 CREATE TABLE objects
 (
-    id         BIGSERIAL PRIMARY KEY,
-    hash       CHAR(64) NOT NULL,
-    url        TEXT     NOT NULL,
-    client_id  TEXT     NOT NULL,
-    content    BYTEA    NOT NULL,
-    is_deleted BOOLEAN  NOT NULL DEFAULT FALSE
+    id         BIGINT  GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    hash       TEXT    NOT NULL,
+    url        TEXT    NOT NULL,
+    client_id  TEXT    NOT NULL,
+    content    BYTEA   NOT NULL,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
 );
 
 CREATE TABLE object_log
 (
-    id            BIGSERIAL PRIMARY KEY,
-    operation     CHAR(3) NOT NULL,
+    id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    operation     TEXT   NOT NULL,
     new_object_id BIGINT,
     old_object_id BIGINT,
     CHECK (operation IN ('INS', 'UPD', 'DEL')),
@@ -30,15 +30,15 @@ CREATE TABLE object_log
 
 CREATE TABLE versions
 (
-    id                BIGSERIAL PRIMARY KEY,
+    id                BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     session_id        TEXT   NOT NULL,
     serial            BIGINT NOT NULL,
     last_log_entry_id BIGINT NOT NULL,
-    snapshot_hash     CHAR(64),
-    delta_hash        CHAR(64),
+    snapshot_hash     TEXT,
+    delta_hash        TEXT,
     snapshot_size     BIGINT,
     delta_size        BIGINT,
-    created_at        TIMESTAMP WITHOUT TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC')
+    created_at        TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     CONSTRAINT delta_field_in_sync CHECK (
             delta_size IS NULL AND delta_hash IS NULL OR
             delta_size IS NOT NULL AND delta_hash IS NOT NULL
