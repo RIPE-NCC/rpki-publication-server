@@ -23,25 +23,17 @@ $$ LANGUAGE SQL;
 
 
 -- Reusable part of both create and replace an object in the 'objects' table.
--- 
+--
 CREATE OR REPLACE FUNCTION merge_object(bytes_ BYTEA,
                                         hash_ CHAR(64),
                                         url_ TEXT,
                                         client_id_ TEXT) RETURNS SETOF objects AS
 $$
-    WITH
-        existing AS (
-            SELECT * FROM objects WHERE hash = hash_
-        ),
-        inserted AS (
-            INSERT INTO objects (hash, content, url, client_id)
-            SELECT hash_, bytes_, url_, client_id_
-            WHERE NOT EXISTS (SELECT * FROM existing)
-            RETURNING *
-        )
-        SELECT * FROM existing
-        UNION ALL
-        SELECT * FROM inserted
+    INSERT INTO objects (hash, content, url, client_id)
+         VALUES (hash_, bytes_, url_, client_id_)
+    ON CONFLICT (hash) DO UPDATE
+            SET is_deleted = false
+      RETURNING *;
 $$ LANGUAGE SQL;
 
 
