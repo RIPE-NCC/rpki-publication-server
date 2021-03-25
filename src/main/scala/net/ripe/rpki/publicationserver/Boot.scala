@@ -49,7 +49,7 @@ class PublicationServerApp(conf: AppConfig, https: ConnectionContext, logger: Lo
 
   var httpBinding: Future[ServerBinding] = _
   var httpsBinding: Future[ServerBinding] = _
-  var repositoryWriter: Cancellable = _
+  var repositoryWriter: Future[Cancellable] = _
 
   val healthChecks = new HealthChecks(conf)
 
@@ -61,16 +61,17 @@ class PublicationServerApp(conf: AppConfig, https: ConnectionContext, logger: Lo
     val metrics = Metrics.get(registry)
     val metricsApi = new MetricsApi(registry)
 
-    val dataFlusher = new DataFlusher(conf)
+    // Initialize repositories on FS and setup writing at a fixed interval.
     // Run it asynchronously as it can be quite long, but we want
     // to start accepting HTTP(S) connections ASAP.
-    val asyncLongFSInit = Future { dataFlusher.initFS() }
-
-    // Write repositories as a fixed interval
-    this.repositoryWriter = system.scheduler.scheduleAtFixedRate(
-      30.seconds, // Wait for full server startup and initialization
-      FiniteDuration(conf.repositoryFlushInterval, MILLISECONDS)
-    )(dataFlusher.updateFS _)
+    this.repositoryWriter = Future {
+      val dataFlusher = new DataFlusher(conf)
+      dataFlusher.initFS()
+      system.scheduler.scheduleAtFixedRate(
+        conf.repositoryFlushInterval,
+        conf.repositoryFlushInterval
+      ) (dataFlusher.updateFS _)
+    }
 
     val publicationService = new PublicationService(conf, metrics)
 
@@ -105,11 +106,11 @@ class PublicationServerApp(conf: AppConfig, https: ConnectionContext, logger: Lo
     }
 
     // wait for the full FS sync
-    Await.ready(asyncLongFSInit, Duration.Inf)
+    Await.ready(repositoryWriter, Duration.Inf)
   }
 
   def shutdown() = {
-      this.repositoryWriter.cancel()
+      Await.result(repositoryWriter, 3.seconds).cancel()
       Await.result(httpBinding, 10.seconds)
            .terminate(hardDeadline = 3.seconds)
            .flatMap(_ =>

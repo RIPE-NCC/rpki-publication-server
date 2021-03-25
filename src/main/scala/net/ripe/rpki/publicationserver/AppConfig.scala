@@ -8,7 +8,7 @@ import java.util.concurrent.TimeUnit
 import akka.http.scaladsl.settings.ServerSettings
 import com.typesafe.config.{Config, ConfigFactory, ConfigObject, ConfigValue}
 
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 import scala.util.{Failure, Try, Success}
 
@@ -72,11 +72,13 @@ class AppConfig {
       case Success(data) => data
     }
 
-  lazy val repositoryFlushInterval = getConfig.getDuration(
-    "publication.server.repository-write-interval",
+  lazy val repositoryFlushInterval = FiniteDuration(
+    getConfig.getDuration(
+      "publication.server.repository-write-interval",
+      TimeUnit.MILLISECONDS
+    ),
     TimeUnit.MILLISECONDS
   )
-
 }
 
 case class PgConfig(url: String, user: String, password: String)
