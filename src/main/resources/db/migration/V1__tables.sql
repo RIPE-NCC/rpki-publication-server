@@ -6,39 +6,49 @@ DROP TABLE IF EXISTS versions CASCADE;
 
 CREATE TABLE objects
 (
-    id         BIGSERIAL PRIMARY KEY,
-    hash       CHAR(64) NOT NULL,
-    url        TEXT     NOT NULL,
-    client_id  TEXT     NOT NULL,
-    content    BYTEA    NOT NULL,
-    is_deleted BOOLEAN  NOT NULL DEFAULT FALSE
+    id         BIGINT  GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    hash       TEXT    NOT NULL,
+    url        TEXT    NOT NULL,
+    client_id  TEXT    NOT NULL,
+    content    BYTEA   NOT NULL,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE
 );
+
+CREATE UNIQUE INDEX idx_objects_url ON objects (url) WHERE NOT is_deleted;
+CREATE UNIQUE INDEX idx_objects_hash ON objects (hash);
+CREATE INDEX idx_objects_client_id ON objects (client_id);
 
 CREATE TABLE object_log
 (
-    id            BIGSERIAL PRIMARY KEY,
-    operation     CHAR(3) NOT NULL,
+    id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    operation     TEXT   NOT NULL,
     new_object_id BIGINT,
     old_object_id BIGINT,
-    CHECK (operation IN ('INS', 'UPD', 'DEL')),
-    CHECK (
-            operation = 'INS' AND old_object_id IS NULL AND new_object_id IS NOT NULL OR
-            operation = 'UPD' AND new_object_id IS NOT NULL AND new_object_id IS NOT NULL OR
-            operation = 'DEL' AND old_object_id IS NOT NULL AND new_object_id IS NULL
-        )
+    CHECK (CASE operation
+           WHEN 'INS' THEN old_object_id IS NULL AND new_object_id IS NOT NULL
+           WHEN 'UPD' THEN new_object_id IS NOT NULL AND new_object_id IS NOT NULL
+           WHEN 'DEL' THEN old_object_id IS NOT NULL AND new_object_id IS NULL
+           ELSE FALSE
+           END
+        ),
+    FOREIGN KEY (new_object_id) REFERENCES objects (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    FOREIGN KEY (old_object_id) REFERENCES objects (id) ON DELETE RESTRICT ON UPDATE RESTRICT
 );
+
+CREATE INDEX idx_object_log_new_object_id ON object_log (new_object_id) WHERE new_object_id IS NOT NULL;
+CREATE INDEX idx_object_log_old_object_id ON object_log (old_object_id) WHERE old_object_id IS NOT NULL;
 
 CREATE TABLE versions
 (
-    id                BIGSERIAL PRIMARY KEY,
+    id                BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     session_id        TEXT   NOT NULL,
     serial            BIGINT NOT NULL,
     last_log_entry_id BIGINT NOT NULL,
-    snapshot_hash     CHAR(64),
-    delta_hash        CHAR(64),
+    snapshot_hash     TEXT,
+    delta_hash        TEXT,
     snapshot_size     BIGINT,
     delta_size        BIGINT,
-    created_at        TIMESTAMP WITHOUT TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC')
+    created_at        TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     CONSTRAINT delta_field_in_sync CHECK (
             delta_size IS NULL AND delta_hash IS NULL OR
             delta_size IS NOT NULL AND delta_hash IS NOT NULL
@@ -49,9 +59,6 @@ CREATE TABLE versions
         )
 );
 
-CREATE UNIQUE INDEX idx_objects_hash ON objects (hash);
-CREATE UNIQUE INDEX idx_objects_url ON objects (url) WHERE NOT is_deleted;
-
-CREATE UNIQUE INDEX idx_uniq_versions_generates ON versions (session_id, serial);
+CREATE UNIQUE INDEX idx_versions_session_id_serial ON versions (session_id, serial);
 
 COMMIT;
