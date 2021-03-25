@@ -11,11 +11,11 @@ CREATE TABLE objects
     url        TEXT    NOT NULL,
     client_id  TEXT    NOT NULL,
     content    BYTEA   NOT NULL,
-    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
-    CONSTRAINT hash_is_unique UNIQUE (hash)
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 CREATE UNIQUE INDEX idx_objects_url ON objects (url) WHERE NOT is_deleted;
+CREATE UNIQUE INDEX idx_objects_hash ON objects (hash);
 CREATE INDEX idx_objects_client_id ON objects (client_id);
 
 CREATE TABLE object_log
@@ -56,8 +56,9 @@ CREATE TABLE versions
     CONSTRAINT snapshot_field_in_sync CHECK (
             snapshot_hash IS NULL AND snapshot_size IS NULL OR
             snapshot_hash IS NOT NULL AND snapshot_size IS NOT NULL
-        ),
-    CONSTRAINT unique_versions UNIQUE (session_id, serial)
+        )
 );
+
+CREATE UNIQUE INDEX idx_versions_session_id_serial ON versions (session_id, serial);
 
 COMMIT;
