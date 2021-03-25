@@ -281,7 +281,7 @@ CREATE OR REPLACE VIEW latest_version AS
 CREATE OR REPLACE VIEW reasonable_deltas AS
 SELECT z.*
 FROM (SELECT v.*,
-             SUM(delta_size) OVER (ORDER BY id DESC) AS total_delta_size
+             SUM(delta_size) OVER (PARTITION BY session_id ORDER BY id DESC) AS total_delta_size
       FROM versions v
      ) AS z,
      latest_version
