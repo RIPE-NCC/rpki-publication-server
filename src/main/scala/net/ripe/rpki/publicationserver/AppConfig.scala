@@ -8,7 +8,7 @@ import java.util.concurrent.TimeUnit
 import akka.http.scaladsl.settings.ServerSettings
 import com.typesafe.config.{Config, ConfigFactory, ConfigObject, ConfigValue}
 
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 import scala.util.{Failure, Try, Success}
 
@@ -26,7 +26,6 @@ class AppConfig {
   lazy val publicationEntitySizeLimit = getConfig.getMemorySize("publication.max-entity-size").toBytes
 
   lazy val unpublishedFileRetainPeriod = Duration(getConfig.getDuration("unpublished-file-retain-period", TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS)
-  lazy val snapshotSyncDelay = Duration(getConfig.getDuration("snapshot-sync-delay", TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS)
   lazy val defaultTimeout = Duration(getConfig.getDuration("default.timeout", TimeUnit.MINUTES), TimeUnit.MINUTES)
   lazy val serverAddress = if(getConfig.hasPath("server.address")) getConfig.getString("server.address") else "::0"
   lazy val rsyncRepositoryMapping : Map[URI, Path] = {
@@ -72,6 +71,13 @@ class AppConfig {
       case Success(data) => data
     }
 
+  lazy val repositoryFlushInterval = FiniteDuration(
+    getConfig.getDuration(
+      "publication.server.repository-write-interval",
+      TimeUnit.MILLISECONDS
+    ),
+    TimeUnit.MILLISECONDS
+  )
 }
 
 case class PgConfig(url: String, user: String, password: String)

@@ -17,6 +17,8 @@ import org.slf4j.Logger
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.util.{Failure, Success}
+import net.ripe.rpki.publicationserver.repository.DataFlusher
+import akka.actor.Cancellable
 
 
 object Boot extends App with Logging {
@@ -41,12 +43,13 @@ object Boot extends App with Logging {
 }
 
 class PublicationServerApp(conf: AppConfig, https: ConnectionContext, logger: Logger) extends RRDPService {
-    
+
   implicit val system = ActorSystem.create(Math.abs(new ju.Random().nextLong()).toString)
   implicit val dispatcher = system.dispatcher
 
   var httpBinding: Future[ServerBinding] = _
   var httpsBinding: Future[ServerBinding] = _
+  var repositoryWriter: Future[Cancellable] = _
 
   val healthChecks = new HealthChecks(conf)
 
@@ -58,11 +61,19 @@ class PublicationServerApp(conf: AppConfig, https: ConnectionContext, logger: Lo
     val metrics = Metrics.get(registry)
     val metricsApi = new MetricsApi(registry)
 
-    val publicationService = new PublicationService(conf, metrics)
-
+    // Initialize repositories on FS and setup writing at a fixed interval.
     // Run it asynchronously as it can be quite long, but we want
     // to start accepting HTTP(S) connections ASAP.
-    val asyncLongFSInit = Future { publicationService.initFS() }
+    this.repositoryWriter = Future {
+      val dataFlusher = new DataFlusher(conf)
+      dataFlusher.initFS()
+      system.scheduler.scheduleAtFixedRate(
+        conf.repositoryFlushInterval,
+        conf.repositoryFlushInterval
+      ) (dataFlusher.updateFS _)
+    }
+
+    val publicationService = new PublicationService(conf, metrics)
 
     logger.info("Server address: " + conf.serverAddress)
 
@@ -72,7 +83,7 @@ class PublicationServerApp(conf: AppConfig, https: ConnectionContext, logger: Lo
       interface = conf.serverAddress,
       port = conf.publicationPort,
       connectionContext = https,
-      settings = conf.publicationServerSettings.get      
+      settings = conf.publicationServerSettings.get
     )
 
     this.httpBinding = Http().bindAndHandle(
@@ -95,15 +106,16 @@ class PublicationServerApp(conf: AppConfig, https: ConnectionContext, logger: Lo
     }
 
     // wait for the full FS sync
-    Await.ready(asyncLongFSInit, Duration.Inf)
+    Await.ready(repositoryWriter, Duration.Inf)
   }
 
   def shutdown() = {
-       Await.result(httpBinding, 10.seconds)            
-            .terminate(hardDeadline = 3.seconds)
-            .flatMap(_ => 
-                Await.result(httpsBinding, 10.seconds)            
-                .terminate(hardDeadline = 3.seconds))
-            .flatMap(_ => system.terminate())
+      Await.result(repositoryWriter, 3.seconds).cancel()
+      Await.result(httpBinding, 10.seconds)
+           .terminate(hardDeadline = 3.seconds)
+           .flatMap(_ =>
+                Await.result(httpsBinding, 10.seconds)
+                     .terminate(hardDeadline = 3.seconds))
+           .flatMap(_ => system.terminate())
   }
 }
