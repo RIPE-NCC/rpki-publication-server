@@ -376,8 +376,8 @@ CREATE OR REPLACE FUNCTION delete_old_versions()
 $$
 WITH deleted_versions AS (
          DELETE FROM versions
-             WHERE id NOT IN (SELECT id FROM reasonable_deltas)
-                 AND id NOT IN (SELECT id FROM latest_version)
+             WHERE NOT EXISTS (SELECT * FROM reasonable_deltas d WHERE d.id = versions.id)
+               AND NOT EXISTS (SELECT * FROM latest_version lv WHERE lv.id = versions.id)
              RETURNING *
      ),
      deleted_log AS (
