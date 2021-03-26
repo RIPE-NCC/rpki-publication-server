@@ -22,7 +22,7 @@ class SSLHelper(conf: AppConfig, logger: Logger) {
     Try(SSLContext.getInstance("TLS"))
       .map(ctx => {
         ctx.init(getKeyManagers.getKeyManagers, getTrustManagers.getTrustManagers, new SecureRandom)
-        ConnectionContext.https(ctx)
+        ConnectionContext.httpsServer(ctx)
       })
   }
 

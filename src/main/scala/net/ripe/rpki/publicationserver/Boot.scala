@@ -5,7 +5,7 @@ import java.{util => ju}
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.{ConnectionContext, Http, HttpsConnectionContext}
+import akka.http.scaladsl.{Http, HttpsConnectionContext}
 import akka.util.Timeout
 import com.softwaremill.macwire._
 import io.prometheus.client._
@@ -42,7 +42,7 @@ object Boot extends App with Logging {
   new PublicationServerApp(conf, https, logger).run()
 }
 
-class PublicationServerApp(conf: AppConfig, https: ConnectionContext, logger: Logger) extends RRDPService {
+class PublicationServerApp(conf: AppConfig, https: HttpsConnectionContext, logger: Logger) extends RRDPService {
 
   implicit val system = ActorSystem.create(Math.abs(new ju.Random().nextLong()).toString)
   implicit val dispatcher = system.dispatcher
@@ -78,19 +78,15 @@ class PublicationServerApp(conf: AppConfig, https: ConnectionContext, logger: Lo
     logger.info("Server address: " + conf.serverAddress)
 
     // TODO Catch binding errors
-    this.httpsBinding = Http().bindAndHandle(
-      publicationService.publicationRoutes,
-      interface = conf.serverAddress,
-      port = conf.publicationPort,
-      connectionContext = https,
-      settings = conf.publicationServerSettings.get
-    )
+    this.httpsBinding = Http()
+      .newServerAt(conf.serverAddress, conf.publicationPort)
+      .enableHttps(https)
+      .withSettings(conf.publicationServerSettings.get)
+      .bindFlow(publicationService.publicationRoutes)
 
-    this.httpBinding = Http().bindAndHandle(
-      rrdpAndMonitoringRoutes ~ metricsApi.routes,
-      interface = conf.serverAddress,
-      port = conf.rrdpPort
-    )
+    this.httpBinding = Http()
+      .newServerAt(conf.serverAddress, conf.rrdpPort)
+      .bindFlow(rrdpAndMonitoringRoutes ~ metricsApi.routes)
 
     httpsBinding.onComplete {
       case Failure(e) =>
