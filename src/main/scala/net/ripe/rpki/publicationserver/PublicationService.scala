@@ -84,7 +84,7 @@ class PublicationService(conf: AppConfig, metrics: Metrics)
 
               mainPipeline {
                 case Success(msg@ErrorMsg(BaseError("xml_error", message))) =>
-                  logger.error(s"Error parsing POST request with clientId=$clientId", message)
+                  logger.error(s"Error parsing POST request with clientId=$clientId: $message", message)
                   complete(HttpResponse(status = 400, entity = HttpEntity(PublicationService.`rpki-publication`, msg.serialize)))
 
                 case Success(result) =>
@@ -92,7 +92,7 @@ class PublicationService(conf: AppConfig, metrics: Metrics)
                   complete(HttpResponse(entity = HttpEntity(PublicationService.`rpki-publication`, response)))
 
                 case Failure(error: XMLStreamException) =>
-                  logger.error(s"Error parsing POST request with clientId=$clientId", error)
+                  logger.error(s"Error parsing POST request with clientId=$clientId: XML stream error: $error", error)
                   complete(400, error.getMessage)
 
                 case Failure(error) =>
