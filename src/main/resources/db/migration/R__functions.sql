@@ -390,21 +390,17 @@ WITH deleted_versions AS (
      ),
      deleted_objects AS (
          DELETE FROM objects o
-             WHERE o.id IN (
-                 SELECT id
-                 FROM objects o
-                 WHERE o.deleted_at IS NOT NULL
-                   AND NOT EXISTS(
-                         SELECT *
-                         FROM object_log
-                         WHERE new_object_id = o.id
-                     )
-                   AND NOT EXISTS(
-                         SELECT *
-                         FROM object_log
-                         WHERE old_object_id = o.id
-                     )
-             )
+             WHERE o.deleted_at IS NOT NULL
+               AND NOT EXISTS(
+                     SELECT *
+                     FROM object_log
+                     WHERE new_object_id = o.id
+               )
+               AND NOT EXISTS(
+                     SELECT *
+                     FROM object_log
+                     WHERE old_object_id = o.id
+               )
              RETURNING id
      )
 SELECT *
