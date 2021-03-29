@@ -24,12 +24,14 @@ COPY --from=build /app/target/rpki-publication-server.jar /app/
 
 EXPOSE 7766
 EXPOSE 7788
+EXPOSE 5005
 
 VOLUME ["/conf", "/data"]
 
 ENV _JAVA_OPTIONS="-Djava.net.preferIPv4Stack=true \    
     -Djava.net.preferIPv4Addresses=true \
     -Dapp.name=rpki-publication-server \    
+    -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005 \    
     -Xms256m -Xmx800m \
     -XX:HeapDumpPath=/data/dumps/pubserver-heap-dump.hprof \
     -Dconfig.file=/conf/publication-server-docker.conf"
