@@ -27,9 +27,11 @@ EXPOSE 7788
 
 VOLUME ["/conf", "/data"]
 
-ENV _JAVA_OPTIONS="-Djava.net.preferIPv4Stack=true \
+ENV _JAVA_OPTIONS="-Djava.net.preferIPv4Stack=true \    
     -Djava.net.preferIPv4Addresses=true \
-    -Dapp.name=rpki-publication-server \
+    -Dapp.name=rpki-publication-server \    
+    -Xms256m -Xmx800m \
+    -XX:HeapDumpPath=/data/dumps/pubserver-heap-dump.hprof \
     -Dconfig.file=/conf/publication-server-docker.conf"
 
 CMD ["/app/rpki-publication-server.jar"]
