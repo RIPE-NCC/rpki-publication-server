@@ -381,11 +381,10 @@ WITH deleted_versions AS (
              RETURNING *
      ),
      deleted_log AS (
-         DELETE FROM object_log ol
-             WHERE EXISTS(
-                     SELECT last_log_entry_id
+         DELETE FROM object_log
+             WHERE id <= (
+                     SELECT MAX(last_log_entry_id)
                      FROM deleted_versions
-                     WHERE ol.id <= last_log_entry_id
                  )
              RETURNING id
      ),
