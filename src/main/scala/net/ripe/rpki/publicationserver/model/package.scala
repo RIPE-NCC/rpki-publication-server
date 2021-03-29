@@ -45,24 +45,28 @@ package object model {
   abstract class Msg extends Formatting {
     def serialize: String
 
-    protected def reply(pdus: => String): String =
-      s"""<msg type="reply" version="3" xmlns="http://www.hactrn.net/uris/rpki/publication-spec/">
-      $pdus
-    </msg>"""
+    protected def serialiseReply(serialisePdus: StringBuilder => Unit): String = {
+        val sb = new StringBuilder("""<msg type="reply" version="3" xmlns="http://www.hactrn.net/uris/rpki/publication-spec/">""")
+        serialisePdus(sb)
+        sb.append("</msg>")
+        sb.toString      
+    }
+    
   }
 
   case class ErrorMsg(error: BaseError) extends Msg {
-    def serialize: String = reply {
-      s"""<report_error error_code="${error.code}">
-      ${content(error.message)}
-    </report_error>"""
+    def serialize: String = serialiseReply { sb => 
+        sb.append {
+            s"""<report_error error_code="${error.code}">
+                ${content(error.message)}
+            </report_error>"""
+        }
     }
   }
 
   case class ReplyMsg(pdus: Seq[ReplyPdu]) extends Msg {
 
-    def serialize: String = reply {
-      val sb = new StringBuilder
+    def serialize: String = serialiseReply { sb =>       
       pdus.foreach { pdu =>
         val textual = pdu match {
           case PublishR(uri, Some(tag)) => s"""<publish tag="${attr(tag)}" uri="${attr(uri.toASCIIString)}"/>"""
@@ -77,8 +81,7 @@ package object model {
         </report_error>"""
         }
         sb.append(textual).append("\n")
-      }
-      sb.toString()
+      }      
     }
   }
 
