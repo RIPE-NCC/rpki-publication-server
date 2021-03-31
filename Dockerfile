@@ -33,8 +33,8 @@ VOLUME ["/conf", "/data"]
 ENV JAVA_TOOL_OPTIONS="-Djava.net.preferIPv4Stack=true \
     -Djava.net.preferIPv4Addresses=true \
     -Dapp.name=rpki-publication-server \
-    -Xms256m \
-    -Xmx400m \
+    -Xms1g \
+    -Xmx4g \
     -XX:+HeapDumpOnOutOfMemoryError \
     -XX:HeapDumpPath=/data/dumps/pubserver-heap-dump.hprof \
     -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005 \
