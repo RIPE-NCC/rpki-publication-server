@@ -28,13 +28,16 @@ EXPOSE 5005
 
 VOLUME ["/conf", "/data"]
 
-ENV _JAVA_OPTIONS="-Djava.net.preferIPv4Stack=true \    
+#ENV JAVA_TOOL_OPTIONS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
+
+ENV JAVA_TOOL_OPTIONS="-Djava.net.preferIPv4Stack=true \
     -Djava.net.preferIPv4Addresses=true \
-    -Dapp.name=rpki-publication-server \    
-    -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005 \    
-    -Xms256m -Xmx800m \
+    -Dapp.name=rpki-publication-server \
+    -Xms256m \
+    -Xmx512m \
     -XX:+ExitOnOutOfMemoryError \
     -XX:HeapDumpPath=/data/dumps/pubserver-heap-dump.hprof \
+    -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005 \
     -Dconfig.file=/conf/publication-server-docker.conf"
 
 CMD ["/app/rpki-publication-server.jar"]
