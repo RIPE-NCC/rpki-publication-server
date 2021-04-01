@@ -16,6 +16,10 @@ scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8")
 // use sbt assembly plugin and create a fat jar with a predictable name.
 mainClass in assembly := Some("net.ripe.rpki.publicationserver.Boot")
 assemblyJarName in assembly := "rpki-publication-server.jar"
+assemblyMergeStrategy in assembly := {
+  case "module-info.class" => MergeStrategy.discard
+  case x => (assemblyMergeStrategy in assembly).value (x)
+}
 test in assembly := {}
 
 parallelExecution in Test := false
@@ -44,7 +48,7 @@ libraryDependencies ++= {
     "com.typesafe.akka"        %% "akka-slf4j"            % akkaV,
     "org.scalatest"            %% "scalatest"             % "3.1.4"   % "test",
     "org.mockito"               % "mockito-all"           % "1.10.19" % "test",
-    "org.codehaus.woodstox"     % "woodstox-core-asl"     % "4.4.1",
+    "com.fasterxml.woodstox"    % "woodstox-core"         % "6.2.4",
     "com.sun.xml.bind"          % "jaxb1-impl"            % "2.2.5.1",
     "ch.qos.logback"            % "logback-classic"       % "1.2.3",
     "com.softwaremill.macwire" %% "macros"                % "2.3.3" % "provided",

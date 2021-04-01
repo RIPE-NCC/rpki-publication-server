@@ -50,8 +50,7 @@ case class UnknownEvent(code: Int) extends StaxEvent
 object StaxEvent {
 
   def readFrom(reader: XMLStreamReader): StaxEvent = {
-    // Unfortunately the synchronizing is needed because the Woodstox parser's validating is not thread safe, not even across readers.
-    getClass.synchronized(reader.next()) match {
+    reader.next() match {
 
       case XMLStreamConstants.START_ELEMENT =>
         val label = reader.getLocalName
