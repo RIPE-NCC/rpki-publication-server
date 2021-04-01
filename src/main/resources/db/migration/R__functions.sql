@@ -267,21 +267,21 @@ $body$
     LANGUAGE plpgsql;
 
 
+CREATE OR REPLACE VIEW latest_version AS
+  SELECT *
+    FROM versions
+    ORDER BY id DESC
+    LIMIT 1;
+
 -- Return deltas that reasonable to put into the notification.xml file.
 -- These has to be
 -- 1) deltas from the latest session
 -- 2) of total size not larger than the latest snapshot
 -- 3) having a definite hash (latest delta can have undefined hash until its file is generated and written)
 CREATE OR REPLACE VIEW reasonable_deltas AS
-WITH latest_version AS (
-    SELECT *
-    FROM versions
-    ORDER BY id DESC
-    LIMIT 1
-)
 SELECT z.*
 FROM (SELECT v.*,
-             SUM(delta_size) OVER (ORDER BY id DESC) AS total_delta_size
+             SUM(delta_size) OVER (PARTITION BY session_id ORDER BY id DESC) AS total_delta_size
       FROM versions v
      ) AS z,
      latest_version
@@ -307,9 +307,7 @@ BEGIN
         -- (if there's anything new in the object_log)
         WITH previous_version AS (
             SELECT id, session_id, serial, last_log_entry_id
-            FROM versions v
-            ORDER BY id DESC
-            LIMIT 1
+            FROM latest_version
         )
         INSERT
         INTO versions (session_id, serial, last_log_entry_id)
@@ -357,11 +355,9 @@ BEGIN
             SELECT MAX(id) IS NOT NULL
             FROM object_log
             WHERE id > (
-                SELECT last_log_entry_id
-                FROM versions
-                ORDER BY id DESC
-                LIMIT 1)
-        );
+                SELECT last_log_entry_id FROM latest_version
+                )
+            );
     ELSE
         RETURN EXISTS(SELECT * FROM object_log);
     END IF;
@@ -378,44 +374,33 @@ $body$
 CREATE OR REPLACE FUNCTION delete_old_versions()
     RETURNS SETOF versions AS
 $$
-WITH latest_version AS (
-    SELECT *
-    FROM versions
-    ORDER BY id DESC
-    LIMIT 1
-),
-     deleted_versions AS (
+WITH deleted_versions AS (
          DELETE FROM versions
-             WHERE id NOT IN (SELECT id FROM reasonable_deltas)
-                 AND id NOT IN (SELECT id FROM latest_version)
+             WHERE NOT EXISTS (SELECT * FROM reasonable_deltas d WHERE d.id = versions.id)
+               AND NOT EXISTS (SELECT * FROM latest_version lv WHERE lv.id = versions.id)
              RETURNING *
      ),
      deleted_log AS (
-         DELETE FROM object_log ol
-             WHERE EXISTS(
-                     SELECT last_log_entry_id
+         DELETE FROM object_log
+             WHERE id <= (
+                     SELECT MAX(last_log_entry_id)
                      FROM deleted_versions
-                     WHERE ol.id <= last_log_entry_id
                  )
              RETURNING id
      ),
      deleted_objects AS (
          DELETE FROM objects o
-             WHERE o.id IN (
-                 SELECT id
-                 FROM objects o
-                 WHERE o.deleted_at IS NOT NULL
-                   AND NOT EXISTS(
-                         SELECT *
-                         FROM object_log
-                         WHERE new_object_id = o.id
-                     )
-                   AND NOT EXISTS(
-                         SELECT *
-                         FROM object_log
-                         WHERE old_object_id = o.id
-                     )
-             )
+             WHERE o.deleted_at IS NOT NULL
+               AND NOT EXISTS(
+                     SELECT *
+                     FROM object_log
+                     WHERE new_object_id = o.id
+               )
+               AND NOT EXISTS(
+                     SELECT *
+                     FROM object_log
+                     WHERE old_object_id = o.id
+               )
              RETURNING id
      )
 SELECT *

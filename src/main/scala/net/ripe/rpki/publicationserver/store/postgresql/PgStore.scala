@@ -85,9 +85,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
   }
 
   def getCurrentSessionInfo(implicit session: DBSession) = {
-    sql"""SELECT session_id, serial
-          FROM versions
-          ORDER BY id DESC LIMIT 1"""
+    sql"SELECT session_id, serial FROM latest_version"
       .map(rs => (rs.string(1), rs.long(2)))
       .single()
       .apply()
@@ -245,6 +243,3 @@ object PgStore extends Logging {
   }
 
 }
-
-
-
