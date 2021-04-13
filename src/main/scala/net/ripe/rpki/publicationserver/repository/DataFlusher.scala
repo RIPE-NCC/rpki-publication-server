@@ -271,6 +271,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
     val tmpStream = new HashingSizedStream(new FileOutputStream(tmpFile.toFile))
     try {
       f(tmpStream)
+      tmpStream.flush()
       Files.move(tmpFile, targetFile.toAbsolutePath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
       tmpStream.summary
     } finally {
