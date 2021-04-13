@@ -137,6 +137,8 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
     val (sessionId, serial) = verifySessionAndSerial
 
+    serial should be(1L)
+
     val snapshotBytes = verifyExpectedSnapshot(sessionId, serial) {
       s"""<snapshot version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
           <publish uri="${uri1}">${base64_1}</publish>
@@ -144,17 +146,9 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
       </snapshot>"""
     }
 
-    val deltaBytes = verifyExpectedDelta(sessionId, serial) {
-      s"""<delta version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
-          <publish uri="${uri1}">${base64_1}</publish>
-          <publish uri="${uri2}">${base64_2}</publish>
-      </delta>"""
-    }
-
     verifyExpectedNotification {
       s"""<notification version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
             <snapshot uri="http://localhost:7788/${sessionId}/${serial}/snapshot.xml" hash="${hash(Bytes(snapshotBytes)).hash}"/>
-            <delta serial="1" uri="http://localhost:7788/${sessionId}/${serial}/delta.xml" hash="${hash(Bytes(deltaBytes)).hash}"/>
           </notification>"""
     }
   }

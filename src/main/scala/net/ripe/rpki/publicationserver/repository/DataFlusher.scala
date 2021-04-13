@@ -38,7 +38,6 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
       pgStore.inRepeatableReadTx { implicit session =>
         pgStore.lockVersions
 
-        val thereAreChangesSinceTheLastFreeze = pgStore.changesExist()
         val ((sessionId, latestSerial, _), duration) = Time.timed(pgStore.freezeVersion)
         logger.info(s"Froze version $sessionId, $latestSerial, took ${duration}ms")
 
@@ -47,7 +46,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
         }
 
         if (conf.writeRrdp) {
-          initRrdpFS(thereAreChangesSinceTheLastFreeze, sessionId, latestSerial)
+          initRrdpFS(sessionId, latestSerial)
           initialRrdpRepositoryCleanup(UUID.fromString(sessionId))
         }
 
@@ -128,16 +127,17 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
 
   }
 
-  private def initRrdpFS(thereAreChangesSinceTheLastFreeze: Boolean,
-                         sessionId: String,
-                         latestSerial: Long)(implicit session: DBSession) = {
+  private def initRrdpFS(sessionId: String, latestSerial: Long)(implicit session: DBSession) = {
     val (snapshotHash, snapshotSize) =
       withAtomicStream(snapshotPath(sessionId, latestSerial), rrdpWriter.fileAttributes) {
         writeRrdpSnapshot(sessionId, latestSerial, _)
       }
     pgStore.updateSnapshotInfo(sessionId, latestSerial, snapshotHash, snapshotSize)
 
-    if (thereAreChangesSinceTheLastFreeze) {
+    if (latestSerial > 1) {
+      // When there are changes since the last freeze the latest delta might not yet exist, so ensure it gets created.
+      // The `getReasonableDeltas` query below will then decide which deltas (if any) should be included in the
+      // notification.xml file.
       val (latestDeltaHash, latestDeltaSize) =
         withAtomicStream(deltaPath(sessionId, latestSerial), rrdpWriter.fileAttributes) {
           writeRrdpDelta(sessionId, latestSerial, _)
@@ -147,8 +147,11 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
     }
 
     val deltas = pgStore.getReasonableDeltas(sessionId)
-
-    deltas.filter(_._1 != latestSerial).foreach { case (serial, _) =>
+    for {
+      (serial, _) <- deltas
+      // Delta for the latest serial was already created above, so we can skip it here.
+      if serial != latestSerial
+    } {
       withAtomicStream(deltaPath(sessionId, serial), rrdpWriter.fileAttributes) {
         writeRrdpDelta(sessionId, serial, _)
       }
@@ -177,7 +180,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
       }
       IOStream.string("</snapshot>\n", snapshotOs)
     }
-    logger.info(s"Wrote RRDP snapshot, took ${duration}ms.")
+    logger.info(s"Wrote RRDP snapshot for ${sessionId}/${serial}, took ${duration}ms.")
   }
 
   // Write snapshot objects to rsync repository.
