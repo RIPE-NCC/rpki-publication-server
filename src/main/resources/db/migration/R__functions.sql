@@ -1,5 +1,3 @@
-BEGIN;
-
 -- Some utility functions first
 
 -- Auxiliary functions for client_id lock
@@ -25,12 +23,12 @@ $$ LANGUAGE SQL;
 -- Reusable part of both create and replace an object in the 'objects' table.
 --
 CREATE OR REPLACE FUNCTION merge_object(bytes_ BYTEA,
-                                        hash_ CHAR(64),
+                                        hash_ TEXT,
                                         url_ TEXT,
                                         client_id_ TEXT) RETURNS SETOF objects AS
 $$
     INSERT INTO objects (hash, content, url, client_id)
-         VALUES (hash_, bytes_, url_, client_id_)
+         VALUES (LOWER(hash_), bytes_, url_, client_id_)
     ON CONFLICT (hash) DO UPDATE
             SET deleted_at = NULL
       RETURNING *;
@@ -85,7 +83,7 @@ $body$
 --
 -- Error codes are defined by the RFC (https://tools.ietf.org/html/rfc8181#page-9)
 CREATE OR REPLACE FUNCTION replace_object(bytes_ BYTEA,
-                                          hash_to_replace CHAR(64),
+                                          hash_to_replace TEXT,
                                           url_ TEXT,
                                           client_id_ TEXT) RETURNS JSON AS
 $body$
@@ -106,10 +104,10 @@ BEGIN
                                  format('There is no object present at this URI [%s].', url_));
     END IF;
 
-    IF existing_hash <> hash_to_replace THEN
+    IF existing_hash <> LOWER(hash_to_replace) THEN
         RETURN json_build_object('code', 'no_object_matching_hash', 'message',
                                  format('Cannot republish the object [%s], hash doesn''t match, passed %s, but existing one is %s',
-                                    url_, hash_to_replace, existing_hash));
+                                    url_, LOWER(hash_to_replace), existing_hash));
     END IF;
 
     IF existing_client_id <> client_id_ THEN
@@ -145,7 +143,7 @@ $body$
 --
 -- Error codes are defined by the RFC (https://tools.ietf.org/html/rfc8181#page-9)
 CREATE OR REPLACE FUNCTION delete_object(url_ TEXT,
-                                         hash_to_delete CHAR(64),
+                                         hash_to_delete TEXT,
                                          client_id_ TEXT) RETURNS JSON AS
 $body$
 DECLARE
@@ -164,10 +162,10 @@ BEGIN
                                  format('There is no object present at this URI [%s].', url_));
     END IF;
 
-    IF existing_hash <> hash_to_delete THEN
+    IF existing_hash <> LOWER(hash_to_delete) THEN
         RETURN json_build_object('code', 'no_object_matching_hash', 'message',
                                  format('Cannot withdraw the object [%s], hash does not match, ' ||
-                                 'passed %s, but existing one is %s.', url_, hash_to_delete, existing_hash));
+                                 'passed %s, but existing one is %s.', url_, LOWER(hash_to_delete), existing_hash));
     END IF;
 
     IF existing_client_id <> client_id_ THEN
@@ -407,6 +405,3 @@ SELECT *
 FROM deleted_versions;
 
 $$ LANGUAGE SQL;
-
-
-COMMIT;

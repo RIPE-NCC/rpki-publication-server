@@ -1,5 +1,3 @@
-BEGIN;
-
 DROP TABLE IF EXISTS objects CASCADE;
 DROP TABLE IF EXISTS object_log CASCADE;
 DROP TABLE IF EXISTS versions CASCADE;
@@ -7,7 +5,7 @@ DROP TABLE IF EXISTS versions CASCADE;
 CREATE TABLE objects
 (
     id         BIGINT  GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    hash       TEXT    NOT NULL,
+    hash       TEXT    NOT NULL CHECK (hash ~ '^[0-9a-f]{64}$'),
     url        TEXT    NOT NULL,
     client_id  TEXT    NOT NULL,
     content    BYTEA   NOT NULL,
@@ -46,8 +44,8 @@ CREATE TABLE versions
     session_id        TEXT   NOT NULL,
     serial            BIGINT NOT NULL,
     last_log_entry_id BIGINT NOT NULL,
-    snapshot_hash     TEXT,
-    delta_hash        TEXT,
+    snapshot_hash     TEXT CHECK (snapshot_hash ~ '^[0-9a-f]{64}$'),
+    delta_hash        TEXT CHECK (delta_hash ~ '^[0-9a-f]{64}$'),
     snapshot_size     BIGINT,
     delta_size        BIGINT,
     created_at        TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
@@ -62,5 +60,3 @@ CREATE TABLE versions
 );
 
 CREATE UNIQUE INDEX idx_versions_session_id_serial ON versions (session_id, serial);
-
-COMMIT;
