@@ -153,9 +153,11 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
       // Delta for the latest serial was already created above, so we can skip it here.
       if serial != latestSerial
     } {
-      withAtomicStream(deltaPath(sessionId, serial), rrdpWriter.fileAttributes) {
-        writeRrdpDelta(sessionId, serial, _)
-      }
+      val (deltaHash, deltaSize) =
+        withAtomicStream(deltaPath(sessionId, serial), rrdpWriter.fileAttributes) {
+          writeRrdpDelta(sessionId, serial, _)
+        }
+      pgStore.updateDeltaInfo(sessionId, serial, deltaHash, deltaSize)
     }
 
     val (_, duration) = Time.timed {
