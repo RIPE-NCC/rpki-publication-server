@@ -4,6 +4,7 @@ import akka.actor.ActorSystem
 import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.fs.{Rrdp, RrdpRepositoryWriter, RsyncRepositoryWriter}
+import net.ripe.rpki.publicationserver.model.INITIAL_SERIAL
 import net.ripe.rpki.publicationserver.store.postresql.PgStore
 import net.ripe.rpki.publicationserver.util.Time
 import scalikejdbc.DBSession
@@ -134,7 +135,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
       }
     pgStore.updateSnapshotInfo(sessionId, latestSerial, snapshotHash, snapshotSize)
 
-    if (latestSerial > 1) {
+    if (latestSerial > INITIAL_SERIAL) {
       // When there are changes since the last freeze the latest delta might not yet exist, so ensure it gets created.
       // The `getReasonableDeltas` query below will then decide which deltas (if any) should be included in the
       // notification.xml file.

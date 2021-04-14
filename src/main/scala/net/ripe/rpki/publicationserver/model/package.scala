@@ -5,6 +5,8 @@ import java.net.URI
 import net.ripe.rpki.publicationserver.Binaries.Bytes
 
 package object model {
+  val INITIAL_SERIAL = 1L
+
   case class ClientId(value: String)
 
   case class BaseError(code: String, message: String)

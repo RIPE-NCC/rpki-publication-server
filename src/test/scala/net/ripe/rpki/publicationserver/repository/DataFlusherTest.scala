@@ -137,7 +137,7 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
     val (sessionId, serial) = verifySessionAndSerial
 
-    serial should be(1L)
+    serial should be(INITIAL_SERIAL)
 
     val snapshotBytes = verifyExpectedSnapshot(sessionId, serial) {
       s"""<snapshot version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
