@@ -4,6 +4,7 @@ import akka.actor.ActorSystem
 import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.fs.{Rrdp, RrdpRepositoryWriter, RsyncRepositoryWriter}
+import net.ripe.rpki.publicationserver.model.INITIAL_SERIAL
 import net.ripe.rpki.publicationserver.store.postresql.PgStore
 import net.ripe.rpki.publicationserver.util.Time
 import scalikejdbc.DBSession
@@ -38,7 +39,6 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
       pgStore.inRepeatableReadTx { implicit session =>
         pgStore.lockVersions
 
-        val thereAreChangesSinceTheLastFreeze = pgStore.changesExist()
         val ((sessionId, latestSerial, _), duration) = Time.timed(pgStore.freezeVersion)
         logger.info(s"Froze version $sessionId, $latestSerial, took ${duration}ms")
 
@@ -47,7 +47,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
         }
 
         if (conf.writeRrdp) {
-          initRrdpFS(thereAreChangesSinceTheLastFreeze, sessionId, latestSerial)
+          initRrdpFS(sessionId, latestSerial)
           initialRrdpRepositoryCleanup(UUID.fromString(sessionId))
         }
 
@@ -128,16 +128,17 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
 
   }
 
-  private def initRrdpFS(thereAreChangesSinceTheLastFreeze: Boolean,
-                         sessionId: String,
-                         latestSerial: Long)(implicit session: DBSession) = {
+  private def initRrdpFS(sessionId: String, latestSerial: Long)(implicit session: DBSession) = {
     val (snapshotHash, snapshotSize) =
       withAtomicStream(snapshotPath(sessionId, latestSerial), rrdpWriter.fileAttributes) {
         writeRrdpSnapshot(sessionId, latestSerial, _)
       }
     pgStore.updateSnapshotInfo(sessionId, latestSerial, snapshotHash, snapshotSize)
 
-    if (thereAreChangesSinceTheLastFreeze) {
+    if (latestSerial > INITIAL_SERIAL) {
+      // When there are changes since the last freeze the latest delta might not yet exist, so ensure it gets created.
+      // The `getReasonableDeltas` query below will then decide which deltas (if any) should be included in the
+      // notification.xml file.
       val (latestDeltaHash, latestDeltaSize) =
         withAtomicStream(deltaPath(sessionId, latestSerial), rrdpWriter.fileAttributes) {
           writeRrdpDelta(sessionId, latestSerial, _)
@@ -147,11 +148,16 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
     }
 
     val deltas = pgStore.getReasonableDeltas(sessionId)
-
-    deltas.filter(_._1 != latestSerial).foreach { case (serial, _) =>
-      withAtomicStream(deltaPath(sessionId, serial), rrdpWriter.fileAttributes) {
-        writeRrdpDelta(sessionId, serial, _)
-      }
+    for {
+      (serial, _) <- deltas
+      // Delta for the latest serial was already created above, so we can skip it here.
+      if serial != latestSerial
+    } {
+      val (deltaHash, deltaSize) =
+        withAtomicStream(deltaPath(sessionId, serial), rrdpWriter.fileAttributes) {
+          writeRrdpDelta(sessionId, serial, _)
+        }
+      pgStore.updateDeltaInfo(sessionId, serial, deltaHash, deltaSize)
     }
 
     val (_, duration) = Time.timed {
@@ -177,7 +183,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
       }
       IOStream.string("</snapshot>\n", snapshotOs)
     }
-    logger.info(s"Wrote RRDP snapshot, took ${duration}ms.")
+    logger.info(s"Wrote RRDP snapshot for ${sessionId}/${serial}, took ${duration}ms.")
   }
 
   // Write snapshot objects to rsync repository.
@@ -268,6 +274,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
     val tmpStream = new HashingSizedStream(new FileOutputStream(tmpFile.toFile))
     try {
       f(tmpStream)
+      tmpStream.flush()
       Files.move(tmpFile, targetFile.toAbsolutePath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
       tmpStream.summary
     } finally {
