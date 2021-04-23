@@ -1,9 +1,19 @@
 RPKI Publication Server
 =======================
 
-This is the RIPE NCC's implementation of [A Publication Protocol for the Resource Public Key Infrastructure] 
-(https://tools.ietf.org/html/draft-weiler-sidr-publication) and [RPKI Repository Delta Protocol]
-(https://tools.ietf.org/wg/sidr/draft-ietf-sidr-delta-protocol/).
+This is the RIPE NCC's implementation of [RFC 8182 - The RPKI Repository Delta Protocol]
+(https://tools.ietf.org/html/rfc8182) and a draft of [RFC 8181 - A Publication Protocol for the Resource Public Key Infrastructure] 
+(https://tools.ietf.org/html/rfc8181).
+
+This implementation differs from the final specification in the following key areas:
+  * Mutual TLS is used instead of CMS wrapping of objects.
+  * Publication XML messages follow [draft-ietf-sidr-publication-07](https://tools.ietf.org/html/draft-ietf-sidr-publication-07) instead of RFC 8181.
+
+The publication server is meant to be used with a single trusted client (c.f.
+multiple delegated Certification Authorities).
+
+The produced RRDP repository is in accordance with RFC 8182 and is accepted by
+all known Relying Party implementations.
 
 Building the project
 --------------------
