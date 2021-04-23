@@ -12,11 +12,11 @@ This implementation differs from the final specification in the following key ar
 The publication server is meant to be used with a single trusted client (c.f.
 multiple delegated Certification Authorities).
 
-The publication server relies on a reverse proxy for TLS. Since all Relying Party
-implementations require HTTPS urls for the RRDP repository, for production usage
-the publication server **MUST** be deployed behind a reverse proxy that performs
-TLS termination, with a trusted network link between reverse proxy and publication
-server.
+The publication server relies on a reverse proxy for TLS on the port used for
+RRDP. Since all Relying Party implementations require HTTPS urls for the RRDP
+repository, for production usage the publication server **MUST** be deployed
+behind a reverse proxy that performs TLS termination, with a trusted network
+link between reverse proxy and publication server.
 
 The produced RRDP repository is in accordance with RFC 8182 and is accepted by
 all known Relying Party implementations.
