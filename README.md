@@ -1,9 +1,8 @@
 RPKI Publication Server
 =======================
 
-This is the RIPE NCC's implementation of [RFC 8182 - The RPKI Repository Delta Protocol]
-(https://tools.ietf.org/html/rfc8182) and a draft of [RFC 8181 - A Publication Protocol for the Resource Public Key Infrastructure] 
-(https://tools.ietf.org/html/rfc8181).
+This is the RIPE NCC's implementation of [RFC 8182 - The RPKI Repository Delta Protocol](https://tools.ietf.org/html/rfc8182)
+and a draft of [RFC 8181 - A Publication Protocol for the Resource Public Key Infrastructure](https://tools.ietf.org/html/rfc8181).
 
 This implementation differs from the final specification in the following key areas:
   * Mutual TLS is used instead of CMS wrapping of objects.
