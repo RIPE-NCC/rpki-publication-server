@@ -6,9 +6,7 @@ import java.nio.file.attribute.{BasicFileAttributes, FileTime}
 
 import net.ripe.rpki.publicationserver.Logging
 
-class RemovingFileVisitor(timestamp: FileTime, filenameToDelete: Path, latestSerial: Long) extends SimpleFileVisitor[Path] with Logging {
-
-  val latestFileNameComponent = Paths.get(latestSerial.toString, filenameToDelete.toString)
+class RemovingFileVisitor(timestamp: FileTime, deleteIt: Path => Boolean, latestSerial: Long) extends SimpleFileVisitor[Path] with Logging {
 
   override def visitFileFailed(file: Path, exc: IOException): FileVisitResult = {
     logger.error(s"Error visiting $file: ${exc.getMessage}")
@@ -17,9 +15,12 @@ class RemovingFileVisitor(timestamp: FileTime, filenameToDelete: Path, latestSer
   }
 
   override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
-    if (file.endsWith(filenameToDelete) && !file.endsWith(latestFileNameComponent) && FSUtil.isModifiedBefore(file, timestamp)) {
-      logger.info(s"Removing $file")
-      Files.deleteIfExists(file)
+    if (deleteIt(file)) {
+      // check that we are not going to delete the file for the latest serial
+      if (!file.getParent.endsWith(latestSerial.toString) && FSUtil.isModifiedBefore(file, timestamp)) {
+        logger.info(s"Removing $file")
+        Files.deleteIfExists(file)
+      }
     }
     FileVisitResult.CONTINUE
   }

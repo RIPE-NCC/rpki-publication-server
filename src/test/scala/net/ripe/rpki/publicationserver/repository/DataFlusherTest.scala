@@ -1,13 +1,13 @@
 package net.ripe.rpki.publicationserver.repository
 
+import net.ripe.rpki.publicationserver.Binaries.Bytes
+import net.ripe.rpki.publicationserver._
+import net.ripe.rpki.publicationserver.fs.Rrdp
+import net.ripe.rpki.publicationserver.model._
+
 import java.net.URI
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, NoSuchFileException, Path}
-
-import net.ripe.rpki.publicationserver.Binaries.Bytes
-import net.ripe.rpki.publicationserver._
-import net.ripe.rpki.publicationserver.model._
-
 import scala.concurrent.duration._
 
 class DataFlusherTest extends PublicationServerBaseTest with Hashing {
@@ -699,20 +699,30 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     }
   }
 
-
   private def verifyExpectedSnapshot(sessionId: String, serial: Long)(expected: String) = {
-    val bytes = Files.readAllBytes(rrdpRootDfir.resolve(sessionId).resolve(serial.toString).resolve("snapshot.xml"))
+    val snapshotFile = Files.list(sessionSerialDir(sessionId, serial)).
+      filter(f => Rrdp.isSnapshot(f.getFileName.toString)).
+      findFirst().
+      orElseThrow()
+    val bytes = Files.readAllBytes(snapshotFile)
     val generatedSnapshot = new String(bytes, StandardCharsets.US_ASCII)
     trim(generatedSnapshot) should be(trim(expected))
     bytes
   }
 
   private def verifyExpectedDelta(sessionId: String, serial: Long)(expected: String) = {
-    val bytes = Files.readAllBytes(rrdpRootDfir.resolve(sessionId).resolve(serial.toString).resolve("delta.xml"))
+    val deltaFile = Files.list(sessionSerialDir(sessionId, serial)).
+      filter(f => Rrdp.isDelta(f.getFileName.toString)).
+      findFirst().
+      orElseThrow()
+    val bytes = Files.readAllBytes(deltaFile)
     val generatedDelta = new String(bytes, StandardCharsets.US_ASCII)
     trim(generatedDelta) should be(trim(expected))
     bytes
   }
+
+  def sessionSerialDir(sessionId: String, serial: Long) =
+    rrdpRootDfir.resolve(sessionId).resolve(serial.toString)
 
   private def verifySessionAndSerial = {
     val version = pgStore.inRepeatableReadTx { implicit session =>

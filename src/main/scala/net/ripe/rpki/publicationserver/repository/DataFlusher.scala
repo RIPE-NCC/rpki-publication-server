@@ -16,6 +16,7 @@ import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.{Date, UUID}
+import scala.util.Random
 
 class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
   extends Hashing with Formatting with Logging {
@@ -90,7 +91,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
 
     // Generate snapshot for the latest serial, we are only able to general the latest snapshot
     val (snapshotHash, snapshotSize) =
-      withAtomicStream(snapshotPath(sessionId, serial), rrdpWriter.fileAttributes) {
+      withAtomicStream(snapshotPathRandom(sessionId, serial), rrdpWriter.fileAttributes) {
         writeRrdpSnapshot(sessionId, serial, _)
       }
     pgStore.updateSnapshotInfo(sessionId, serial, snapshotHash, snapshotSize)
@@ -98,7 +99,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
     // Convenience function
     def writeDelta(s: Long) = {
       val (deltaHash, deltaSize) =
-        withAtomicStream(deltaPath(sessionId, s), rrdpWriter.fileAttributes) {
+        withAtomicStream(deltaPathRandom(sessionId, s), rrdpWriter.fileAttributes) {
           writeRrdpDelta(sessionId, s, _)
         }
       pgStore.updateDeltaInfo(sessionId, s, deltaHash, deltaSize)
@@ -130,7 +131,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
 
   private def initRrdpFS(sessionId: String, latestSerial: Long)(implicit session: DBSession) = {
     val (snapshotHash, snapshotSize) =
-      withAtomicStream(snapshotPath(sessionId, latestSerial), rrdpWriter.fileAttributes) {
+      withAtomicStream(snapshotPathRandom(sessionId, latestSerial), rrdpWriter.fileAttributes) {
         writeRrdpSnapshot(sessionId, latestSerial, _)
       }
     pgStore.updateSnapshotInfo(sessionId, latestSerial, snapshotHash, snapshotSize)
@@ -140,7 +141,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
       // The `getReasonableDeltas` query below will then decide which deltas (if any) should be included in the
       // notification.xml file.
       val (latestDeltaHash, latestDeltaSize) =
-        withAtomicStream(deltaPath(sessionId, latestSerial), rrdpWriter.fileAttributes) {
+        withAtomicStream(deltaPathRandom(sessionId, latestSerial), rrdpWriter.fileAttributes) {
           writeRrdpDelta(sessionId, latestSerial, _)
         }
 
@@ -154,7 +155,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
       if serial != latestSerial
     } {
       val (deltaHash, deltaSize) =
-        withAtomicStream(deltaPath(sessionId, serial), rrdpWriter.fileAttributes) {
+        withAtomicStream(deltaPathRandom(sessionId, serial), rrdpWriter.fileAttributes) {
           writeRrdpDelta(sessionId, serial, _)
         }
       pgStore.updateDeltaInfo(sessionId, serial, deltaHash, deltaSize)
@@ -230,11 +231,23 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
     IOStream.string("</notification>", stream)
   }
 
-  def snapshotPath(sessionId: String, serial: Long): Path =
-    Files.createDirectories(Paths.get(conf.rrdpRepositoryPath, sessionId, String.valueOf(serial))).resolve(Rrdp.snapshotFilename)
+  private val random = new scala.util.Random()
 
-  def deltaPath(sessionId: String, serial: Long): Path =
-    Files.createDirectories(Paths.get(conf.rrdpRepositoryPath, sessionId, String.valueOf(serial))).resolve(Rrdp.deltaFilename)
+  private def generateRandomPart: String = {
+    random.shuffle(random.alphanumeric.map(c => c.toLower).take(20).toList).mkString
+  }
+
+  def deltaPathRandom(sessionId: String, serial: Long): Path =
+    Files.createDirectories(commonSubPath(sessionId, serial)).
+      resolve(Rrdp.deltaFileNameWithExtra(generateRandomPart))
+
+  def snapshotPathRandom(sessionId: String, serial: Long): Path =
+    Files.createDirectories(commonSubPath(sessionId, serial)).
+      resolve(Rrdp.snapshotFileNameWithExtra(generateRandomPart))
+
+  private def commonSubPath(sessionId: String, serial: Long) = {
+    Paths.get(conf.rrdpRepositoryPath, sessionId, String.valueOf(serial))
+  }
 
   protected def writeLogEntryToRsync(operation: String, uri: URI, bytes: Option[Bytes]) =
     (operation, bytes) match {

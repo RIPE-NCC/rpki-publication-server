@@ -13,14 +13,14 @@ class RemovingFileVisitorTest extends PublicationServerBaseTest {
 
   test("isCreatedBefore should return true for file older than timestamp") {
     val file = tempFile
-    val subject = new RemovingFileVisitor(timestampAfter(file), file.getFileName, 0)
+    val subject = new RemovingFileVisitor(timestampAfter(file), f => f.getFileName == file.getFileName, 0)
 
     FSUtil.isCreatedBefore(file, timestampAfter(file)) should be(true)
   }
 
   test("isCreatedBefore should return false for file yonger than timestamp") {
     val file = tempFile
-    val subject = new RemovingFileVisitor(timestampBefore(file), file.getFileName, 0)
+    val subject = new RemovingFileVisitor(timestampBefore(file), f => f.getFileName == file.getFileName, 0)
 
     FSUtil.isCreatedBefore(file, timestampBefore(file)) should be(false)
   }
@@ -38,7 +38,7 @@ class RemovingFileVisitorTest extends PublicationServerBaseTest {
 
   test("should not remove other old files") {
     val file = tempFile
-    val subject = new RemovingFileVisitor(timestampAfter(file), someFilename, 0)
+    val subject = new RemovingFileVisitor(timestampAfter(file), f => f.getFileName == someFilename, 0)
 
     subject.visitFile(file, Files.readAttributes(file, classOf[BasicFileAttributes])) should be(FileVisitResult.CONTINUE)
 
@@ -47,7 +47,7 @@ class RemovingFileVisitorTest extends PublicationServerBaseTest {
 
   test("should remove old file") {
     val file = tempFile
-    val subject = new RemovingFileVisitor(timestampAfter(file), file.getFileName, 0)
+    val subject = new RemovingFileVisitor(timestampAfter(file), f => f.getFileName == file.getFileName, 0)
 
     subject.visitFile(file, Files.readAttributes(file, classOf[BasicFileAttributes])) should be(FileVisitResult.CONTINUE)
 
@@ -62,7 +62,7 @@ class RemovingFileVisitorTest extends PublicationServerBaseTest {
       Files.createDirectory(Paths.get(directory.toString, "1"))
       Files.createDirectory(Paths.get(directory.toString, "1", "snapshot.xml"))
     }
-    val subject = new RemovingFileVisitor(timestampAfter(file), file.getFileName, 1)
+    val subject = new RemovingFileVisitor(timestampAfter(file), f => f.getFileName == file.getFileName, 1)
 
     subject.visitFile(file, Files.readAttributes(file, classOf[BasicFileAttributes])) should be(FileVisitResult.CONTINUE)
 

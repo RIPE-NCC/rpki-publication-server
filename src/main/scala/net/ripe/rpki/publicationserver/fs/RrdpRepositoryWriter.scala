@@ -44,7 +44,7 @@ class RrdpRepositoryWriter extends Logging {
   }
 
   def deleteSnapshotsOlderThan(rootDir: String, timestamp: FileTime, latestSerial: Long): Unit = {
-    Files.walkFileTree(Paths.get(rootDir), new RemovingFileVisitor(timestamp, Paths.get(Rrdp.snapshotFilename), latestSerial))
+    Files.walkFileTree(Paths.get(rootDir), new RemovingFileVisitor(timestamp, f => Rrdp.isSnapshot(f.getFileName.toString), latestSerial))
   }
 
   def cleanUpEmptyDir(rootDir: String, sessionId: UUID, serial: Long) = {
@@ -55,9 +55,13 @@ class RrdpRepositoryWriter extends Logging {
   }
 
   def deleteDelta(rootDir: String, sessionId: UUID, serial: Long): AnyVal = {
-    deleteSessionFile(rootDir, sessionId, serial, Rrdp.deltaFilename)
+    val sessionSerialDir = Paths.get(rootDir, sessionId.toString, serial.toString)
+    Files.list(sessionSerialDir).
+      filter(f => Rrdp.isDelta(f.toString)).
+      forEach(f => Files.deleteIfExists(f))
     cleanUpEmptyDir(rootDir, sessionId, serial)
   }
+
   def deleteDeltas(rootDir: String, sessionId: UUID, serials: Iterable[Long]): Unit =
     serials.par.foreach(s => deleteDelta(rootDir, sessionId, s))
 }

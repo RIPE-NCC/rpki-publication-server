@@ -26,7 +26,7 @@ class RrdpRepositoryWriterTest extends PublicationServerBaseTest {
     val timestamp = System.currentTimeMillis()
     val repoFiles = setupTestRepo(timestamp)
     val deleteTimestamp = timestamp - 5000
-    val (toDelete, toKeep) = repoFiles.partition(f => f.endsWith("snapshot.xml") && mtimeIsBefore(f, deleteTimestamp))
+    val (toDelete, toKeep) = repoFiles.partition(f => Rrdp.isSnapshot(f.getFileName.toString) && mtimeIsBefore(f, deleteTimestamp))
     assume(toDelete.nonEmpty)
     assume(toKeep.nonEmpty)
 
@@ -42,9 +42,9 @@ class RrdpRepositoryWriterTest extends PublicationServerBaseTest {
       serialDir <- (1 to 10).map(_ => Files.createTempDirectory(sessionDir, "serial"))
     } yield {
       val fileTime: FileTime = FileTime.fromMillis(timestamp - Random.nextInt(10 * 1000))
-      val delta = Files.createFile(serialDir.resolve("delta.xml"))
+      val delta = Files.createFile(serialDir.resolve("delta-1.xml"))
       Files.setLastModifiedTime(delta, fileTime)
-      val snapshot = Files.createFile(serialDir.resolve("snapshot.xml"))
+      val snapshot = Files.createFile(serialDir.resolve("snapshot-1.xml"))
       Files.setLastModifiedTime(snapshot, fileTime)
       Seq(delta, snapshot)
     }).flatten :+ Files.createFile(rootDir.resolve("notification.xml"))
