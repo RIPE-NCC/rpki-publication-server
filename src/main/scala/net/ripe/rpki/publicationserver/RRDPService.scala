@@ -1,12 +1,12 @@
 package net.ripe.rpki.publicationserver
 
-import java.nio.file.{Files, Paths}
-
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{CacheDirectives, `Cache-Control`}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.server.directives.ContentTypeResolver
+
+import java.nio.file.{Files, Paths}
 
 
 
@@ -34,7 +34,7 @@ trait RRDPService extends RepositoryPath {
         }
       }
     } ~
-      path(JavaUUID / IntNumber) { (sessionId, serial) =>
+      pathPrefix(JavaUUID / IntNumber) { (sessionId, serial) =>
         serveImmutableContent(s"$repositoryPath/$sessionId/$serial")
       }
 
@@ -51,11 +51,11 @@ trait RRDPService extends RepositoryPath {
   private def serveImmutableContent(directory: => String) = {
     respondWithHeader(
         `Cache-Control`(
-            CacheDirectives.`max-age`(oneDayInSeconds), 
+            CacheDirectives.`max-age`(oneDayInSeconds),
             CacheDirectives.`no-transform`)) {
                 get {
                   getFromDirectory(directory)(ContentTypeResolver.withDefaultCharset(HttpCharsets.`US-ASCII`))
-                }    
+                }
         }
   }
 
