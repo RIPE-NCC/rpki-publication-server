@@ -16,7 +16,7 @@ import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.{Date, UUID}
-import scala.util.Random
+
 
 class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
   extends Hashing with Formatting with Logging {
@@ -90,19 +90,20 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
   private def updateRrdpFS(sessionId: String, serial: Long, latestFrozenPreviously: Option[Long])(implicit session: DBSession) = {
 
     // Generate snapshot for the latest serial, we are only able to general the latest snapshot
-    val (snapshotHash, snapshotSize) =
-      withAtomicStream(snapshotPathRandom(sessionId, serial), rrdpWriter.fileAttributes) {
-        writeRrdpSnapshot(sessionId, serial, _)
-      }
-    pgStore.updateSnapshotInfo(sessionId, serial, snapshotHash, snapshotSize)
+    val (snapshotFileName, snapshotPath) = snapshotPathRandom(sessionId, serial)
+    val (snapshotHash, snapshotSize) = withAtomicStream(snapshotPath, rrdpWriter.fileAttributes) {
+      writeRrdpSnapshot(sessionId, serial, _)
+    }
+    pgStore.updateSnapshotInfo(sessionId, serial, snapshotFileName, snapshotHash, snapshotSize)
 
     // Convenience function
     def writeDelta(s: Long) = {
+      val (deltaFileName, deltaPath) = deltaPathRandom(sessionId, s)
       val (deltaHash, deltaSize) =
-        withAtomicStream(deltaPathRandom(sessionId, s), rrdpWriter.fileAttributes) {
+        withAtomicStream(deltaPath, rrdpWriter.fileAttributes) {
           writeRrdpDelta(sessionId, s, _)
         }
-      pgStore.updateDeltaInfo(sessionId, s, deltaHash, deltaSize)
+      pgStore.updateDeltaInfo(sessionId, s, deltaFileName, deltaHash, deltaSize)
     }
 
     latestFrozenPreviously match {
@@ -122,7 +123,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
     val (_, d) = Time.timed {
       val deltas = pgStore.getReasonableDeltas(sessionId)
       rrdpWriter.writeNotification(conf.rrdpRepositoryPath) { os =>
-        writeNotification(sessionId, serial, snapshotHash, deltas, new HashingSizedStream(os))
+        writeNotification(sessionId, serial, snapshotHash, snapshotFileName, deltas, new HashingSizedStream(os))
       }
     }
     logger.info(s"Generated notification $sessionId/$serial, took ${d}ms")
@@ -130,40 +131,42 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
   }
 
   private def initRrdpFS(sessionId: String, latestSerial: Long)(implicit session: DBSession) = {
-    val (snapshotHash, snapshotSize) =
-      withAtomicStream(snapshotPathRandom(sessionId, latestSerial), rrdpWriter.fileAttributes) {
-        writeRrdpSnapshot(sessionId, latestSerial, _)
-      }
-    pgStore.updateSnapshotInfo(sessionId, latestSerial, snapshotHash, snapshotSize)
+    val (snapshotFileName, snapshotPath) = snapshotPathRandom(sessionId, latestSerial)
+    val (snapshotHash, snapshotSize) = withAtomicStream(snapshotPath, rrdpWriter.fileAttributes) {
+      writeRrdpSnapshot(sessionId, latestSerial, _)
+    }
+    pgStore.updateSnapshotInfo(sessionId, latestSerial, snapshotFileName, snapshotHash, snapshotSize)
 
     if (latestSerial > INITIAL_SERIAL) {
       // When there are changes since the last freeze the latest delta might not yet exist, so ensure it gets created.
       // The `getReasonableDeltas` query below will then decide which deltas (if any) should be included in the
       // notification.xml file.
+      val (latestDeltaFileName, deltaPath) = deltaPathRandom(sessionId, latestSerial)
       val (latestDeltaHash, latestDeltaSize) =
-        withAtomicStream(deltaPathRandom(sessionId, latestSerial), rrdpWriter.fileAttributes) {
+        withAtomicStream(deltaPath, rrdpWriter.fileAttributes) {
           writeRrdpDelta(sessionId, latestSerial, _)
         }
 
-      pgStore.updateDeltaInfo(sessionId, latestSerial, latestDeltaHash, latestDeltaSize)
+      pgStore.updateDeltaInfo(sessionId, latestSerial, latestDeltaFileName, latestDeltaHash, latestDeltaSize)
     }
 
     val deltas = pgStore.getReasonableDeltas(sessionId)
     for {
-      (serial, _) <- deltas
+      (serial, _, deltaFileName) <- deltas
       // Delta for the latest serial was already created above, so we can skip it here.
       if serial != latestSerial
     } {
+      val deltaPath = deltaPathKnownName(sessionId, serial, deltaFileName)
       val (deltaHash, deltaSize) =
-        withAtomicStream(deltaPathRandom(sessionId, serial), rrdpWriter.fileAttributes) {
+        withAtomicStream(deltaPath, rrdpWriter.fileAttributes) {
           writeRrdpDelta(sessionId, serial, _)
         }
-      pgStore.updateDeltaInfo(sessionId, serial, deltaHash, deltaSize)
+      pgStore.updateDeltaInfo(sessionId, serial, deltaFileName, deltaHash, deltaSize)
     }
 
     val (_, duration) = Time.timed {
       rrdpWriter.writeNotification(conf.rrdpRepositoryPath) { os =>
-        writeNotification(sessionId, latestSerial, snapshotHash, deltas, new HashingSizedStream(os))
+        writeNotification(sessionId, latestSerial, snapshotHash, snapshotFileName, deltas, new HashingSizedStream(os))
       }
     }
     logger.info(s"Generated notification $sessionId/$latestSerial, took ${duration}ms")
@@ -221,11 +224,12 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
   }
 
 
-  def writeNotification(sessionId: String, serial: Long, snapshotHash: Hash, deltas: Seq[(Long, Hash)], stream: HashingSizedStream) = {
+  def writeNotification(sessionId: String, serial: Long, snapshotHash: Hash, snapshotFileName: String, deltas: Seq[(Long, Hash, String)], stream: HashingSizedStream) = {
     IOStream.string(s"""<notification version="1" session_id="$sessionId" serial="$serial" xmlns="http://www.ripe.net/rpki/rrdp">\n""", stream)
-    IOStream.string(s"""  <snapshot uri="${conf.snapshotUrl(sessionId, serial)}" hash="${snapshotHash.hash}"/>\n""", stream)
-    deltas.foreach { case (deltaSerial, deltaHash) =>
-      val deltaUrl = conf.deltaUrl(sessionId, deltaSerial)
+    val snapshotUrl = conf.snapshotUrl(sessionId, serial, snapshotFileName)
+    IOStream.string(s"""  <snapshot uri="$snapshotUrl" hash="${snapshotHash.hash}"/>\n""", stream)
+    deltas.foreach { case (deltaSerial, deltaHash, deltaFileName) =>
+      val deltaUrl = conf.deltaUrl(sessionId, deltaSerial, deltaFileName)
       IOStream.string(s"""  <delta serial="$deltaSerial" uri="${deltaUrl}" hash="${deltaHash.hash}"/>\n""", stream)
     }
     IOStream.string("</notification>", stream)
@@ -237,13 +241,19 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
     random.shuffle(random.alphanumeric.map(c => c.toLower).take(20).toList).mkString
   }
 
-  def deltaPathRandom(sessionId: String, serial: Long): Path =
-    Files.createDirectories(commonSubPath(sessionId, serial)).
-      resolve(Rrdp.deltaFileNameWithExtra(generateRandomPart))
+  def deltaPathKnownName(sessionId: String, serial: Long, deltaFileName: String): Path = {
+    Files.createDirectories(commonSubPath(sessionId, serial)).resolve(deltaFileName)
+  }
 
-  def snapshotPathRandom(sessionId: String, serial: Long): Path =
-    Files.createDirectories(commonSubPath(sessionId, serial)).
-      resolve(Rrdp.snapshotFileNameWithExtra(generateRandomPart))
+  def deltaPathRandom(sessionId: String, serial: Long): (String, Path) = {
+    val deltaFileName = Rrdp.deltaFileNameWithExtra(generateRandomPart)
+    (deltaFileName, Files.createDirectories(commonSubPath(sessionId, serial)).resolve(deltaFileName))
+  }
+
+  def snapshotPathRandom(sessionId: String, serial: Long): (String, Path) = {
+    val snapshotFileName = Rrdp.snapshotFileNameWithExtra(generateRandomPart)
+    (snapshotFileName, Files.createDirectories(commonSubPath(sessionId, serial)).resolve(snapshotFileName))
+  }
 
   private def commonSubPath(sessionId: String, serial: Long) = {
     Paths.get(conf.rrdpRepositoryPath, sessionId, String.valueOf(serial))

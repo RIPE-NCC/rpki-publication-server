@@ -56,11 +56,11 @@ class AppConfig {
                         getConfig.getString("postgresql.password")
                     )      
 
-  def snapshotUrl(sessionId: String, serial: Long) =
-    rrdpRepositoryUri + "/" + sessionId + "/" + serial + "/snapshot.xml"
+  def snapshotUrl(sessionId: String, serial: Long, snapshotFileName: String) =
+    s"$rrdpRepositoryUri/$sessionId/$serial/$snapshotFileName"
 
-  def deltaUrl(sessionId: String, serial: Long) =
-    rrdpRepositoryUri + "/" + sessionId + "/" + serial + "/delta.xml"
+  def deltaUrl(sessionId: String, serial: Long, deltaFileName: String) =
+    s"$rrdpRepositoryUri/$sessionId/$serial/$deltaFileName"
 
   lazy val writeRsync = isMode("rsync")
   lazy val writeRrdp = isMode("rrdp")

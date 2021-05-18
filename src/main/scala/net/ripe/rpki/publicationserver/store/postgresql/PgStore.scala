@@ -92,30 +92,34 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
   }
 
   def getReasonableDeltas(sessionId: String)(implicit session: DBSession) = {
-    sql"""SELECT serial, delta_hash
+    sql"""SELECT serial, delta_hash, delta_file_name
           FROM reasonable_deltas
           WHERE session_id = $sessionId
           ORDER BY serial DESC"""
       .map { rs =>
-        (rs.long(1), Hash(rs.string(2)))
+        (rs.long(1),
+          Hash(rs.string(2)),
+          rs.string(3))
       }
       .list()
       .apply()
   }
 
-  def updateSnapshotInfo(sessionId: String, serial: Long, hash: Hash, size: Long)(implicit session: DBSession): Unit = {
+  def updateSnapshotInfo(sessionId: String, serial: Long, snapshotFileName: String, hash: Hash, size: Long)(implicit session: DBSession): Unit = {
     sql"""UPDATE versions SET
             snapshot_hash = ${hash.hash},
-            snapshot_size = $size
+            snapshot_size = $size,
+            snapshot_file_name = $snapshotFileName
           WHERE session_id = $sessionId AND serial = $serial"""
       .execute()
       .apply()
   }
 
-  def updateDeltaInfo(sessionId: String, serial: Long, hash: Hash, size: Long)(implicit session: DBSession): Unit = {
+  def updateDeltaInfo(sessionId: String, serial: Long, deltaFileName: String, hash: Hash, size: Long)(implicit session: DBSession): Unit = {
     sql"""UPDATE versions SET
             delta_hash = ${hash.hash},
-            delta_size = $size
+            delta_size = $size,
+            delta_file_name = $deltaFileName
           WHERE session_id = $sessionId AND serial = $serial"""
       .execute()
       .apply()

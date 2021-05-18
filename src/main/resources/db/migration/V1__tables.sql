@@ -40,23 +40,37 @@ CREATE INDEX idx_object_log_old_object_id ON object_log (old_object_id) WHERE ol
 
 CREATE TABLE versions
 (
-    id                BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    session_id        TEXT   NOT NULL,
-    serial            BIGINT NOT NULL,
-    last_log_entry_id BIGINT NOT NULL,
-    snapshot_hash     TEXT CHECK (snapshot_hash ~ '^[0-9a-f]{64}$'),
-    delta_hash        TEXT CHECK (delta_hash ~ '^[0-9a-f]{64}$'),
-    snapshot_size     BIGINT,
-    delta_size        BIGINT,
-    created_at        TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    id                 BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    session_id         TEXT                     NOT NULL,
+    serial             BIGINT                   NOT NULL,
+    last_log_entry_id  BIGINT                   NOT NULL,
+    snapshot_file_name TEXT,
+    delta_file_name    TEXT,
+    snapshot_hash      TEXT CHECK (snapshot_hash ~ '^[0-9a-f]{64}$'),
+    delta_hash         TEXT CHECK (delta_hash ~ '^[0-9a-f]{64}$'),
+    snapshot_size      BIGINT,
+    delta_size         BIGINT,
+    created_at         TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+
     CONSTRAINT delta_field_in_sync CHECK (
-            delta_size IS NULL AND delta_hash IS NULL OR
-            delta_size IS NOT NULL AND delta_hash IS NOT NULL
+                delta_size IS NULL
+                AND delta_hash IS NULL
+                AND delta_file_name IS NULL
+            OR
+                delta_size IS NOT NULL
+                    AND delta_hash IS NOT NULL
+                    AND delta_file_name IS NOT NULL
         ),
     CONSTRAINT snapshot_field_in_sync CHECK (
-            snapshot_hash IS NULL AND snapshot_size IS NULL OR
-            snapshot_hash IS NOT NULL AND snapshot_size IS NOT NULL
+                snapshot_size IS NULL
+                AND snapshot_hash IS NULL
+                AND snapshot_file_name IS NULL
+            OR
+                snapshot_size IS NOT NULL
+                    AND snapshot_hash IS NOT NULL
+                    AND snapshot_file_name IS NOT NULL
         )
 );
+
 
 CREATE UNIQUE INDEX idx_versions_session_id_serial ON versions (session_id, serial);
