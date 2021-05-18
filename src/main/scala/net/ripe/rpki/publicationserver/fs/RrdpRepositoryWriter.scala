@@ -39,10 +39,6 @@ class RrdpRepositoryWriter extends Logging {
 
   private def getRootFolder(rootDir: String): Path = Files.createDirectories(Paths.get(rootDir))
 
-  def deleteSessionFile(rootDir: String, sessionId: UUID, serial: Long, name: String): Boolean = {
-    Files.deleteIfExists(Paths.get(rootDir, sessionId.toString, serial.toString, name))
-  }
-
   def deleteSnapshotsOlderThan(rootDir: String, timestamp: FileTime, latestSerial: Long): Unit = {
     Files.walkFileTree(Paths.get(rootDir), new RemovingFileVisitor(timestamp, f => Rrdp.isSnapshot(f.getFileName.toString), latestSerial))
   }
