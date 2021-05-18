@@ -703,7 +703,7 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     val snapshotFile = Files.list(sessionSerialDir(sessionId, serial)).
       filter(f => Rrdp.isSnapshot(f.getFileName.toString)).
       findFirst().
-      orElseThrow()
+      get()
     val bytes = Files.readAllBytes(snapshotFile)
     val generatedSnapshot = new String(bytes, StandardCharsets.US_ASCII)
     trim(generatedSnapshot) should be(trim(expected))
@@ -714,7 +714,7 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     val deltaFile = Files.list(sessionSerialDir(sessionId, serial)).
       filter(f => Rrdp.isDelta(f.getFileName.toString)).
       findFirst().
-      orElseThrow()
+      get()
     val bytes = Files.readAllBytes(deltaFile)
     val generatedDelta = new String(bytes, StandardCharsets.US_ASCII)
     trim(generatedDelta) should be(trim(expected))
