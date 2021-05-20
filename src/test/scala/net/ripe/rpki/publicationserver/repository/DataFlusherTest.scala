@@ -701,7 +701,7 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
   private def verifyExpectedSnapshot(sessionId: String, serial: Long)(expected: String) = {
     val snapshotFile = Files.list(sessionSerialDir(sessionId, serial)).
-      filter(f => Rrdp.isSnapshot(f.getFileName.toString)).
+      filter(Rrdp.isSnapshot).
       findFirst().
       get()
     val bytes = Files.readAllBytes(snapshotFile)
@@ -712,7 +712,7 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
   private def verifyExpectedDelta(sessionId: String, serial: Long)(expected: String) = {
     val deltaFile = Files.list(sessionSerialDir(sessionId, serial)).
-      filter(f => Rrdp.isDelta(f.getFileName.toString)).
+      filter(Rrdp.isDelta).
       findFirst().
       get()
     val bytes = Files.readAllBytes(deltaFile)
@@ -729,7 +729,8 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
       pgStore.getCurrentSessionInfo
     }
     version.isDefined should be(true)
-    version.get
+    val (session, serial, _, _) = version.get
+    (session, serial)
   }
 
   private def verifyExpectedNotification(expected: String) = {
@@ -740,21 +741,27 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
   }
 
   private def verifySnapshotDoesntExist(sessionId: String, serial: Long) = {
-    val snapshotFound = Files.list(sessionSerialDir(sessionId, serial)).
-      filter(f => Rrdp.isSnapshot(f.getFileName.toString)).
-      findFirst().
-      isPresent
+    val path = sessionSerialDir(sessionId, serial)
+    if (path.toFile.exists()) {
+      val snapshotFound = Files.list(path).
+        filter(Rrdp.isSnapshot).
+        findFirst().
+        isPresent
 
-    snapshotFound should be(false)
+      snapshotFound should be(false)
+    }
   }
 
   private def verifyDeltaDoesntExist(sessionId: String, serial: Long) = {
-    val deltaFound = Files.list(sessionSerialDir(sessionId, serial)).
-      filter(f => Rrdp.isDelta(f.getFileName.toString)).
-      findFirst().
-      isPresent
+    val path = sessionSerialDir(sessionId, serial)
+    if (path.toFile.exists()) {
+      val deltaFound = Files.list(path).
+        filter(Rrdp.isDelta).
+        findFirst().
+        isPresent
 
-    deltaFound should be(false)
+      deltaFound should be(false)
+    }
   }
 
 }

@@ -40,7 +40,7 @@ class RrdpRepositoryWriter extends Logging {
   private def getRootFolder(rootDir: String): Path = Files.createDirectories(Paths.get(rootDir))
 
   def deleteSnapshotsOlderThan(rootDir: String, timestamp: FileTime, latestSerial: Long): Unit = {
-    Files.walkFileTree(Paths.get(rootDir), new RemovingFileVisitor(timestamp, f => Rrdp.isSnapshot(f.getFileName.toString), latestSerial))
+    Files.walkFileTree(Paths.get(rootDir), new RemovingFileVisitor(timestamp, Rrdp.isSnapshot, latestSerial))
   }
 
   def cleanUpEmptyDir(rootDir: String, sessionId: UUID, serial: Long) = {
@@ -53,7 +53,7 @@ class RrdpRepositoryWriter extends Logging {
   def deleteDelta(rootDir: String, sessionId: UUID, serial: Long): AnyVal = {
     val sessionSerialDir = Paths.get(rootDir, sessionId.toString, serial.toString)
     Files.list(sessionSerialDir).
-      filter(f => Rrdp.isDelta(f.toString)).
+      filter(Rrdp.isDelta).
       forEach(f => Files.deleteIfExists(f))
     cleanUpEmptyDir(rootDir, sessionId, serial)
   }

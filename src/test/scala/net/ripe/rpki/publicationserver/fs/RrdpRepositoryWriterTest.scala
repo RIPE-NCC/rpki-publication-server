@@ -26,7 +26,7 @@ class RrdpRepositoryWriterTest extends PublicationServerBaseTest {
     val timestamp = System.currentTimeMillis()
     val repoFiles = setupTestRepo(timestamp)
     val deleteTimestamp = timestamp - 5000
-    val (toDelete, toKeep) = repoFiles.partition(f => Rrdp.isSnapshot(f.getFileName.toString) && mtimeIsBefore(f, deleteTimestamp))
+    val (toDelete, toKeep) = repoFiles.partition(f => Rrdp.isSnapshot(f) && mtimeIsBefore(f, deleteTimestamp))
     assume(toDelete.nonEmpty)
     assume(toKeep.nonEmpty)
 

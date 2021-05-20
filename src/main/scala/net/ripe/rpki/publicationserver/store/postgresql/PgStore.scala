@@ -1,7 +1,5 @@
 package net.ripe.rpki.publicationserver.store.postresql
 
-import java.net.URI
-
 import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.metrics.Metrics
@@ -10,6 +8,8 @@ import org.flywaydb.core.Flyway
 import org.json4s._
 import org.json4s.native.JsonMethods._
 import scalikejdbc._
+
+import java.net.URI
 
 
 case class RollbackException(val error: BaseError) extends Exception
@@ -84,9 +84,29 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
       }
   }
 
+  case class SnapshotInfo(name: String, hash: Hash, size: Long)
+  case class DeltaInfo(name: String, hash: Hash, size: Long)
+
   def getCurrentSessionInfo(implicit session: DBSession) = {
-    sql"SELECT session_id, serial FROM latest_version"
-      .map(rs => (rs.string(1), rs.long(2)))
+
+    def toSnapshotInfo(name: Option[String], hash: Option[String], size: Option[Long]) =
+      for (n <- name; h <- hash; s <- size)
+        yield SnapshotInfo(n, Hash(h), s)
+
+    def toDeltaInfo(name: Option[String], hash: Option[String], size: Option[Long]) =
+      for (n <- name; h <- hash; s <- size)
+        yield DeltaInfo(n, Hash(h), s)
+
+    sql"""SELECT session_id, serial,
+            snapshot_file_name, snapshot_hash, snapshot_size,
+            delta_file_name, delta_hash, delta_size
+         FROM latest_version"""
+      .map(rs => (
+        rs.string(1),
+        rs.long(2),
+        toSnapshotInfo(rs.stringOpt(3), rs.stringOpt(4), rs.longOpt(5)),
+        toDeltaInfo(rs.stringOpt(6), rs.stringOpt(7), rs.longOpt(8))
+      ))
       .single()
       .apply()
   }
