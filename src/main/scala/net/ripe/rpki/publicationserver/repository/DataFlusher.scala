@@ -87,7 +87,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
     }
   }
 
-  private def writeSnapshot(sessionId: String, serial: Long)(implicit session: DBSession) = {
+  private def updateSnapshot(sessionId: String, serial: Long)(implicit session: DBSession) = {
     val currentSession = pgStore.getCurrentSessionInfo
     val (snapshotFileName, snapshotPath, generatedSnapshotName) = currentSession match {
       case Some((sessionId_, serial_, Some(pgStore.SnapshotInfo(knownName, _, _)), _))
@@ -108,7 +108,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
   }
 
 
-  private def writeDelta(sessionId: String, serial: Long)(implicit session: DBSession) = {
+  private def updateDelta(sessionId: String, serial: Long)(implicit session: DBSession) = {
     val currentSession = pgStore.getCurrentSessionInfo
     val (deltaFileName, deltaPath, generatedDeltaName) = currentSession match {
       case Some((sessionId_, serial_, _, Some(pgStore.DeltaInfo(knownName, _, _))))
@@ -132,19 +132,19 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
   private def updateRrdpFS(sessionId: String, serial: Long, latestFrozenPreviously: Option[Long])(implicit session: DBSession) = {
 
     // Generate snapshot for the latest serial, we are only able to general the latest snapshot
-    val (snapshotFileName, snapshotHash, _) = writeSnapshot(sessionId, serial)
+    val (snapshotFileName, snapshotHash, _) = updateSnapshot(sessionId, serial)
 
     latestFrozenPreviously match {
       case None =>
         // Generate only the latest delta, it's the first time
-        writeDelta(sessionId, serial)
+        updateDelta(sessionId, serial)
 
       case Some(previous) =>
         // Catch up on deltas, i.e. generate deltas from `latestFrozenPreviously` to `serial`.
         // This is to cover the case if version freeze was initiated by some other instance
         // and this instance is lagging behind.
         for (s <- (previous + 1) to serial) {
-          writeDelta(sessionId, s)
+          updateDelta(sessionId, s)
         }
     }
 
@@ -159,13 +159,13 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
   }
 
   private def initRrdpFS(sessionId: String, latestSerial: Long)(implicit session: DBSession) = {
-    val (snapshotFileName, snapshotHash, _) = writeSnapshot(sessionId, latestSerial)
+    val (snapshotFileName, snapshotHash, _) = updateSnapshot(sessionId, latestSerial)
 
     if (latestSerial > INITIAL_SERIAL) {
       // When there are changes since the last freeze the latest delta might not yet exist, so ensure it gets created.
       // The `getReasonableDeltas` query below will then decide which deltas (if any) should be included in the
       // notification.xml file.
-      writeDelta(sessionId, latestSerial)
+      updateDelta(sessionId, latestSerial)
     }
 
     val deltas = pgStore.getReasonableDeltas(sessionId)
