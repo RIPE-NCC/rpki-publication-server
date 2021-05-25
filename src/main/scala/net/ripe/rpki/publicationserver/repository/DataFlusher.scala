@@ -252,10 +252,10 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
     IOStream.string("</notification>", stream)
   }
 
-  private val random = new scala.util.Random()
+  private val random = new scala.util.Random(new java.security.SecureRandom())
 
   private def generateRandomPart: String = {
-    random.shuffle(random.alphanumeric.map(c => c.toLower).take(20).toList).mkString
+    random.alphanumeric.map(c => c.toLower).take(20).mkString
   }
 
   def deltaPathKnownName(sessionId: String, serial: Long, deltaFileName: String): Path = {
