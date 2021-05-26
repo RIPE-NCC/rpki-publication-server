@@ -1,7 +1,6 @@
 package net.ripe.rpki.publicationserver
 
 import java.{util => ju}
-
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.server.Directives._
@@ -19,9 +18,17 @@ import scala.concurrent.{Await, Future}
 import scala.util.{Failure, Success}
 import net.ripe.rpki.publicationserver.repository.DataFlusher
 import akka.actor.Cancellable
+import cats.effect.{ExitCode, IO, IOApp}
+
+import cats.effect._
+import org.http4s.HttpRoutes
+import org.http4s.dsl.io._
+import org.http4s.implicits._
+import org.http4s.server.blaze._
+import scala.concurrent.ExecutionContext.global
 
 
-object Boot extends App with Logging {
+object Boot extends IOApp with Logging {
   lazy val conf = wire[AppConfig]
 
   logger.info("Starting up the publication server ...")
@@ -40,6 +47,7 @@ object Boot extends App with Logging {
   PgStore.migrateDB(conf.pgConfig)
   logger.info("Migrated the DB")
   new PublicationServerApp(conf, https, logger).run()
+
 }
 
 class PublicationServerApp(conf: AppConfig, https: HttpsConnectionContext, logger: Logger) extends RRDPService {
@@ -100,6 +108,14 @@ class PublicationServerApp(conf: AppConfig, https: HttpsConnectionContext, logge
         System.exit(1)
       case Success(_) => ()
     }
+
+    BlazeServerBuilder[IO](global)
+      .bindHttp(8080, "localhost")
+      .withHttpApp(Publication.publicationService)
+      .serve
+      .compile
+      .drain
+      .as(ExitCode.Success)
 
     // wait for the full FS sync
     Await.ready(repositoryWriter, Duration.Inf)

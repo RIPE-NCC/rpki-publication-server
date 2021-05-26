@@ -8,7 +8,7 @@ name := "rpki-publication-server"
 
 version := "1.1-SNAPSHOT"
 
-scalaVersion := "2.13.3"
+scalaVersion := "2.13.4"
 
 scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8")
 
@@ -37,7 +37,10 @@ resolvers += "JCenter" at "https://jcenter.bintray.com/"
 libraryDependencies ++= {
   val akkaV = "2.6.13"
   val akkaHttp = "10.2.4"
+  val http4sVersion = "0.21.22"
   Seq(
+    "org.http4s"               %% "http4s-dsl"            % http4sVersion,
+    "org.http4s"               %% "http4s-blaze-server"   % http4sVersion,
     "com.typesafe.akka"        %% "akka-http"             % akkaHttp,
     "com.typesafe.akka"        %% "akka-http-core"        % akkaHttp,
     "com.typesafe.akka"        %% "akka-http-testkit"     % akkaHttp,
