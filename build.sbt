@@ -35,7 +35,7 @@ resolvers += "Codehaus Maven2 Repository" at "https://repository.codehaus.org/"
 resolvers += "JCenter" at "https://jcenter.bintray.com/"
 
 libraryDependencies ++= {
-  val akkaV = "2.6.13"
+  val akkaV = "2.6.14"
   val akkaHttp = "10.2.4"
   Seq(
     "com.typesafe.akka"        %% "akka-http"             % akkaHttp,
