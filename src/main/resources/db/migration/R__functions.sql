@@ -295,8 +295,6 @@ ORDER BY z.id DESC;
 CREATE OR REPLACE FUNCTION freeze_version() RETURNS SETOF versions AS
 $body$
 BEGIN
-    -- NOTE This one is safe from race conditions only if
-    -- lock_versions is called before in the same transaction.
     PERFORM lock_versions();
 
     IF EXISTS(SELECT * FROM versions) THEN
