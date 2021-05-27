@@ -341,13 +341,14 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
     //
     // First remove the ones that are more than `oldEnough`
     logger.info(s"Removing all the sessions in RRDP repository except for $sessionId")
-    rrdpWriter.cleanSessionsOlderThanExceptForOne(conf.rrdpRepositoryPath, oldEnough, sessionId)
+    rrdpWriter.deleteSessionsOlderThanExceptForOne(conf.rrdpRepositoryPath, oldEnough, sessionId)
+    rrdpWriter.deleteEmptyDirectories(conf.rrdpRepositoryPath)
 
     // Wait for the time T and delete those which are older than `now`
     system.scheduler.scheduleOnce(conf.unpublishedFileRetainPeriod) {
       logger.info(s"Removing all the older sessions in RRDP repository except for $sessionId")
-      rrdpWriter.cleanSessionsOlderThanExceptForOne(conf.rrdpRepositoryPath, FileTime.from(now), sessionId)
-      ()
+      rrdpWriter.deleteSessionsOlderThanExceptForOne(conf.rrdpRepositoryPath, FileTime.from(now), sessionId)
+      rrdpWriter.deleteEmptyDirectories(conf.rrdpRepositoryPath)
     }
   }
 
@@ -366,6 +367,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
           val oldestSerial = serials.min
           logger.info(s"Removing snapshots from the session $sessionId older than $oldEnough and having serial number older than $oldestSerial")
           rrdpWriter.deleteSnapshotsOlderThan(conf.rrdpRepositoryPath, oldEnough, oldestSerial + 1)
+          rrdpWriter.deleteEmptyDirectories(conf.rrdpRepositoryPath)
         })
     }
   }

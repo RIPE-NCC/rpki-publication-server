@@ -1,10 +1,10 @@
 package net.ripe.rpki.publicationserver.fs
 
+import net.ripe.rpki.publicationserver.Logging
+
 import java.io.IOException
 import java.nio.file._
 import java.nio.file.attribute.{BasicFileAttributes, FileTime}
-
-import net.ripe.rpki.publicationserver.Logging
 
 class RemovingFileVisitor(timestamp: FileTime, deleteIt: Path => Boolean, latestSerial: Long) extends SimpleFileVisitor[Path] with Logging {
 
@@ -36,13 +36,12 @@ class RemovingFileVisitor(timestamp: FileTime, deleteIt: Path => Boolean, latest
 }
 
 class RemoveAllVisitorExceptOneSession(sessionId: String, timestamp: FileTime) extends SimpleFileVisitor[Path] with Logging {
-  def oldEnough(path: Path): Boolean = FSUtil.isModifiedBefore(path, timestamp)
 
   override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
     if (file.toString.contains(sessionId) || file.toString.endsWith(Rrdp.notificationFilename))
       FileVisitResult.SKIP_SUBTREE
     else {
-      if (oldEnough(file)) {
+      if (FSUtil.isModifiedBefore(file, timestamp)) {
         logger.info(s"Removing file $file")
         Files.deleteIfExists(file)
       }
@@ -60,6 +59,16 @@ class RemoveAllVisitorExceptOneSession(sessionId: String, timestamp: FileTime) e
       }
       FileVisitResult.CONTINUE
     }
+  }
+}
+
+class RemoveEmptyDirectoriesVisitor() extends SimpleFileVisitor[Path] with Logging {
+  override def postVisitDirectory(dir: Path, exc: IOException): FileVisitResult = {
+    if (FSUtil.isEmptyDir(dir)) {
+      logger.info(s"Removing directory $dir")
+      Files.deleteIfExists(dir)
+    }
+    FileVisitResult.CONTINUE
   }
 }
 
