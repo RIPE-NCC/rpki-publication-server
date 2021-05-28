@@ -1,14 +1,13 @@
 package net.ripe.rpki.publicationserver.fs
 
+import net.ripe.rpki.publicationserver._
+
 import java.io.{FileOutputStream, OutputStream}
 import java.nio.file._
 import java.nio.file.attribute.{FileTime, PosixFilePermissions}
 import java.util.UUID
-
-import net.ripe.rpki.publicationserver._
-
-import scala.util.Try
 import scala.collection.parallel.CollectionConverters._
+import scala.util.Try
 
 class RrdpRepositoryWriter extends Logging {
 
@@ -44,21 +43,20 @@ class RrdpRepositoryWriter extends Logging {
   def deleteEmptyDirectories(rootDir: String): Unit =
     Files.walkFileTree(Paths.get(rootDir), new RemoveEmptyDirectoriesVisitor())
 
-  def cleanUpEmptyDir(rootDir: String, sessionId: UUID, serial: Long): Unit = {
-    val dir = Paths.get(rootDir, sessionId.toString, serial.toString)
-    if (dir.toFile.exists() && FSUtil.isEmptyDir(dir)) {
-      Files.deleteIfExists(dir)
-    }
-  }
-
   def deleteDelta(rootDir: String, sessionId: UUID, serial: Long): AnyVal = {
     val sessionSerialDir = Paths.get(rootDir, sessionId.toString, serial.toString)
     Files.list(sessionSerialDir).
       filter(Rrdp.isDelta).
-      forEach(f => Files.deleteIfExists(f))
-    cleanUpEmptyDir(rootDir, sessionId, serial)
+      forEach(f => {
+        val deltaPath = sessionSerialDir.resolve(f)
+        logger.debug(s"Deleting delta file $deltaPath")
+        Files.deleteIfExists(deltaPath)
+      })
+    if (sessionSerialDir.toFile.exists() && FSUtil.isEmptyDir(sessionSerialDir)) {
+      Files.deleteIfExists(sessionSerialDir)
+    }
   }
 
-  def deleteDeltas(rootDir: String, sessionId: UUID, serials: Iterable[Long]): Unit =
+  def deleteDeltas(rootDir: String, sessionId: UUID, serials: Set[Long]): Unit =
     serials.par.foreach(s => deleteDelta(rootDir, sessionId, s))
 }

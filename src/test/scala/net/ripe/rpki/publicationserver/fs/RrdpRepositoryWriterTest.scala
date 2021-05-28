@@ -1,12 +1,10 @@
 package net.ripe.rpki.publicationserver.fs
 
+import net.ripe.rpki.publicationserver.PublicationServerBaseTest
+
 import java.nio.file.attribute.FileTime
 import java.nio.file.{Files, Path, Paths}
-
-import net.ripe.rpki.publicationserver.PublicationServerBaseTest
-import net.ripe.rpki.publicationserver.store.postresql.PgStore
-import org.scalatest.Ignore
-
+import java.util.UUID
 import scala.util.Random
 
 class RrdpRepositoryWriterTest extends PublicationServerBaseTest {
@@ -36,6 +34,15 @@ class RrdpRepositoryWriterTest extends PublicationServerBaseTest {
     toKeep.filter(Files.notExists(_)) shouldBe empty
   }
 
+  test("should delete deltas") {
+    val (sessionId, serials) = setupDeltas()
+    subject.deleteDeltas(rootDir.toString, sessionId, serials.toSet)
+
+    serials.filter(serial =>
+      Files.exists(Paths.get(rootDir.toString, sessionId.toString, serial.toString, "delta-1.xml"))
+    ) shouldBe empty
+  }
+
   def setupTestRepo(timestamp: Long): Seq[Path] = {
     (for {
       sessionDir <- (1 to 10).map(_ => Files.createTempDirectory(rootDir, "session"))
@@ -48,6 +55,17 @@ class RrdpRepositoryWriterTest extends PublicationServerBaseTest {
       Files.setLastModifiedTime(snapshot, fileTime)
       Seq(delta, snapshot)
     }).flatten :+ Files.createFile(rootDir.resolve("notification.xml"))
+  }
+
+  def setupDeltas(): (UUID, List[Long]) = {
+    val sessionId = UUID.randomUUID()
+    val sessionDir = Files.createDirectory(rootDir.resolve(sessionId.toString))
+    val serials = 1L to 10L
+    serials.foreach { serial =>
+      val serialDir = Files.createDirectory(sessionDir.resolve(serial.toString))
+      Files.createFile(serialDir.resolve("delta-1.xml"))
+    }
+    (sessionId, serials.toList)
   }
 
   def mtimeIsBefore(f: Path, deleteTimestamp: Long): Boolean = {
