@@ -342,12 +342,14 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
     // First remove the ones that are more than `oldEnough`
     logger.info(s"Removing all the sessions in RRDP repository except for $sessionId")
     rrdpWriter.deleteSessionsOlderThanExceptForOne(conf.rrdpRepositoryPath, oldEnough, sessionId)
+    logger.info(s"Removing empty directories in ${conf.rrdpRepositoryPath}")
     rrdpWriter.deleteEmptyDirectories(conf.rrdpRepositoryPath)
 
     // Wait for the time T and delete those which are older than `now`
     system.scheduler.scheduleOnce(conf.unpublishedFileRetainPeriod) {
       logger.info(s"Removing all the older sessions in RRDP repository except for $sessionId")
       rrdpWriter.deleteSessionsOlderThanExceptForOne(conf.rrdpRepositoryPath, FileTime.from(now), sessionId)
+      logger.info(s"Removing empty directories in ${conf.rrdpRepositoryPath}")
       rrdpWriter.deleteEmptyDirectories(conf.rrdpRepositoryPath)
     }
   }
@@ -358,17 +360,21 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
     val oldEnough = FileTime.from(Instant.now()
       .minus(conf.unpublishedFileRetainPeriod.toMillis, ChronoUnit.MILLIS))
 
+    // cleanup current session
+    pgStore.getCurrentSessionInfo.foreach { case (sessionId, serial, _, _) =>
+      logger.info(s"Removing snapshots from the session $sessionId older than $oldEnough and having serial number older than $serial")
+      rrdpWriter.deleteSnapshotsOlderThan(conf.rrdpRepositoryPath, oldEnough, serial)
+    }
+
     // Delete version that are removed from the database
     pgStore.deleteOldVersions.groupBy(_._1).foreach {
       case (sessionId, ss) =>
         val serials = ss.map(_._2).toSet
-        system.scheduler.scheduleOnce(conf.unpublishedFileRetainPeriod)({
+        system.scheduler.scheduleOnce(conf.unpublishedFileRetainPeriod) {
           rrdpWriter.deleteDeltas(conf.rrdpRepositoryPath, UUID.fromString(sessionId), serials)
-          val oldestSerial = serials.min
-          logger.info(s"Removing snapshots from the session $sessionId older than $oldEnough and having serial number older than $oldestSerial")
-          rrdpWriter.deleteSnapshotsOlderThan(conf.rrdpRepositoryPath, oldEnough, oldestSerial + 1)
+          logger.info(s"Removing empty directories in ${conf.rrdpRepositoryPath}")
           rrdpWriter.deleteEmptyDirectories(conf.rrdpRepositoryPath)
-        })
+        }
     }
   }
 

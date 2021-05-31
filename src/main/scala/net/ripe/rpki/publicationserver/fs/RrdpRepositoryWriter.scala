@@ -34,8 +34,10 @@ class RrdpRepositoryWriter extends Logging {
 
   private def getRootFolder(rootDir: String): Path = Files.createDirectories(Paths.get(rootDir))
 
-  def deleteSnapshotsOlderThan(rootDir: String, timestamp: FileTime, latestSerial: Long): Unit =
-    Files.walkFileTree(Paths.get(rootDir), new RemovingFileVisitor(timestamp, Rrdp.isSnapshot, latestSerial))
+
+  def deleteSnapshotsOlderThan(rootDir: String, timestamp: FileTime, latestSerial: Long): Unit = {
+    Files.walkFileTree(Paths.get(rootDir), new RemovingFileVisitor(RrdpRepositoryWriter.snapshotToDelete(timestamp, latestSerial)))
+  }
 
   def deleteSessionsOlderThanExceptForOne(rootDir: String, timestamp: FileTime, sessionId: UUID): Path =
     Files.walkFileTree(Paths.get(rootDir), new RemoveAllVisitorExceptOneSession(sessionId.toString, timestamp))
@@ -60,3 +62,20 @@ class RrdpRepositoryWriter extends Logging {
   def deleteDeltas(rootDir: String, sessionId: UUID, serials: Set[Long]): Unit =
     serials.par.foreach(s => deleteDelta(rootDir, sessionId, s))
 }
+
+object RrdpRepositoryWriter {
+
+  def snapshotToDelete(timestamp: FileTime, latestSerial: Long)(file: Path) = {
+    // we expect snapshots to be in a directory structure like this
+    // $session-id/$serial/snapshot-blabla.xml
+    // this expression means "serial != latestSerial"
+    lazy val notTheLastSerial = Try {
+      file.getParent.getFileName.toString.toLong
+    }.toEither.
+      map(p => p != latestSerial).
+      getOrElse(true)
+
+    Rrdp.isSnapshot(file) && FSUtil.isModifiedBefore(file, timestamp) && notTheLastSerial
+  }
+}
+

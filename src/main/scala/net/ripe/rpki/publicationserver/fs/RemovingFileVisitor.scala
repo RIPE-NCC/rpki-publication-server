@@ -6,7 +6,7 @@ import java.io.IOException
 import java.nio.file._
 import java.nio.file.attribute.{BasicFileAttributes, FileTime}
 
-class RemovingFileVisitor(timestamp: FileTime, deleteIt: Path => Boolean, latestSerial: Long) extends SimpleFileVisitor[Path] with Logging {
+class RemovingFileVisitor(deleteIt: Path => Boolean) extends SimpleFileVisitor[Path] with Logging {
 
   override def visitFileFailed(file: Path, exc: IOException): FileVisitResult = {
     logger.error(s"Error visiting $file: ${exc.getMessage}")
@@ -16,23 +16,11 @@ class RemovingFileVisitor(timestamp: FileTime, deleteIt: Path => Boolean, latest
 
   override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
     if (deleteIt(file)) {
-      // check that we are not going to delete the file for the latest serial
-      if (!file.getParent.endsWith(latestSerial.toString) && FSUtil.isModifiedBefore(file, timestamp)) {
-        logger.info(s"Removing $file")
-        Files.deleteIfExists(file)
-      }
+      logger.info(s"Removing $file")
+      Files.deleteIfExists(file)
     }
     FileVisitResult.CONTINUE
   }
-
-  override def postVisitDirectory(dir: Path, exc: IOException): FileVisitResult = {
-    if (FSUtil.isEmptyDir(dir) && FSUtil.isCreatedBefore(dir, timestamp)) {
-      logger.info(s"Removing directory $dir")
-      Files.deleteIfExists(dir)
-    }
-    FileVisitResult.CONTINUE
-  }
-
 }
 
 class RemoveAllVisitorExceptOneSession(sessionId: String, timestamp: FileTime) extends SimpleFileVisitor[Path] with Logging {
@@ -52,13 +40,8 @@ class RemoveAllVisitorExceptOneSession(sessionId: String, timestamp: FileTime) e
   override def postVisitDirectory(dir: Path, exc: IOException): FileVisitResult = {
     if (dir.toString.contains(sessionId))
       FileVisitResult.SKIP_SUBTREE
-    else {
-      if (FSUtil.isEmptyDir(dir)) {
-        logger.info(s"Removing directory $dir")
-        Files.deleteIfExists(dir)
-      }
+    else
       FileVisitResult.CONTINUE
-    }
   }
 }
 

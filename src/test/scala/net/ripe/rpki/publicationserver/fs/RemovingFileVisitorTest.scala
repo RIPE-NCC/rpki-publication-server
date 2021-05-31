@@ -1,9 +1,9 @@
 package net.ripe.rpki.publicationserver.fs
 
-import java.nio.file.{Paths, FileVisitResult, Path, Files}
+import java.nio.file.{FileVisitResult, Files, Path, Paths}
 import java.nio.file.attribute.{BasicFileAttributes, FileTime}
-
 import net.ripe.rpki.publicationserver.PublicationServerBaseTest
+import net.ripe.rpki.publicationserver.fs.RrdpRepositoryWriter.snapshotToDelete
 
 class RemovingFileVisitorTest extends PublicationServerBaseTest {
 
@@ -13,14 +13,16 @@ class RemovingFileVisitorTest extends PublicationServerBaseTest {
 
   test("isCreatedBefore should return true for file older than timestamp") {
     val file = tempFile
-    val subject = new RemovingFileVisitor(timestampAfter(file), f => f.getFileName == file.getFileName, 0)
+    val subject = new RemovingFileVisitor(f =>
+      f.getFileName == file.getFileName && snapshotToDelete(timestampAfter(file), 0)(f))
 
     FSUtil.isCreatedBefore(file, timestampAfter(file)) should be(true)
   }
 
   test("isCreatedBefore should return false for file yonger than timestamp") {
     val file = tempFile
-    val subject = new RemovingFileVisitor(timestampBefore(file), f => f.getFileName == file.getFileName, 0)
+    val subject = new RemovingFileVisitor(f =>
+      f.getFileName == file.getFileName && snapshotToDelete(timestampBefore(file), 0)(f))
 
     FSUtil.isCreatedBefore(file, timestampBefore(file)) should be(false)
   }
@@ -38,20 +40,12 @@ class RemovingFileVisitorTest extends PublicationServerBaseTest {
 
   test("should not remove other old files") {
     val file = tempFile
-    val subject = new RemovingFileVisitor(timestampAfter(file), f => f.getFileName == someFilename, 0)
+    val subject = new RemovingFileVisitor(f =>
+        f.getFileName == someFilename && snapshotToDelete(timestampAfter(file), 0)(f))
 
     subject.visitFile(file, Files.readAttributes(file, classOf[BasicFileAttributes])) should be(FileVisitResult.CONTINUE)
 
     Files.exists(file) should be(true)
-  }
-
-  test("should remove old file") {
-    val file = tempFile
-    val subject = new RemovingFileVisitor(timestampAfter(file), f => f.getFileName == file.getFileName, 0)
-
-    subject.visitFile(file, Files.readAttributes(file, classOf[BasicFileAttributes])) should be(FileVisitResult.CONTINUE)
-
-    Files.exists(file) should be(false)
   }
 
   test("should not remove old file in case it has passed serial number in it") {
@@ -62,7 +56,8 @@ class RemovingFileVisitorTest extends PublicationServerBaseTest {
       Files.createDirectory(Paths.get(directory.toString, "1"))
       Files.createDirectory(Paths.get(directory.toString, "1", "snapshot.xml"))
     }
-    val subject = new RemovingFileVisitor(timestampAfter(file), f => f.getFileName == file.getFileName, 1)
+    val subject = new RemovingFileVisitor(f =>
+        f.getFileName == file.getFileName && snapshotToDelete(timestampAfter(file), 1)(f))
 
     subject.visitFile(file, Files.readAttributes(file, classOf[BasicFileAttributes])) should be(FileVisitResult.CONTINUE)
 
