@@ -1,17 +1,15 @@
 package net.ripe.rpki.publicationserver.store.fs
 
-import java.nio.file._
-import java.nio.file.attribute.{FileTime, PosixFilePermissions}
-import java.util.UUID
-
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.model.{Delta, Notification, ServerState, Snapshot}
 
+import java.nio.file._
+import java.nio.file.attribute.{FileTime, PosixFilePermissions}
+import java.util.UUID
 import scala.util.{Failure, Try}
 import scala.xml.{Node, XML}
-import java.io.File
 
-class RrdpRepositoryWriter extends Logging {
+class RrdpRepositoryWriter(conf: AppConfig) extends Logging {
 
   def createSession(rootDir: String, sessionId: UUID, serial: Long): Unit = {
     logger.info(s"Initializing session directory: $rootDir, session-id = $sessionId, serial = $serial")
@@ -27,6 +25,7 @@ class RrdpRepositoryWriter extends Logging {
   def writeNewState(rootDir: String, serverState: ServerState, newNotification: Notification, snapshot: Snapshot): Try[Option[FileTime]] =    
     Try {
       writeSnapshot(rootDir, serverState, snapshot)
+      delayNotificationXml()
       writeNotification(rootDir, newNotification)
     }.recoverWith { case e: Exception =>
       logger.error("An error occurred, removing snapshot: ", e)
@@ -35,6 +34,11 @@ class RrdpRepositoryWriter extends Logging {
       Failure(e)
     }
 
+  // Delay writing notification.xml to avoid the 404 caching for deltas and snapshot xml files.
+  private def delayNotificationXml(): Unit =
+    if (conf.notificationWritingDelay > 0) {
+      Thread.sleep(conf.notificationWritingDelay * 1000)
+    }
 
   def writeSnapshot(rootDir: String, serverState: ServerState, snapshot: Snapshot): Path = {
     val ServerState(sessionId, serial) = serverState

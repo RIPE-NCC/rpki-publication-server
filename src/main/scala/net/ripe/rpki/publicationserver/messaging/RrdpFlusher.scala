@@ -26,7 +26,7 @@ class RrdpFlusher(conf: AppConfig) extends Actor with Logging {
 
   import context._
 
-  protected lazy val rrdpWriter = new RrdpRepositoryWriter
+  protected lazy val rrdpWriter = new RrdpRepositoryWriter(conf)
 
   private val deltas = mutable.Queue[(Long, Hash, Int, Instant)]()
   private var deltasTotalSize = 0L
@@ -138,7 +138,7 @@ class RrdpFlusher(conf: AppConfig) extends Actor with Logging {
 
 class RrdpCleaner(conf: AppConfig) extends Actor with Logging {
 
-  private val rrdpWriter = new RrdpRepositoryWriter
+  private val rrdpWriter = new RrdpRepositoryWriter(conf)
 
   override def receive = {
     case CleanUpSnapshot(timestamp, serial) =>
