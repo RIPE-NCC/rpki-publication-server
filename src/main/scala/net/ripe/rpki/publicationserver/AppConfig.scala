@@ -59,7 +59,7 @@ class AppConfig {
     val field = "publication.server.notification.writing.delay"
     if (getConfig.hasPath(field))
       getConfig.getInt(field)
-    else 0
+    else 10
   }
 
   def snapshotUrl(serverState: ServerState) = {
