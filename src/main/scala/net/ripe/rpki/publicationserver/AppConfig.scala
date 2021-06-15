@@ -54,6 +54,14 @@ class AppConfig {
   lazy val publicationServerTrustStorePassword = getConfig.getString("publication.server.truststore.password")
   lazy val storePath = getConfig.getString("xodus.path")
 
+  // no delay by default
+  lazy val notificationWritingDelay = {
+    val field = "publication.server.notification.writing.delay"
+    if (getConfig.hasPath(field))
+      getConfig.getInt(field)
+    else 10
+  }
+
   def snapshotUrl(serverState: ServerState) = {
     val ServerState(sessionId, serial) = serverState
     rrdpRepositoryUri + "/" + sessionId + "/" + serial + "/snapshot.xml"
