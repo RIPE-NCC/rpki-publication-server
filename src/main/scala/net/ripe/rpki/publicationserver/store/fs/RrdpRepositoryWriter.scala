@@ -22,10 +22,20 @@ class RrdpRepositoryWriter(conf: AppConfig) extends Logging {
 
   private val fileAttributes = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-r--r--"))
 
-  def writeNewState(rootDir: String, serverState: ServerState, newNotification: Notification, snapshot: Snapshot): Try[Option[FileTime]] =    
+  def writeNewState(rootDir: String, serverState: ServerState, newNotification: Notification, snapshot: Snapshot): Try[Option[FileTime]] =
+    writeNextState(rootDir, serverState, newNotification, snapshot, () => ())
+
+  def writeNewStateWithNotificationDelay(rootDir: String, serverState: ServerState, newNotification: Notification, snapshot: Snapshot): Try[Option[FileTime]] =
+    writeNextState(rootDir, serverState, newNotification, snapshot, () => delayNotificationXml())
+
+  private def writeNextState(rootDir: String,
+                             serverState: ServerState,
+                             newNotification: Notification,
+                             snapshot: Snapshot,
+                             maybeDelay: () => Unit) = {
     Try {
       writeSnapshot(rootDir, serverState, snapshot)
-      delayNotificationXml()
+      maybeDelay()
       writeNotification(rootDir, newNotification)
     }.recoverWith { case e: Exception =>
       logger.error("An error occurred, removing snapshot: ", e)
@@ -33,6 +43,7 @@ class RrdpRepositoryWriter(conf: AppConfig) extends Logging {
       deleteSnapshot(rootDir, serverState)
       Failure(e)
     }
+  }
 
   // Delay writing notification.xml to avoid the 404 caching for deltas and snapshot xml files.
   private def delayNotificationXml(): Unit =

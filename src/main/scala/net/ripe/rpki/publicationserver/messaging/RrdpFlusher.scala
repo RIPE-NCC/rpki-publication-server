@@ -108,7 +108,7 @@ class RrdpFlusher(conf: AppConfig) extends Actor with Logging {
       rrdpWriter.writeDelta(conf.rrdpRepositoryPath, delta)
     } flatMap { _ =>
       logger.info(s"Writing snapshot $serial to RRDP filesystem")
-      rrdpWriter.writeNewState(conf.rrdpRepositoryPath, serverState, notification, snapshot)
+      rrdpWriter.writeNewStateWithNotificationDelay(conf.rrdpRepositoryPath, serverState, notification, snapshot)
     } match {
       case Success(timestampOption) =>
         timestampOption.foreach(scheduleSnapshotCleanup(serial))
