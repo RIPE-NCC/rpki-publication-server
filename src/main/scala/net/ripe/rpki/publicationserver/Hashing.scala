@@ -43,12 +43,12 @@ trait Hashing {
     new String(hexChars)
   }
 
-  def hash(bytes: Array[Byte]): Hash = {
+  def hashOf(bytes: Array[Byte]): Hash = {
     val sha256 = MessageDigest.getInstance("SHA-256")
     Hash(sha256.digest(bytes))
   }
 
-  def hash(b64: Base64): Hash = hash(Bytes.fromBase64(b64))
-  def hash(bytes: Bytes): Hash = hash(bytes.value)
+  def hashOf(b64: Base64): Hash = hashOf(Bytes.fromBase64(b64))
+  def hashOf(bytes: Bytes): Hash = hashOf(bytes.value)
 }
 object Hashing extends Hashing

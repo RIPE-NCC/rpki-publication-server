@@ -55,7 +55,7 @@ class PublicationIntegrationTest
   test("should publish an object and don't accept repeated publish") {
     val url = "rsync://localhost:10873/repository/test1"
     val base64 = TestBinaries.generateSomeBase64()
-    val hashStr = hash(Base64(base64)).toHex
+    val hashStr = hashOf(Base64(base64)).toHex
 
     val response = client.publish("client1", url, base64)
     response should include(s"""<publish uri="${url}"/>""")
@@ -82,7 +82,7 @@ class PublicationIntegrationTest
   test("should publish an object and withdraw it") {
     val url = "rsync://localhost:10873/repository/test2"
     val base64 = TestBinaries.generateSomeBase64()
-    val hashStr = hash(Base64(base64)).toHex
+    val hashStr = hashOf(Base64(base64)).toHex
     val clientId = "client1"
     val response = client.publish(clientId, url, base64)
     response should include(s"""<publish uri="${url}"/>""")
@@ -95,7 +95,7 @@ class PublicationIntegrationTest
         include(s"""<list uri="$url" hash="$hashStr"/>""")
 
     // try to use wrong hash for withdrawing
-    val wrongHash = hash(Base64(TestBinaries.generateSomeBase64()))
+    val wrongHash = hashOf(Base64(TestBinaries.generateSomeBase64()))
     val w = client.withdraw(clientId, url, wrongHash.toHex)
     w should include(s"""<report_error error_code="no_object_matching_hash">""")
     w should include(s"""Cannot withdraw the object [${url}], hash does not match, passed ${wrongHash.toHex}, but existing one is $hashStr.""")
@@ -130,7 +130,7 @@ class PublicationIntegrationTest
  test("should publish an object and replace it") {
     val url = "rsync://localhost:10873/repository/test_replace"
     val base64 = TestBinaries.generateSomeBase64()
-    val hashStr = hash(Base64(base64)).toHex
+    val hashStr = hashOf(Base64(base64)).toHex
     val clientId = "client3"
 
     client.publish(clientId, url, base64) should
@@ -141,7 +141,7 @@ class PublicationIntegrationTest
 
     // try to use wrong hash for replacing
     val newBase64 = TestBinaries.generateSomeBase64()
-   val wrongHash = hash(Base64(TestBinaries.generateSomeBase64()))
+   val wrongHash = hashOf(Base64(TestBinaries.generateSomeBase64()))
     val response = client.publish(clientId, url, wrongHash.toHex, newBase64)
     response should include(s"""<report_error error_code="no_object_matching_hash">""")
     response should include(s"""Cannot republish the object [${url}], hash doesn't match, passed ${wrongHash.toHex}, but existing one is $hashStr""")

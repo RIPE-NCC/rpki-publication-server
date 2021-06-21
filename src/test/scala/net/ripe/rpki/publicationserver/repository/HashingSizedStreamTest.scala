@@ -23,7 +23,7 @@ class HashingSizedStreamTest extends PublicationServerBaseTest with Hashing {
 
     val bytes = (s1 + s2 + s3).getBytes(StandardCharsets.US_ASCII)
     val realBytes = Bytes(bytes)
-    streamHash should be(hash(realBytes))
+    streamHash should be(hashOf(realBytes))
 
     size should be(bytes.length)
   }
