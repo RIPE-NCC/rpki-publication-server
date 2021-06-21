@@ -4,7 +4,7 @@ import java.net.URI
 
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.model._
-import net.ripe.rpki.publicationserver.store.postresql.RollbackException
+import net.ripe.rpki.publicationserver.store.postgresql.RollbackException
 
 class PgStoreTest extends PublicationServerBaseTest with Hashing {
 

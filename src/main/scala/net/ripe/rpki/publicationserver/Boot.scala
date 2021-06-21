@@ -10,7 +10,7 @@ import akka.util.Timeout
 import com.softwaremill.macwire._
 import io.prometheus.client._
 import net.ripe.rpki.publicationserver.metrics._
-import net.ripe.rpki.publicationserver.store.postresql.PgStore
+import net.ripe.rpki.publicationserver.store.postgresql.PgStore
 import net.ripe.rpki.publicationserver.util.SSLHelper
 import org.slf4j.Logger
 

@@ -1,6 +1,6 @@
 package net.ripe.rpki.publicationserver
 
-import net.ripe.rpki.publicationserver.store.postresql.PgStore
+import net.ripe.rpki.publicationserver.store.postgresql.PgStore
 import org.mockito.Mockito._
 import spray.json._
 

@@ -1,4 +1,4 @@
-package net.ripe.rpki.publicationserver.store.postresql
+package net.ripe.rpki.publicationserver.store.postgresql
 
 import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver._

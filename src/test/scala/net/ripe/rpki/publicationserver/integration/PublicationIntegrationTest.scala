@@ -4,7 +4,7 @@ import java.net.URI
 import java.nio.file._
 
 import net.ripe.rpki.publicationserver.Binaries.Base64
-import net.ripe.rpki.publicationserver.store.postresql.PgStore
+import net.ripe.rpki.publicationserver.store.postgresql.PgStore
 import net.ripe.rpki.publicationserver.util.SSLHelper
 import net.ripe.rpki.publicationserver._
 import org.slf4j.LoggerFactory
