@@ -23,12 +23,12 @@ $$ LANGUAGE SQL;
 -- Reusable part of both create and replace an object in the 'objects' table.
 --
 CREATE OR REPLACE FUNCTION merge_object(bytes_ BYTEA,
-                                        hash_ TEXT,
+                                        hash_ BYTEA,
                                         url_ TEXT,
                                         client_id_ TEXT) RETURNS SETOF objects AS
 $$
     INSERT INTO objects (hash, content, url, client_id)
-         VALUES (LOWER(hash_), bytes_, url_, client_id_)
+         VALUES (hash_, bytes_, url_, client_id_)
     ON CONFLICT (hash) DO UPDATE
             SET deleted_at = NULL
       RETURNING *;
@@ -46,15 +46,14 @@ CREATE OR REPLACE FUNCTION create_object(bytes_ BYTEA,
                                          client_id_ TEXT) RETURNS JSON AS
 $body$
 DECLARE
-    hash_ CHAR(64);
+    hash_ BYTEA;
 BEGIN
-
     IF EXISTS (SELECT * FROM live_objects WHERE url = url_) THEN
         RETURN json_build_object('code', 'object_already_present', 'message',
                                  format('An object is already present at this URI [%s].', url_));
     END IF;
 
-    SELECT LOWER(encode(sha256(bytes_), 'hex')) INTO hash_;
+    SELECT sha256(bytes_) INTO hash_;
 
     IF EXISTS (SELECT * FROM live_objects WHERE hash = hash_) THEN
         RETURN json_build_object('code', 'object_already_present', 'message',
@@ -83,15 +82,15 @@ $body$
 --
 -- Error codes are defined by the RFC (https://tools.ietf.org/html/rfc8181#page-9)
 CREATE OR REPLACE FUNCTION replace_object(bytes_ BYTEA,
-                                          hash_to_replace TEXT,
+                                          hash_to_replace BYTEA,
                                           url_ TEXT,
                                           client_id_ TEXT) RETURNS JSON AS
 $body$
 DECLARE
     existing_object_id BIGINT;
     existing_client_id TEXT;
-    hash_              CHAR(64);
-    existing_hash      CHAR(64);
+    hash_              BYTEA;
+    existing_hash      BYTEA;
 BEGIN
 
     SELECT hash, id, client_id
@@ -104,10 +103,10 @@ BEGIN
                                  format('There is no object present at this URI [%s].', url_));
     END IF;
 
-    IF existing_hash <> LOWER(hash_to_replace) THEN
+    IF existing_hash <> hash_to_replace THEN
         RETURN json_build_object('code', 'no_object_matching_hash', 'message',
                                  format('Cannot republish the object [%s], hash doesn''t match, passed %s, but existing one is %s',
-                                    url_, LOWER(hash_to_replace), existing_hash));
+                                    url_, ENCODE(hash_to_replace, 'hex'), ENCODE(existing_hash, 'hex')));
     END IF;
 
     IF existing_client_id <> client_id_ THEN
@@ -115,11 +114,11 @@ BEGIN
                                  format('Not allowed to update an object of another client: [%s].', url_));
     END IF;
 
-    SELECT LOWER(encode(sha256(bytes_), 'hex')) INTO hash_;
+    SELECT sha256(bytes_) INTO hash_;
 
     WITH deleted_object AS (
         UPDATE objects SET deleted_at = NOW()
-        WHERE hash = LOWER(hash_to_replace)
+        WHERE hash = hash_to_replace
         RETURNING id
     ),
      merged_object AS (
@@ -143,13 +142,13 @@ $body$
 --
 -- Error codes are defined by the RFC (https://tools.ietf.org/html/rfc8181#page-9)
 CREATE OR REPLACE FUNCTION delete_object(url_ TEXT,
-                                         hash_to_delete TEXT,
+                                         hash_to_delete BYTEA,
                                          client_id_ TEXT) RETURNS JSON AS
 $body$
 DECLARE
     existing_object_id BIGINT;
     existing_client_id TEXT;
-    existing_hash      CHAR(64);
+    existing_hash      BYTEA;
 BEGIN
 
     SELECT hash, id, client_id
@@ -162,10 +161,10 @@ BEGIN
                                  format('There is no object present at this URI [%s].', url_));
     END IF;
 
-    IF existing_hash <> LOWER(hash_to_delete) THEN
+    IF existing_hash <> hash_to_delete THEN
         RETURN json_build_object('code', 'no_object_matching_hash', 'message',
                                  format('Cannot withdraw the object [%s], hash does not match, ' ||
-                                 'passed %s, but existing one is %s.', url_, LOWER(hash_to_delete), existing_hash));
+                                 'passed %s, but existing one is %s.', url_, ENCODE(hash_to_delete, 'hex'), ENCODE(existing_hash, 'hex')));
     END IF;
 
     IF existing_client_id <> client_id_ THEN
@@ -175,7 +174,7 @@ BEGIN
 
     WITH deleted_object AS (
         UPDATE objects SET deleted_at = NOW()
-        WHERE hash = LOWER(hash_to_delete)
+        WHERE hash = hash_to_delete
         RETURNING id
     )
     INSERT INTO object_log(operation, old_object_id)

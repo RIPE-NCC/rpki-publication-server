@@ -5,7 +5,7 @@ DROP TABLE IF EXISTS versions CASCADE;
 CREATE TABLE objects
 (
     id         BIGINT  GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    hash       TEXT    NOT NULL CHECK (hash ~ '^[0-9a-f]{64}$'),
+    hash       BYTEA   NOT NULL CHECK (LENGTH(hash) = 32),
     url        TEXT    NOT NULL,
     client_id  TEXT    NOT NULL,
     content    BYTEA   NOT NULL,
@@ -46,8 +46,8 @@ CREATE TABLE versions
     last_log_entry_id  BIGINT                   NOT NULL,
     snapshot_file_name TEXT,
     delta_file_name    TEXT,
-    snapshot_hash      TEXT CHECK (snapshot_hash ~ '^[0-9a-f]{64}$'),
-    delta_hash         TEXT CHECK (delta_hash ~ '^[0-9a-f]{64}$'),
+    snapshot_hash      BYTEA  CHECK (LENGTH(snapshot_hash) = 32),
+    delta_hash         BYTEA  CHECK (LENGTH(delta_hash) = 32),
     snapshot_size      BIGINT,
     delta_size         BIGINT,
     created_at         TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
