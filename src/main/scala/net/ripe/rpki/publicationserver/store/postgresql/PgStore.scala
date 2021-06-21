@@ -16,14 +16,6 @@ case class RollbackException(val error: BaseError) extends Exception
 
 class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
 
-  private def fromHex(hash: String) = {
-    val r = new Array[Byte](hash.length / 2);
-    for (i <- 0 until r.length) {
-      r(i) = (Character.digit(hash(i * 2), 16) * 16 + Character.digit(hash(i * 2 + 1), 16)).asInstanceOf[Byte]
-    }
-    r
-  }
-
   def inRepeatableReadTx[T](f: DBSession => T): T = {
     DB(ConnectionPool.borrow())
       .isolationLevel(IsolationLevel.RepeatableRead)
@@ -39,7 +31,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
   def getState = DB.localTx { implicit session =>
     sql"SELECT * FROM current_state ORDER BY url"
       .map { rs =>
-        val hash = Hash(stringify(rs.bytes(1)))
+        val hash = Hash(rs.bytes(1))
         val uri = URI.create(rs.string(2))
         val clientId = ClientId(rs.string(3))
         val bytes = Bytes.fromStream(rs.binaryStream(4))
@@ -57,7 +49,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
       .map { rs =>
         val operation = rs.string(1)
         val uri = URI.create(rs.string(2))
-        val hash = rs.bytesOpt(3).map(bs => Hash(stringify(bs)))
+        val hash = rs.bytesOpt(3).map(bs => Hash(bs))
         val bytes = rs.binaryStreamOpt(4).map(Bytes.fromStream)
         (operation, uri, hash, bytes)
       }
@@ -72,7 +64,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
           ORDER BY url ASC"""
       .foreach { rs =>
         val uri = URI.create(rs.string(1))
-        val hash = Hash(stringify(rs.bytes(2)))
+        val hash = Hash(rs.bytes(2))
         val bytes = Bytes.fromStream(rs.binaryStream(3))
         f(uri, hash, bytes)
       }
@@ -86,7 +78,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
       .foreach { rs =>
         val operation = rs.string(1)
         val uri = URI.create(rs.string(2))
-        val oldHash = rs.bytesOpt(3).map(bs => Hash(stringify(bs)))
+        val oldHash = rs.bytesOpt(3).map(bs => Hash(bs))
         val bytes = rs.binaryStreamOpt(4).map(Bytes.fromStream)
         f(operation, uri, oldHash, bytes)
       }
@@ -97,11 +89,11 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
 
   def getCurrentSessionInfo(implicit session: DBSession) = {
 
-    def toSnapshotInfo(name: Option[String], hash: Option[String], size: Option[Long]) =
+    def toSnapshotInfo(name: Option[String], hash: Option[Array[Byte]], size: Option[Long]) =
       for (n <- name; h <- hash; s <- size)
         yield SnapshotInfo(n, Hash(h), s)
 
-    def toDeltaInfo(name: Option[String], hash: Option[String], size: Option[Long]) =
+    def toDeltaInfo(name: Option[String], hash: Option[Array[Byte]], size: Option[Long]) =
       for (n <- name; h <- hash; s <- size)
         yield DeltaInfo(n, Hash(h), s)
 
@@ -112,8 +104,8 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
       .map(rs => (
         rs.string(1),
         rs.long(2),
-        toSnapshotInfo(rs.stringOpt(3), rs.stringOpt(4), rs.longOpt(5)),
-        toDeltaInfo(rs.stringOpt(6), rs.stringOpt(7), rs.longOpt(8))
+        toSnapshotInfo(rs.stringOpt(3), rs.bytesOpt(4), rs.longOpt(5)),
+        toDeltaInfo(rs.stringOpt(6), rs.bytesOpt(7), rs.longOpt(8))
       ))
       .single()
       .apply()
@@ -126,7 +118,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
           ORDER BY serial DESC"""
       .map { rs =>
         (rs.long(1),
-          Hash(stringify(rs.bytes(2))),
+          Hash(rs.bytes(2)),
           rs.string(3))
       }
       .list()
@@ -135,7 +127,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
 
   def updateSnapshotInfo(sessionId: String, serial: Long, snapshotFileName: String, hash: Hash, size: Long)(implicit session: DBSession): Unit = {
     sql"""UPDATE versions SET
-            snapshot_hash = ${fromHex(hash.hash)},
+            snapshot_hash = ${hash.toBytes},
             snapshot_size = $size,
             snapshot_file_name = $snapshotFileName
           WHERE session_id = $sessionId AND serial = $serial"""
@@ -145,7 +137,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
 
   def updateDeltaInfo(sessionId: String, serial: Long, deltaFileName: String, hash: Hash, size: Long)(implicit session: DBSession): Unit = {
     sql"""UPDATE versions SET
-            delta_hash = ${fromHex(hash.hash)},
+            delta_hash = ${hash.toBytes},
             delta_size = $size,
             delta_file_name = $deltaFileName
           WHERE session_id = $sessionId AND serial = $serial"""
@@ -177,12 +169,12 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
       changeSet.pdus.foreach {
         case PublishQ(uri, _, None, Bytes(bytes)) =>
           executeSql(
-            sql"SELECT create_object(${bytes},  ${uri.toString}, ${clientId.value})",
+            sql"SELECT create_object(${bytes}, ${uri.toString}, ${clientId.value})",
             metrics.publishedObject(),
             metrics.failedToAdd())
         case PublishQ(uri, _, Some(oldHash), Bytes(bytes)) =>
           executeSql(
-            sql"SELECT replace_object(${bytes}, ${fromHex(oldHash)}, ${uri.toString}, ${clientId.value})",
+            sql"SELECT replace_object(${bytes}, ${oldHash.toBytes}, ${uri.toString}, ${clientId.value})",
             {
               metrics.withdrawnObject()
               metrics.publishedObject()
@@ -190,7 +182,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
             metrics.failedToReplace())
         case WithdrawQ(uri, _, hash) =>
           executeSql(
-            sql"SELECT delete_object(${uri.toString}, ${fromHex(hash)}, ${clientId.value})",
+            sql"SELECT delete_object(${uri.toString}, ${hash.toBytes}, ${clientId.value})",
             metrics.withdrawnObject(),
             metrics.failedToDelete())
       }
@@ -243,7 +235,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
   def list(clientId: ClientId) = inRepeatableReadTx { implicit session =>
     sql"""SELECT url, hash FROM current_state
            WHERE client_id = ${clientId.value}"""
-      .map(rs => (rs.string(1), stringify(rs.bytes(2))))
+      .map(rs => (rs.string(1), Hash(rs.bytes(2))))
       .list()
       .apply()
   }

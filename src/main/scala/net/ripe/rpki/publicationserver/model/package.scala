@@ -22,9 +22,9 @@ package object model {
 
   sealed trait QueryPdu
 
-  case class PublishQ(uri: URI, tag: Option[String], hash: Option[String], bytes: Bytes) extends QueryPdu
+  case class PublishQ(uri: URI, tag: Option[String], hash: Option[Hash], bytes: Bytes) extends QueryPdu
 
-  case class WithdrawQ(uri: URI, tag: Option[String], hash: String) extends QueryPdu
+  case class WithdrawQ(uri: URI, tag: Option[String], hash: Hash) extends QueryPdu
 
   case class ListQ(tag: Option[String] = None) extends QueryPdu
 
@@ -34,7 +34,7 @@ package object model {
 
   case class WithdrawR(uri: URI, tag: Option[String]) extends ReplyPdu
 
-  case class ListR(uri: URI, hash: String, tag: Option[String]) extends ReplyPdu
+  case class ListR(uri: URI, hash: Hash, tag: Option[String]) extends ReplyPdu
 
   case class ReportError(code: String, message: Option[String]) extends ReplyPdu
 
@@ -75,8 +75,8 @@ package object model {
           case PublishR(uri, None) => s"""<publish uri="${attr(uri.toASCIIString)}"/>"""
           case WithdrawR(uri, Some(tag)) => s"""<withdraw tag="${attr(tag)}" uri="${attr(uri.toASCIIString)}"/>"""
           case WithdrawR(uri, None) => s"""<withdraw uri="${attr(uri.toASCIIString)}"/>"""
-          case ListR(uri, hash, Some(tag)) => s"""<list tag="${attr(tag)}" uri="${attr(uri.toASCIIString)}" hash="$hash"/>"""
-          case ListR(uri, hash, None) => s"""<list uri="${attr(uri.toASCIIString)}" hash="$hash"/>"""
+          case ListR(uri, hash, Some(tag)) => s"""<list tag="${attr(tag)}" uri="${attr(uri.toASCIIString)}" hash="${hash.toHex}"/>"""
+          case ListR(uri, hash, None) => s"""<list uri="${attr(uri.toASCIIString)}" hash="${hash.toHex}"/>"""
           case ReportError(code, message) =>
             s"""<report_error error_code="$code">
           ${message.map(content).getOrElse("Unspecified error")}

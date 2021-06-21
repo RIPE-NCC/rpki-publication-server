@@ -69,7 +69,7 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
     verifyExpectedNotification {
       s"""<notification version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
-            <snapshot uri="http://localhost:7788/${sessionId}/${serial}/$snapshotName" hash="${hash(Bytes(snapshotBytes)).hash}"/>
+            <snapshot uri="http://localhost:7788/${sessionId}/${serial}/$snapshotName" hash="${hash(snapshotBytes).toHex}"/>
           </notification>"""
     }
   }
@@ -90,7 +90,7 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
       verifyExpectedNotification {
         s"""<notification version="1" session_id="$sessionId" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
-            <snapshot uri="http://localhost:7788/$sessionId/$serial/$snapshotName" hash="${hash(Bytes(snapshotBytes)).hash}"/>
+            <snapshot uri="http://localhost:7788/$sessionId/$serial/$snapshotName" hash="${hash(snapshotBytes).toHex}"/>
           </notification>"""
       }
     }
@@ -148,7 +148,7 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
     verifyExpectedNotification {
       s"""<notification version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
-            <snapshot uri="http://localhost:7788/${sessionId}/${serial}/$snapshotName" hash="${hash(Bytes(snapshotBytes)).hash}"/>
+            <snapshot uri="http://localhost:7788/${sessionId}/${serial}/$snapshotName" hash="${hash(snapshotBytes).toHex}"/>
           </notification>"""
     }
   }
@@ -195,8 +195,8 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
     verifyExpectedNotification {
       s"""<notification version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
-            <snapshot uri="http://localhost:7788/${sessionId}/${serial}/$snapshotName" hash="${hash(Bytes(snapshotBytes)).hash}"/>
-            <delta serial="${serial}" uri="http://localhost:7788/${sessionId}/${serial}/$deltaName2" hash="${hash(Bytes(deltaBytes2)).hash}"/>
+            <snapshot uri="http://localhost:7788/${sessionId}/${serial}/$snapshotName" hash="${hash(snapshotBytes).toHex}"/>
+            <delta serial="${serial}" uri="http://localhost:7788/${sessionId}/${serial}/$deltaName2" hash="${hash(deltaBytes2).toHex}"/>
           </notification>"""
     }
   }
@@ -261,9 +261,9 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
     verifyExpectedNotification {
       s"""<notification version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
-            <snapshot uri="http://localhost:7788/${sessionId}/${serial}/$snapshotName" hash="${hash(Bytes(snapshotBytes)).hash}"/>
-            <delta serial="${serial}" uri="http://localhost:7788/${sessionId}/${serial}/$deltaName3" hash="${hash(Bytes(deltaBytes3)).hash}"/>
-            <delta serial="${serial-1}" uri="http://localhost:7788/${sessionId}/${serial-1}/$deltaName2" hash="${hash(Bytes(deltaBytes2)).hash}"/>
+            <snapshot uri="http://localhost:7788/${sessionId}/${serial}/$snapshotName" hash="${hash(snapshotBytes).toHex}"/>
+            <delta serial="${serial}" uri="http://localhost:7788/${sessionId}/${serial}/$deltaName3" hash="${hash(deltaBytes3).toHex}"/>
+            <delta serial="${serial-1}" uri="http://localhost:7788/${sessionId}/${serial-1}/$deltaName2" hash="${hash(deltaBytes2).toHex}"/>
           </notification>"""
     }
   }
@@ -304,8 +304,8 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
     verifyExpectedNotification {
       s"""<notification version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
-            <snapshot uri="http://localhost:7788/${sessionId}/${serial}/$snapshotName" hash="${hash(Bytes(snapshotBytes)).hash}"/>
-            <delta serial="${serial}" uri="http://localhost:7788/${sessionId}/${serial}/$deltaName" hash="${hash(Bytes(deltaBytes)).hash}"/>
+            <snapshot uri="http://localhost:7788/${sessionId}/${serial}/$snapshotName" hash="${hash(snapshotBytes).toHex}"/>
+            <delta serial="${serial}" uri="http://localhost:7788/${sessionId}/${serial}/$deltaName" hash="${hash(deltaBytes).toHex}"/>
           </notification>"""
     }
   }
@@ -360,8 +360,8 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
     verifyExpectedNotification {
       s"""<notification version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
-            <snapshot uri="http://localhost:7788/${sessionId}/${serial}/$snapshotName" hash="${hash(Bytes(snapshotBytes)).hash}"/>
-            <delta serial="${serial}" uri="http://localhost:7788/${sessionId}/${serial}/$deltaName" hash="${hash(Bytes(deltaBytes)).hash}"/>
+            <snapshot uri="http://localhost:7788/${sessionId}/${serial}/$snapshotName" hash="${hash(snapshotBytes).toHex}"/>
+            <delta serial="${serial}" uri="http://localhost:7788/${sessionId}/${serial}/$deltaName" hash="${hash(deltaBytes).toHex}"/>
           </notification>"""
     }
   }
@@ -429,9 +429,9 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
     verifyExpectedNotification {
       s"""<notification version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
-            <snapshot uri="http://localhost:7788/${sessionId}/${serial}/$snapshotName" hash="${hash(Bytes(snapshotBytes)).hash}"/>
-            <delta serial="${serial}" uri="http://localhost:7788/${sessionId}/${serial}/$deltaName3" hash="${hash(Bytes(deltaBytes3)).hash}"/>
-            <delta serial="${serial - 1}" uri="http://localhost:7788/${sessionId}/${serial - 1}/$deltaName2" hash="${hash(Bytes(deltaBytes2)).hash}"/>
+            <snapshot uri="http://localhost:7788/${sessionId}/${serial}/$snapshotName" hash="${hash(snapshotBytes).toHex}"/>
+            <delta serial="${serial}" uri="http://localhost:7788/${sessionId}/${serial}/$deltaName3" hash="${hash(deltaBytes3).toHex}"/>
+            <delta serial="${serial - 1}" uri="http://localhost:7788/${sessionId}/${serial - 1}/$deltaName2" hash="${hash(deltaBytes2).toHex}"/>
           </notification>"""
     }
   }
@@ -455,13 +455,13 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
     Bytes(Files.readAllBytes(rsyncRootDir1.resolve("online").resolve("path1.roa"))) should be(bytes1)
 
-    pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = Some(hash(bytes1).hash), bytes2))), clientId)
+    pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = Some(hash(bytes1)), bytes2))), clientId)
     flusher.updateFS()
     waitForRrdpCleanup()
 
     Bytes(Files.readAllBytes(rsyncRootDir1.resolve("online").resolve("path1.roa"))) should be(bytes2)
 
-    pgStore.applyChanges(QueryMessage(Seq(WithdrawQ(uri1, tag = None, hash = hash(bytes2).hash))), clientId)
+    pgStore.applyChanges(QueryMessage(Seq(WithdrawQ(uri1, tag = None, hash = hash(bytes2)))), clientId)
     flusher.updateFS()
     waitForRrdpCleanup()
 
@@ -481,13 +481,13 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
     verifyExpectedDelta(sessionId, serial) {
       s"""<delta version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
-          <withdraw uri="${uri1}" hash="${hash(bytes2).hash}"/>
+          <withdraw uri="${uri1}" hash="${hash(bytes2).toHex}"/>
       </delta>"""
     }
 
     verifyExpectedNotification {
       s"""<notification version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
-            <snapshot uri="http://localhost:7788/${sessionId}/${serial}/$snapshotName" hash="${hash(Bytes(snapshotBytes)).hash}"/>
+            <snapshot uri="http://localhost:7788/${sessionId}/${serial}/$snapshotName" hash="${hash(snapshotBytes).toHex}"/>
           </notification>"""
     }
   }
@@ -523,8 +523,8 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
       verifyExpectedNotification {
         s"""<notification version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
-            <snapshot uri="http://localhost:7788/${sessionId}/${serial}/$snapshotName" hash="${hash(Bytes(snapshotBytes)).hash}"/>
-            <delta serial="${serial}" uri="http://localhost:7788/${sessionId}/${serial}/$deltaName" hash="${hash(Bytes(deltaBytes)).hash}"/>
+            <snapshot uri="http://localhost:7788/${sessionId}/${serial}/$snapshotName" hash="${hash(snapshotBytes).toHex}"/>
+            <delta serial="${serial}" uri="http://localhost:7788/${sessionId}/${serial}/$deltaName" hash="${hash(deltaBytes).toHex}"/>
           </notification>"""
       }
     }
@@ -569,13 +569,13 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
     rsyncRootDir1.resolve("online").resolve("path1.roa").toFile.exists() should be(false)
 
-    pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = Some(hash(bytes1).hash), bytes2))), clientId)
+    pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = Some(hash(bytes1)), bytes2))), clientId)
     flusher.updateFS()
     waitForRrdpCleanup()
 
     rsyncRootDir1.resolve("online").resolve("path1.roa").toFile.exists() should be(false)
 
-    pgStore.applyChanges(QueryMessage(Seq(WithdrawQ(uri1, tag = None, hash = hash(bytes2).hash))), clientId)
+    pgStore.applyChanges(QueryMessage(Seq(WithdrawQ(uri1, tag = None, hash = hash(bytes2)))), clientId)
     flusher.updateFS()
     waitForRrdpCleanup()
 
@@ -595,13 +595,13 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
     verifyExpectedDelta(sessionId, serial) {
       s"""<delta version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
-            <withdraw uri="${uri1}" hash="${hash(bytes2).hash}"/>
+            <withdraw uri="${uri1}" hash="${hash(bytes2).toHex}"/>
         </delta>"""
     }
 
     verifyExpectedNotification {
       s"""<notification version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
-            <snapshot uri="http://localhost:7788/${sessionId}/${serial}/$snapshotName" hash="${hash(Bytes(snapshotBytes)).hash}"/>
+            <snapshot uri="http://localhost:7788/${sessionId}/${serial}/$snapshotName" hash="${hash(snapshotBytes).toHex}"/>
           </notification>"""
     }
   }
@@ -624,7 +624,7 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
     Bytes(Files.readAllBytes(rsyncRootDir1.resolve("online").resolve("path1.roa"))) should be(bytes1)
 
-    pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = Some(hash(bytes1).hash), bytes2))), clientId)
+    pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = Some(hash(bytes1)), bytes2))), clientId)
     flusher.updateFS()
     waitForRrdpCleanup()
 
@@ -658,7 +658,7 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     flusher.updateFS()
     waitForRrdpCleanup()
 
-    pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = Some(hash(bytes1).hash), bytes2))), clientId)
+    pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = Some(hash(bytes1)), bytes2))), clientId)
 
     // Freeze version but do not do updateFS, as if some
     // other instance has frozen the version.
@@ -666,7 +666,7 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
       pgStore.freezeVersion
     }
 
-    pgStore.applyChanges(QueryMessage(Seq(WithdrawQ(uri1, tag = None, hash = hash(bytes2).hash))), clientId)
+    pgStore.applyChanges(QueryMessage(Seq(WithdrawQ(uri1, tag = None, hash = hash(bytes2)))), clientId)
 
     // this one should catch up and generate two deltas and modify two objects to the rsync repo
     flusher.updateFS()
@@ -688,13 +688,13 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
     verifyExpectedDelta(sessionId, serial) {
       s"""<delta version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
-            <withdraw uri="${uri1}" hash="${hash(bytes2).hash}"/>
+            <withdraw uri="${uri1}" hash="${hash(bytes2).toHex}"/>
         </delta>"""
     }
 
     verifyExpectedNotification {
       s"""<notification version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
-            <snapshot uri="http://localhost:7788/${sessionId}/${serial}/$snapshotName" hash="${hash(Bytes(snapshotBytes)).hash}"/>
+            <snapshot uri="http://localhost:7788/${sessionId}/${serial}/$snapshotName" hash="${hash(snapshotBytes).toHex}"/>
           </notification>"""
     }
   }

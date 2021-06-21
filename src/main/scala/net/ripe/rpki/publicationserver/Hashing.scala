@@ -4,7 +4,23 @@ import java.security.MessageDigest
 
 import net.ripe.rpki.publicationserver.Binaries.{Base64, Bytes}
 
-case class Hash(hash: String)
+case class Hash(private val bytes: Bytes) {
+  override def toString: String = s"${this.productPrefix}(${toHex})"
+
+  def toHex: String = Hashing.bytesToHex(bytes.value)
+  def toBytes: Array[Byte] = bytes.value
+}
+object Hash {
+  def apply(bytes: Array[Byte]): Hash = Hash(Bytes(bytes))
+
+  def fromHex(string: String): Hash = {
+    val r = new Array[Byte](string.length / 2);
+    for (i <- 0 until r.length) {
+      r(i) = (Character.digit(string(i * 2), 16) * 16 + Character.digit(string(i * 2 + 1), 16)).asInstanceOf[Byte]
+    }
+    Hash(r)
+  }
+}
 
 trait Hashing {
 
@@ -29,9 +45,10 @@ trait Hashing {
 
   def hash(bytes: Array[Byte]): Hash = {
     val sha256 = MessageDigest.getInstance("SHA-256")
-    Hash(stringify(sha256.digest(bytes)))
+    Hash(sha256.digest(bytes))
   }
 
   def hash(b64: Base64): Hash = hash(Bytes.fromBase64(b64))
   def hash(bytes: Bytes): Hash = hash(bytes.value)
 }
+object Hashing extends Hashing
