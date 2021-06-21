@@ -29,13 +29,13 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
   }
 
   def getState = DB.localTx { implicit session =>
-    sql"SELECT * FROM current_state ORDER BY url"
+    sql"SELECT hash, url, client_id, content FROM current_state ORDER BY url"
       .map { rs =>
         val hash = Hash(rs.bytes(1))
-        val uri = URI.create(rs.string(2))
+        val url = URI.create(rs.string(2))
         val clientId = ClientId(rs.string(3))
-        val bytes = Bytes.fromStream(rs.binaryStream(4))
-        uri -> (bytes, hash, clientId)
+        val content = Bytes.fromStream(rs.binaryStream(4))
+        url -> (content, hash, clientId)
       }
       .list()
       .apply()
