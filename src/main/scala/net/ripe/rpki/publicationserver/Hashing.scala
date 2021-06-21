@@ -5,6 +5,8 @@ import java.security.MessageDigest
 import net.ripe.rpki.publicationserver.Binaries.{Base64, Bytes}
 
 case class Hash(private val bytes: Bytes) {
+  require(bytes.value.length == 32, s"SHA-256 hash must have length 32, was: ${bytes.value.length}")
+
   override def toString: String = s"${this.productPrefix}(${toHex})"
 
   def toHex: String = Hashing.bytesToHex(bytes.value)
@@ -23,8 +25,6 @@ object Hash {
 }
 
 trait Hashing {
-
-  def stringify(bytes: Array[Byte]): String = Option(bytes).map(bytesToHex).getOrElse("")
 
   private val HEX_ARRAY = "0123456789abcdef".toCharArray
 
