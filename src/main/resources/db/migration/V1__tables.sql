@@ -1,7 +1,3 @@
-DROP TABLE IF EXISTS objects CASCADE;
-DROP TABLE IF EXISTS object_log CASCADE;
-DROP TABLE IF EXISTS versions CASCADE;
-
 CREATE TABLE objects
 (
     id         BIGINT  GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -54,13 +50,25 @@ CREATE TABLE versions
 CREATE UNIQUE INDEX idx_versions_session_id_serial ON versions (session_id, serial);
 
 
+CREATE TABLE change_sets (
+    id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    client_id     TEXT NOT NULL,
+    version_id    BIGINT,
+    created_at    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+
+    FOREIGN KEY (version_id) REFERENCES versions (id) ON DELETE CASCADE ON UPDATE RESTRICT
+);
+
+CREATE INDEX idx_change_sets_version_id ON change_sets (version_id);
+
+
 CREATE TABLE object_log
 (
     id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    change_set_id BIGINT NOT NULL,
     operation     TEXT   NOT NULL,
     new_object_id BIGINT,
     old_object_id BIGINT,
-    version_id    BIGINT,
     created_at    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     CHECK (CASE operation
            WHEN 'INS' THEN old_object_id IS NULL AND new_object_id IS NOT NULL
@@ -69,11 +77,11 @@ CREATE TABLE object_log
            ELSE FALSE
            END
         ),
+    FOREIGN KEY (change_set_id) REFERENCES change_sets (id) ON DELETE CASCADE ON UPDATE RESTRICT,
     FOREIGN KEY (new_object_id) REFERENCES objects (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
-    FOREIGN KEY (old_object_id) REFERENCES objects (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
-    FOREIGN KEY (version_id) REFERENCES versions (id) ON DELETE CASCADE ON UPDATE RESTRICT
+    FOREIGN KEY (old_object_id) REFERENCES objects (id) ON DELETE RESTRICT ON UPDATE RESTRICT
 );
 
 CREATE INDEX idx_object_log_new_object_id ON object_log (new_object_id) WHERE new_object_id IS NOT NULL;
 CREATE INDEX idx_object_log_old_object_id ON object_log (old_object_id) WHERE old_object_id IS NOT NULL;
-CREATE INDEX idx_object_log_version_id ON object_log (version_id);
+CREATE INDEX idx_object_log_change_set_id ON object_log (change_set_id);

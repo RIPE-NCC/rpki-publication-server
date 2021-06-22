@@ -25,6 +25,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
   def clear(): Unit = DB.localTx { implicit session =>
     sql"DELETE FROM object_log".update().apply()
     sql"DELETE FROM objects".update().apply()
+    sql"DELETE FROM change_sets".update().apply()
     sql"DELETE FROM versions".update().apply()
   }
 
@@ -170,15 +171,23 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
       // (which most often is the CA owning the objects)
       sql"SELECT acquire_client_id_lock(${clientId.value})".execute().apply()
 
+      val changeSetId = sql"INSERT INTO change_sets (client_id) VALUES (${clientId.value}) RETURNING id"
+        .map(_.long(1))
+        .single()
+        .apply()
+        .getOrElse {
+          throw RollbackException(BaseError("other_error", "database update failure"))
+        }
+
       changeSet.pdus.foreach {
         case PublishQ(uri, _, None, Bytes(bytes)) =>
           executeSql(
-            sql"SELECT create_object(${bytes},  ${uri.toString}, ${clientId.value})",
+            sql"SELECT create_object(${changeSetId}, ${bytes},  ${uri.toString}, ${clientId.value})",
             metrics.publishedObject(),
             metrics.failedToAdd())
         case PublishQ(uri, _, Some(oldHash), Bytes(bytes)) =>
           executeSql(
-            sql"SELECT replace_object(${bytes}, ${oldHash}, ${uri.toString}, ${clientId.value})",
+            sql"SELECT replace_object(${changeSetId}, ${bytes}, ${oldHash}, ${uri.toString}, ${clientId.value})",
             {
               metrics.withdrawnObject()
               metrics.publishedObject()
@@ -186,7 +195,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
             metrics.failedToReplace())
         case WithdrawQ(uri, _, hash) =>
           executeSql(
-            sql"SELECT delete_object(${uri.toString}, ${hash}, ${clientId.value})",
+            sql"SELECT delete_object(${changeSetId}, ${uri.toString}, ${hash}, ${clientId.value})",
             metrics.withdrawnObject(),
             metrics.failedToDelete())
       }
