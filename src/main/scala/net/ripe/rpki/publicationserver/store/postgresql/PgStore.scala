@@ -161,6 +161,10 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
       }
     }
 
+    if (changeSet.pdus.isEmpty) {
+      return
+    }
+
     inRepeatableReadTx { implicit session =>
       // Apply all modification while holding a lock on the client ID
       // (which most often is the CA owning the objects)
