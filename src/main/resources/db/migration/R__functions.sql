@@ -41,7 +41,8 @@ $$ LANGUAGE SQL;
 -- BaseError object in the Scala code.
 --
 -- Error codes are defined by the RFC (https://tools.ietf.org/html/rfc8181#page-9)
-CREATE OR REPLACE FUNCTION create_object(bytes_ BYTEA,
+CREATE OR REPLACE FUNCTION create_object(change_set_id_ BIGINT,
+                                         bytes_ BYTEA,
                                          url_ TEXT,
                                          client_id_ TEXT) RETURNS JSON AS
 $body$
@@ -65,8 +66,8 @@ BEGIN
         SELECT *
         FROM merge_object(bytes_, hash_, url_, client_id_)
     )
-    INSERT INTO object_log (operation, new_object_id)
-    SELECT 'INS', z.id
+    INSERT INTO object_log (operation, change_set_id, new_object_id)
+    SELECT 'INS', change_set_id_, z.id
     FROM merged_object AS z;
 
     RETURN NULL;
@@ -82,7 +83,8 @@ $body$
 -- BaseError object in the Scala code.
 --
 -- Error codes are defined by the RFC (https://tools.ietf.org/html/rfc8181#page-9)
-CREATE OR REPLACE FUNCTION replace_object(bytes_ BYTEA,
+CREATE OR REPLACE FUNCTION replace_object(change_set_id_ BIGINT,
+                                          bytes_ BYTEA,
                                           hash_to_replace TEXT,
                                           url_ TEXT,
                                           client_id_ TEXT) RETURNS JSON AS
@@ -126,8 +128,8 @@ BEGIN
         SELECT *
         FROM merge_object(bytes_, hash_, url_, client_id_)
     )
-    INSERT INTO object_log (operation, new_object_id, old_object_id)
-    SELECT 'UPD', n.id, d.id
+    INSERT INTO object_log (operation, change_set_id, new_object_id, old_object_id)
+    SELECT 'UPD', change_set_id_, n.id, d.id
     FROM merged_object AS n, deleted_object AS d;
 
     RETURN NULL;
@@ -142,7 +144,8 @@ $body$
 -- BaseError object in the Scala code.
 --
 -- Error codes are defined by the RFC (https://tools.ietf.org/html/rfc8181#page-9)
-CREATE OR REPLACE FUNCTION delete_object(url_ TEXT,
+CREATE OR REPLACE FUNCTION delete_object(change_set_id_ BIGINT,
+                                         url_ TEXT,
                                          hash_to_delete TEXT,
                                          client_id_ TEXT) RETURNS JSON AS
 $body$
@@ -178,8 +181,8 @@ BEGIN
         WHERE hash = LOWER(hash_to_delete)
         RETURNING id
     )
-    INSERT INTO object_log(operation, old_object_id)
-    SELECT 'DEL', id
+    INSERT INTO object_log(operation, change_set_id, old_object_id)
+    SELECT 'DEL', change_set_id_, id
     FROM deleted_object;
 
     RETURN NULL;
@@ -203,7 +206,7 @@ ORDER BY url;
 CREATE OR REPLACE VIEW current_log AS
 SELECT
     ol.id,
-    ol.version_id,
+    cs.version_id,
     operation,
     CASE operation
         WHEN 'DEL' THEN old_o.url
@@ -221,6 +224,7 @@ SELECT
         WHEN 'UPD' THEN new_o.content
     END AS content
 FROM object_log ol
+JOIN change_sets cs ON ol.change_set_id = cs.id
 LEFT JOIN objects old_o ON old_o.id = ol.old_object_id
 LEFT JOIN objects new_o ON new_o.id = ol.new_object_id
 ORDER BY id ASC;
@@ -291,7 +295,7 @@ BEGIN
         RETURNING id INTO STRICT new_version_id_;
     END IF;
 
-    UPDATE object_log
+    UPDATE change_sets
        SET version_id = new_version_id_
      WHERE version_id IS NULL;
 
@@ -302,12 +306,12 @@ $body$
 
 
 
--- Returns if there's any entry in the object_log table since
+-- Returns if there's any entry in the change_sets table since
 -- the last frozen version.
 CREATE OR REPLACE FUNCTION changes_exist() RETURNS BOOLEAN AS
 $body$
 BEGIN
-    RETURN EXISTS(SELECT * FROM object_log WHERE version_id IS NULL);
+    RETURN EXISTS(SELECT * FROM change_sets WHERE version_id IS NULL);
 END
 $body$
     LANGUAGE plpgsql;
