@@ -30,8 +30,8 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
     )), clientId)
 
     pgStore.getState should be(Map(
-      uri1 -> (bytes1, hash(bytes1), clientId),
-      uri2 -> (bytes2, hash(bytes2), clientId)
+      uri1 -> (bytes1, hashOf(bytes1), clientId),
+      uri2 -> (bytes2, hashOf(bytes2), clientId)
     ))
 
     pgStore.getLog should be(Seq(
@@ -62,7 +62,7 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
     }
 
     pgStore.getState should be(Map(
-      uri1 -> (bytes1, hash(bytes1), clientId)
+      uri1 -> (bytes1, hashOf(bytes1), clientId)
     ))
 
     pgStore.getLog should be(Seq(
@@ -79,11 +79,11 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
 
     pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = None, bytes1))), clientId)
 
-    val hash1 = hash(bytes1)
-    pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, Some(hash1.hash), bytes2))), clientId)
+    val hash1 = hashOf(bytes1)
+    pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, Some(hash1), bytes2))), clientId)
 
     pgStore.getState should be(Map(
-      uri1 -> (bytes2, hash(bytes2), clientId)
+      uri1 -> (bytes2, hashOf(bytes2), clientId)
     ))
 
     pgStore.getLog should be(Seq(
@@ -99,14 +99,14 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
     val (bytes1, _) = TestBinaries.generateObject(1000)
     val (bytes2, _) = TestBinaries.generateObject(500)
 
-    val hash1 = hash(bytes1)
+    val hash1 = hashOf(bytes1)
     pgStore.applyChanges(QueryMessage(Seq(
       PublishQ(uri1, tag = None, hash = None, bytes1),
-      PublishQ(uri1, tag = None, Some(hash1.hash), bytes2)
+      PublishQ(uri1, tag = None, Some(hash1), bytes2)
     )), clientId)
 
     pgStore.getState should be(Map(
-      uri1 -> (bytes2, hash(bytes2), clientId)
+      uri1 -> (bytes2, hashOf(bytes2), clientId)
     ))
 
     pgStore.getLog should be(Seq(
@@ -126,7 +126,7 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
     pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = None, bytes1))), clientId1)
 
     try {
-      pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, Some(hash(bytes1).hash), bytes2))), clientId2)
+      pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, Some(hashOf(bytes1)), bytes2))), clientId2)
       fail()
     } catch {
       case RollbackException(e) =>
@@ -135,7 +135,7 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
     }
 
     pgStore.getState should be(Map(
-      uri1 -> (bytes1, hash(bytes1), clientId1)
+      uri1 -> (bytes1, hashOf(bytes1), clientId1)
     ))
 
     pgStore.getLog should be(Seq(
@@ -154,9 +154,9 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
 
     pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = None, bytes1))), clientId)
 
-    val wrongHash = hash(bytes2)
+    val wrongHash = hashOf(bytes2)
     try {
-      pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri2, tag = None, Some(wrongHash.hash), bytes2))), clientId)
+      pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri2, tag = None, Some(wrongHash), bytes2))), clientId)
       fail()
     } catch {
       case RollbackException(e) =>
@@ -165,7 +165,7 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
     }
 
     pgStore.getState should be(Map(
-      uri1 -> (bytes1, hash(bytes1), clientId)
+      uri1 -> (bytes1, hashOf(bytes1), clientId)
     ))
 
     pgStore.getLog should be(Seq(
@@ -182,19 +182,19 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
 
     pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = None, bytes1))), clientId)
 
-    val wrongHash = hash(bytes2)
+    val wrongHash = hashOf(bytes2)
     try {
-      pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, Some(wrongHash.hash), bytes2))), clientId)
+      pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, Some(wrongHash), bytes2))), clientId)
       fail()
     } catch {
       case RollbackException(e) =>
         e.code should be ("no_object_matching_hash")
         e.message should be (s"Cannot republish the object [$uri1], hash doesn't match, " +
-            s"passed ${wrongHash.hash}, but existing one is ${hash(bytes1).hash}")
+            s"passed ${wrongHash.toHex}, but existing one is ${hashOf(bytes1).toHex}")
     }
 
     pgStore.getState should be(Map(
-      uri1 -> (bytes1, hash(bytes1), clientId)
+      uri1 -> (bytes1, hashOf(bytes1), clientId)
     ))
 
     pgStore.getLog should be(Seq(
@@ -210,8 +210,8 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
 
     pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = None, bytes1))), clientId)
 
-    val hash1 = hash(bytes1)
-    pgStore.applyChanges(QueryMessage(Seq(WithdrawQ(uri1, tag = None, hash1.hash))), clientId)
+    val hash1 = hashOf(bytes1)
+    pgStore.applyChanges(QueryMessage(Seq(WithdrawQ(uri1, tag = None, hash1))), clientId)
 
     pgStore.getState should be(Map())
 
@@ -227,10 +227,10 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
     val uri1 = new URI(urlPrefix1 + "/path1")
     val (bytes1, _) = TestBinaries.generateObject(1000)
 
-    val hash1 = hash(bytes1)
+    val hash1 = hashOf(bytes1)
     pgStore.applyChanges(QueryMessage(Seq(
       PublishQ(uri1, tag = None, hash = None, bytes1),
-      WithdrawQ(uri1, tag = None, hash1.hash)
+      WithdrawQ(uri1, tag = None, hash1)
     )), clientId)
 
     pgStore.getState should be(Map())
@@ -250,9 +250,9 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
 
     pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = None, bytes1))), clientId1)
 
-    val hash1 = hash(bytes1)
+    val hash1 = hashOf(bytes1)
     try {
-      pgStore.applyChanges(QueryMessage(Seq(WithdrawQ(uri1, tag = None, hash1.hash))), clientId2)
+      pgStore.applyChanges(QueryMessage(Seq(WithdrawQ(uri1, tag = None, hash1))), clientId2)
       fail()
     } catch {
       case RollbackException(e) =>
@@ -261,7 +261,7 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
     }
 
     pgStore.getState should be(Map(
-      uri1 -> (bytes1, hash(bytes1), clientId1)
+      uri1 -> (bytes1, hashOf(bytes1), clientId1)
     ))
 
     pgStore.getLog should be(Seq(
@@ -279,9 +279,9 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
 
     pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = None, bytes1))), clientId1)
 
-    val hash1 = hash(bytes1)
+    val hash1 = hashOf(bytes1)
     try {
-      pgStore.applyChanges(QueryMessage(Seq(WithdrawQ(uri2, tag = None, hash1.hash))), clientId1)
+      pgStore.applyChanges(QueryMessage(Seq(WithdrawQ(uri2, tag = None, hash1))), clientId1)
       fail()
     } catch {
       case RollbackException(e) =>
@@ -290,7 +290,7 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
     }
 
     pgStore.getState should be(Map(
-      uri1 -> (bytes1, hash(bytes1), clientId1)
+      uri1 -> (bytes1, hashOf(bytes1), clientId1)
     ))
 
     pgStore.getLog should be(Seq(
@@ -308,19 +308,19 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
 
     pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = None, bytes1))), clientId1)
 
-    val wrongHash = hash(bytes2)
+    val wrongHash = hashOf(bytes2)
     try {
-      pgStore.applyChanges(QueryMessage(Seq(WithdrawQ(uri1, tag = None, wrongHash.hash))), clientId2)
+      pgStore.applyChanges(QueryMessage(Seq(WithdrawQ(uri1, tag = None, wrongHash))), clientId2)
       fail()
     } catch {
       case RollbackException(e) =>
         e.code should be ("no_object_matching_hash")
         e.message should be (s"Cannot withdraw the object [$uri1], hash does not match, " +
-            s"passed ${wrongHash.hash}, but existing one is ${hash(bytes1).hash}.")
+            s"passed ${wrongHash.toHex}, but existing one is ${hashOf(bytes1).toHex}.")
     }
 
     pgStore.getState should be(Map(
-      uri1 -> (bytes1, hash(bytes1), clientId1)
+      uri1 -> (bytes1, hashOf(bytes1), clientId1)
     ))
 
     pgStore.getLog should be(Seq(

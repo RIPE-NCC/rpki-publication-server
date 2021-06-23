@@ -244,10 +244,10 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
   def writeNotification(sessionId: String, serial: Long, snapshotHash: Hash, snapshotFileName: String, deltas: Seq[(Long, Hash, String)], stream: HashingSizedStream) = {
     IOStream.string(s"""<notification version="1" session_id="$sessionId" serial="$serial" xmlns="http://www.ripe.net/rpki/rrdp">\n""", stream)
     val snapshotUrl = conf.snapshotUrl(sessionId, serial, snapshotFileName)
-    IOStream.string(s"""  <snapshot uri="$snapshotUrl" hash="${snapshotHash.hash}"/>\n""", stream)
+    IOStream.string(s"""  <snapshot uri="$snapshotUrl" hash="${snapshotHash.toHex}"/>\n""", stream)
     deltas.foreach { case (deltaSerial, deltaHash, deltaFileName) =>
       val deltaUrl = conf.deltaUrl(sessionId, deltaSerial, deltaFileName)
-      IOStream.string(s"""  <delta serial="$deltaSerial" uri="${deltaUrl}" hash="${deltaHash.hash}"/>\n""", stream)
+      IOStream.string(s"""  <delta serial="$deltaSerial" uri="${deltaUrl}" hash="${deltaHash.toHex}"/>\n""", stream)
     }
     IOStream.string("</notification>", stream)
   }
@@ -296,12 +296,12 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
     (operation, oldHash, bytes) match {
       case ("INS", None, Some(bytes)) =>
         writePublish(uri, bytes, stream)
-      case ("UPD", Some(Hash(hash)), Some(bytes)) =>
-        IOStream.string(s"""<publish uri="${attr(uri.toASCIIString)}" hash="$hash">""", stream)
+      case ("UPD", Some(hash), Some(bytes)) =>
+        IOStream.string(s"""<publish uri="${attr(uri.toASCIIString)}" hash="${hash.toHex}">""", stream)
         IOStream.string(Bytes.toBase64(bytes).value, stream)
         IOStream.string("</publish>\n", stream)
-      case ("DEL", Some(Hash(hash)), None) =>
-        IOStream.string(s"""<withdraw uri="${attr(uri.toASCIIString)}" hash="$hash"/>\n""", stream)
+      case ("DEL", Some(hash), None) =>
+        IOStream.string(s"""<withdraw uri="${attr(uri.toASCIIString)}" hash="${hash.toHex}"/>\n""", stream)
       case anythingElse =>
         logger.error(s"Log contains invalid row $anythingElse")
     }

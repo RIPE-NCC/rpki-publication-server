@@ -15,7 +15,7 @@ class HashingSizedStream(val os: OutputStream) extends Hashing {
     os.write(bytes)
   }
 
-  def summary = (Hash(bytesToHex(digest.digest())), size)
+  def summary = (Hash(digest.digest()), size)
 
   def flush() = os.flush()
 
