@@ -203,6 +203,7 @@ ORDER BY url;
 CREATE OR REPLACE VIEW current_log AS
 SELECT
     ol.id,
+    ol.version_id,
     operation,
     CASE operation
         WHEN 'DEL' THEN old_o.url
@@ -228,38 +229,13 @@ ORDER BY id ASC;
 CREATE OR REPLACE FUNCTION read_delta(session_id_ TEXT, serial_ BIGINT)
     RETURNS SETOF current_log AS
 $body$
-DECLARE
-    last_log_entry_id_     BIGINT;
-    previous_log_entry_id_ BIGINT;
 BEGIN
-    -- get the last log entry pointer for the current serial
-    SELECT last_log_entry_id
-    INTO last_log_entry_id_
-    FROM versions
-    WHERE session_id = session_id_
-      AND serial = serial_;
-
-    -- get the last log entry pointer for the previous serial
-    SELECT last_log_entry_id
-    INTO previous_log_entry_id_
-    FROM versions
-    WHERE session_id = session_id_
-      AND serial < serial_
-    ORDER BY serial DESC
-    LIMIT 1;
-
-    IF NOT FOUND THEN
-        previous_log_entry_id_ = 0;
-    END IF;
-
-    -- objects related to the current delta serial are the ones
-    -- with id between last_log_entry_id of this serial and
-    -- last_log_entry_id of the previous serial, i.e. previous_log_entry_id_
-    RETURN QUERY SELECT *
-                 FROM current_log
-                 WHERE id <= last_log_entry_id_
-                   AND id > previous_log_entry_id_
-                 ORDER BY url ASC;
+    RETURN QUERY SELECT current_log.*
+                   FROM current_log
+                   JOIN versions ON current_log.version_id = versions.id
+                  WHERE versions.session_id = session_id_
+                    AND versions.serial = serial_
+                  ORDER BY url ASC;
 END
 $body$
     LANGUAGE plpgsql;
@@ -294,46 +270,32 @@ ORDER BY z.id DESC;
 -- or generate a new session id if the table is empty.
 CREATE OR REPLACE FUNCTION freeze_version() RETURNS SETOF versions AS
 $body$
+DECLARE
+    current_session_id_ TEXT;
+    current_serial_     BIGINT;
+    new_version_id_     BIGINT;
 BEGIN
     PERFORM lock_versions();
 
-    IF EXISTS(SELECT * FROM versions) THEN
-        -- create a new session-id+serial entry only in case there are
-        -- new entries in the log since the last session-id+serial.
-        -- (if there's anything new in the object_log)
-        WITH previous_version AS (
-            SELECT id, session_id, serial, last_log_entry_id
-            FROM latest_version
-        )
-        INSERT
-        INTO versions (session_id, serial, last_log_entry_id)
-        SELECT v.session_id, v.serial + 1, ol.id
-        FROM object_log ol,
-             previous_version v
-        WHERE ol.id > v.last_log_entry_id
-        ORDER BY ol.id DESC
-        LIMIT 1;
-    ELSEIF EXISTS(SELECT * FROM object_log) THEN
-        -- create a new version entry from object_log
-        -- (if there's anything new in the object_log)
-        INSERT INTO versions (session_id, serial, last_log_entry_id)
-        SELECT uuid_in(md5(random()::TEXT || clock_timestamp()::TEXT)::CSTRING), 1, id
-        FROM object_log
-        ORDER BY id DESC
-        LIMIT 1;
-    ELSE
-        -- this can happen on a completely empty database, no object_log, no versions
-        -- just initialise with something reasonable.
-        INSERT INTO versions (session_id, serial, last_log_entry_id)
-        VALUES (uuid_in(md5(random()::TEXT || clock_timestamp()::TEXT)::CSTRING), 1, 0);
+    SELECT session_id, serial
+      INTO current_session_id_, current_serial_
+      FROM latest_version;
 
+    IF NOT FOUND THEN
+        INSERT INTO versions (session_id, serial)
+        VALUES (uuid_in(md5(random()::TEXT || clock_timestamp()::TEXT)::CSTRING), 1)
+        RETURNING id INTO STRICT new_version_id_;
+    ELSEIF changes_exist() THEN
+        INSERT INTO versions (session_id, serial)
+        VALUES (current_session_id_, current_serial_ + 1)
+        RETURNING id INTO STRICT new_version_id_;
     END IF;
 
-    RETURN QUERY
-        SELECT *
-        FROM versions
-        ORDER BY id DESC
-        LIMIT 1;
+    UPDATE object_log
+       SET version_id = new_version_id_
+     WHERE version_id IS NULL;
+
+    RETURN QUERY SELECT * FROM latest_version;
 END
 $body$
     LANGUAGE plpgsql;
@@ -345,18 +307,7 @@ $body$
 CREATE OR REPLACE FUNCTION changes_exist() RETURNS BOOLEAN AS
 $body$
 BEGIN
-    IF (EXISTS(SELECT * FROM versions)) THEN
-        RETURN (
-            -- force index backwards scan by using MAX instead of EXISTS
-            SELECT MAX(id) IS NOT NULL
-            FROM object_log
-            WHERE id > (
-                SELECT last_log_entry_id FROM latest_version
-                )
-            );
-    ELSE
-        RETURN EXISTS(SELECT * FROM object_log);
-    END IF;
+    RETURN EXISTS(SELECT * FROM object_log WHERE version_id IS NULL);
 END
 $body$
     LANGUAGE plpgsql;
@@ -375,14 +326,6 @@ WITH deleted_versions AS (
              WHERE NOT EXISTS (SELECT * FROM reasonable_deltas d WHERE d.id = versions.id)
                AND NOT EXISTS (SELECT * FROM latest_version lv WHERE lv.id = versions.id)
              RETURNING *
-     ),
-     deleted_log AS (
-         DELETE FROM object_log
-             WHERE id <= (
-                     SELECT MAX(last_log_entry_id)
-                     FROM deleted_versions
-                 )
-             RETURNING id
      ),
      deleted_objects AS (
          DELETE FROM objects o

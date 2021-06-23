@@ -2,7 +2,7 @@ package net.ripe.rpki.publicationserver
 
 import java.net.InetAddress
 
-import net.ripe.rpki.publicationserver.store.postresql.PgStore
+import net.ripe.rpki.publicationserver.store.postgresql.PgStore
 import spray.json._
 
 import scala.util.Try

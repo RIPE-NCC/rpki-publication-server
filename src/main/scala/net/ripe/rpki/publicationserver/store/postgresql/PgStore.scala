@@ -1,4 +1,4 @@
-package net.ripe.rpki.publicationserver.store.postresql
+package net.ripe.rpki.publicationserver.store.postgresql
 
 import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver._
@@ -159,6 +159,10 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
           val error = parse(json).extract[BaseError]
           throw RollbackException(error)
       }
+    }
+
+    if (changeSet.pdus.isEmpty) {
+      return
     }
 
     inRepeatableReadTx { implicit session =>

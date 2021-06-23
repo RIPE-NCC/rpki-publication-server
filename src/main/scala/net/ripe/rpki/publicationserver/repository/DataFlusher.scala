@@ -5,7 +5,7 @@ import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.fs.{Rrdp, RrdpRepositoryWriter, RsyncRepositoryWriter}
 import net.ripe.rpki.publicationserver.model.INITIAL_SERIAL
-import net.ripe.rpki.publicationserver.store.postresql.PgStore
+import net.ripe.rpki.publicationserver.store.postgresql.PgStore
 import net.ripe.rpki.publicationserver.util.Time
 import scalikejdbc.DBSession
 
