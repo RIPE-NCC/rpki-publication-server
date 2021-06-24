@@ -51,7 +51,7 @@ CREATE TABLE versions
         )
 );
 
-CREATE UNIQUE INDEX idx_versions_session_id_serial ON versions (session_id, serial);
+CREATE UNIQUE INDEX idx_versions_session_id_serial ON versions (session_id ASC, serial DESC);
 
 
 CREATE TABLE object_log

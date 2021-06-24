@@ -254,14 +254,14 @@ CREATE OR REPLACE VIEW latest_version AS
 CREATE OR REPLACE VIEW reasonable_deltas AS
 SELECT z.*
 FROM (SELECT v.*,
-             SUM(delta_size) OVER (PARTITION BY session_id ORDER BY id DESC) AS total_delta_size
+             CAST(SUM(delta_size) OVER (PARTITION BY session_id ORDER BY serial DESC) AS BIGINT) AS total_delta_size
       FROM versions v
      ) AS z,
      latest_version
 WHERE z.session_id = latest_version.session_id
 AND total_delta_size <= latest_version.snapshot_size
 AND z.delta_hash IS NOT NULL
-ORDER BY z.id DESC;
+ORDER BY z.serial DESC;
 
 
 -- Create another entry in the versions table, either the
