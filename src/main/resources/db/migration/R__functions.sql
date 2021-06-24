@@ -23,12 +23,12 @@ $$ LANGUAGE SQL;
 -- Reusable part of both create and replace an object in the 'objects' table.
 --
 CREATE OR REPLACE FUNCTION merge_object(bytes_ BYTEA,
-                                        hash_ TEXT,
+                                        hash_ BYTEA,
                                         url_ TEXT,
                                         client_id_ TEXT) RETURNS SETOF objects AS
 $$
     INSERT INTO objects (hash, content, url, client_id)
-         VALUES (LOWER(hash_), bytes_, url_, client_id_)
+         VALUES (hash_, bytes_, url_, client_id_)
     ON CONFLICT (hash) DO UPDATE
             SET deleted_at = NULL
       RETURNING *;
@@ -46,15 +46,14 @@ CREATE OR REPLACE FUNCTION create_object(bytes_ BYTEA,
                                          client_id_ TEXT) RETURNS JSON AS
 $body$
 DECLARE
-    hash_ CHAR(64);
+    hash_ BYTEA;
 BEGIN
-
     IF EXISTS (SELECT * FROM live_objects WHERE url = url_) THEN
         RETURN json_build_object('code', 'object_already_present', 'message',
                                  format('An object is already present at this URI [%s].', url_));
     END IF;
 
-    SELECT LOWER(encode(sha256(bytes_), 'hex')) INTO hash_;
+    SELECT sha256(bytes_) INTO hash_;
 
     IF EXISTS (SELECT * FROM live_objects WHERE hash = hash_) THEN
         RETURN json_build_object('code', 'object_already_present', 'message',
@@ -83,15 +82,15 @@ $body$
 --
 -- Error codes are defined by the RFC (https://tools.ietf.org/html/rfc8181#page-9)
 CREATE OR REPLACE FUNCTION replace_object(bytes_ BYTEA,
-                                          hash_to_replace TEXT,
+                                          hash_to_replace BYTEA,
                                           url_ TEXT,
                                           client_id_ TEXT) RETURNS JSON AS
 $body$
 DECLARE
     existing_object_id BIGINT;
     existing_client_id TEXT;
-    hash_              CHAR(64);
-    existing_hash      CHAR(64);
+    hash_              BYTEA;
+    existing_hash      BYTEA;
 BEGIN
 
     SELECT hash, id, client_id
@@ -104,10 +103,10 @@ BEGIN
                                  format('There is no object present at this URI [%s].', url_));
     END IF;
 
-    IF existing_hash <> LOWER(hash_to_replace) THEN
+    IF existing_hash <> hash_to_replace THEN
         RETURN json_build_object('code', 'no_object_matching_hash', 'message',
                                  format('Cannot republish the object [%s], hash doesn''t match, passed %s, but existing one is %s',
-                                    url_, LOWER(hash_to_replace), existing_hash));
+                                    url_, ENCODE(hash_to_replace, 'hex'), ENCODE(existing_hash, 'hex')));
     END IF;
 
     IF existing_client_id <> client_id_ THEN
@@ -115,11 +114,11 @@ BEGIN
                                  format('Not allowed to update an object of another client: [%s].', url_));
     END IF;
 
-    SELECT LOWER(encode(sha256(bytes_), 'hex')) INTO hash_;
+    SELECT sha256(bytes_) INTO hash_;
 
     WITH deleted_object AS (
         UPDATE objects SET deleted_at = NOW()
-        WHERE hash = LOWER(hash_to_replace)
+        WHERE hash = hash_to_replace
         RETURNING id
     ),
      merged_object AS (
@@ -143,13 +142,13 @@ $body$
 --
 -- Error codes are defined by the RFC (https://tools.ietf.org/html/rfc8181#page-9)
 CREATE OR REPLACE FUNCTION delete_object(url_ TEXT,
-                                         hash_to_delete TEXT,
+                                         hash_to_delete BYTEA,
                                          client_id_ TEXT) RETURNS JSON AS
 $body$
 DECLARE
     existing_object_id BIGINT;
     existing_client_id TEXT;
-    existing_hash      CHAR(64);
+    existing_hash      BYTEA;
 BEGIN
 
     SELECT hash, id, client_id
@@ -162,10 +161,10 @@ BEGIN
                                  format('There is no object present at this URI [%s].', url_));
     END IF;
 
-    IF existing_hash <> LOWER(hash_to_delete) THEN
+    IF existing_hash <> hash_to_delete THEN
         RETURN json_build_object('code', 'no_object_matching_hash', 'message',
                                  format('Cannot withdraw the object [%s], hash does not match, ' ||
-                                 'passed %s, but existing one is %s.', url_, LOWER(hash_to_delete), existing_hash));
+                                 'passed %s, but existing one is %s.', url_, ENCODE(hash_to_delete, 'hex'), ENCODE(existing_hash, 'hex')));
     END IF;
 
     IF existing_client_id <> client_id_ THEN
@@ -175,7 +174,7 @@ BEGIN
 
     WITH deleted_object AS (
         UPDATE objects SET deleted_at = NOW()
-        WHERE hash = LOWER(hash_to_delete)
+        WHERE hash = hash_to_delete
         RETURNING id
     )
     INSERT INTO object_log(operation, old_object_id)
@@ -203,6 +202,7 @@ ORDER BY url;
 CREATE OR REPLACE VIEW current_log AS
 SELECT
     ol.id,
+    ol.version_id,
     operation,
     CASE operation
         WHEN 'DEL' THEN old_o.url
@@ -228,38 +228,13 @@ ORDER BY id ASC;
 CREATE OR REPLACE FUNCTION read_delta(session_id_ TEXT, serial_ BIGINT)
     RETURNS SETOF current_log AS
 $body$
-DECLARE
-    last_log_entry_id_     BIGINT;
-    previous_log_entry_id_ BIGINT;
 BEGIN
-    -- get the last log entry pointer for the current serial
-    SELECT last_log_entry_id
-    INTO last_log_entry_id_
-    FROM versions
-    WHERE session_id = session_id_
-      AND serial = serial_;
-
-    -- get the last log entry pointer for the previous serial
-    SELECT last_log_entry_id
-    INTO previous_log_entry_id_
-    FROM versions
-    WHERE session_id = session_id_
-      AND serial < serial_
-    ORDER BY serial DESC
-    LIMIT 1;
-
-    IF NOT FOUND THEN
-        previous_log_entry_id_ = 0;
-    END IF;
-
-    -- objects related to the current delta serial are the ones
-    -- with id between last_log_entry_id of this serial and
-    -- last_log_entry_id of the previous serial, i.e. previous_log_entry_id_
-    RETURN QUERY SELECT *
-                 FROM current_log
-                 WHERE id <= last_log_entry_id_
-                   AND id > previous_log_entry_id_
-                 ORDER BY url ASC;
+    RETURN QUERY SELECT current_log.*
+                   FROM current_log
+                   JOIN versions ON current_log.version_id = versions.id
+                  WHERE versions.session_id = session_id_
+                    AND versions.serial = serial_
+                  ORDER BY url ASC;
 END
 $body$
     LANGUAGE plpgsql;
@@ -294,48 +269,32 @@ ORDER BY z.id DESC;
 -- or generate a new session id if the table is empty.
 CREATE OR REPLACE FUNCTION freeze_version() RETURNS SETOF versions AS
 $body$
+DECLARE
+    current_session_id_ TEXT;
+    current_serial_     BIGINT;
+    new_version_id_     BIGINT;
 BEGIN
-    -- NOTE This one is safe from race conditions only if
-    -- lock_versions is called before in the same transaction.
     PERFORM lock_versions();
 
-    IF EXISTS(SELECT * FROM versions) THEN
-        -- create a new session-id+serial entry only in case there are
-        -- new entries in the log since the last session-id+serial.
-        -- (if there's anything new in the object_log)
-        WITH previous_version AS (
-            SELECT id, session_id, serial, last_log_entry_id
-            FROM latest_version
-        )
-        INSERT
-        INTO versions (session_id, serial, last_log_entry_id)
-        SELECT v.session_id, v.serial + 1, ol.id
-        FROM object_log ol,
-             previous_version v
-        WHERE ol.id > v.last_log_entry_id
-        ORDER BY ol.id DESC
-        LIMIT 1;
-    ELSEIF EXISTS(SELECT * FROM object_log) THEN
-        -- create a new version entry from object_log
-        -- (if there's anything new in the object_log)
-        INSERT INTO versions (session_id, serial, last_log_entry_id)
-        SELECT uuid_in(md5(random()::TEXT || clock_timestamp()::TEXT)::CSTRING), 1, id
-        FROM object_log
-        ORDER BY id DESC
-        LIMIT 1;
-    ELSE
-        -- this can happen on a completely empty database, no object_log, no versions
-        -- just initialise with something reasonable.
-        INSERT INTO versions (session_id, serial, last_log_entry_id)
-        VALUES (uuid_in(md5(random()::TEXT || clock_timestamp()::TEXT)::CSTRING), 1, 0);
+    SELECT session_id, serial
+      INTO current_session_id_, current_serial_
+      FROM latest_version;
 
+    IF NOT FOUND THEN
+        INSERT INTO versions (session_id, serial)
+        VALUES (uuid_in(md5(random()::TEXT || clock_timestamp()::TEXT)::CSTRING), 1)
+        RETURNING id INTO STRICT new_version_id_;
+    ELSEIF changes_exist() THEN
+        INSERT INTO versions (session_id, serial)
+        VALUES (current_session_id_, current_serial_ + 1)
+        RETURNING id INTO STRICT new_version_id_;
     END IF;
 
-    RETURN QUERY
-        SELECT *
-        FROM versions
-        ORDER BY id DESC
-        LIMIT 1;
+    UPDATE object_log
+       SET version_id = new_version_id_
+     WHERE version_id IS NULL;
+
+    RETURN QUERY SELECT * FROM latest_version;
 END
 $body$
     LANGUAGE plpgsql;
@@ -347,18 +306,7 @@ $body$
 CREATE OR REPLACE FUNCTION changes_exist() RETURNS BOOLEAN AS
 $body$
 BEGIN
-    IF (EXISTS(SELECT * FROM versions)) THEN
-        RETURN (
-            -- force index backwards scan by using MAX instead of EXISTS
-            SELECT MAX(id) IS NOT NULL
-            FROM object_log
-            WHERE id > (
-                SELECT last_log_entry_id FROM latest_version
-                )
-            );
-    ELSE
-        RETURN EXISTS(SELECT * FROM object_log);
-    END IF;
+    RETURN EXISTS(SELECT * FROM object_log WHERE version_id IS NULL);
 END
 $body$
     LANGUAGE plpgsql;
@@ -377,14 +325,6 @@ WITH deleted_versions AS (
              WHERE NOT EXISTS (SELECT * FROM reasonable_deltas d WHERE d.id = versions.id)
                AND NOT EXISTS (SELECT * FROM latest_version lv WHERE lv.id = versions.id)
              RETURNING *
-     ),
-     deleted_log AS (
-         DELETE FROM object_log
-             WHERE id <= (
-                     SELECT MAX(last_log_entry_id)
-                     FROM deleted_versions
-                 )
-             RETURNING id
      ),
      deleted_objects AS (
          DELETE FROM objects o

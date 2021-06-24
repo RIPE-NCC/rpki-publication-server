@@ -1,8 +1,7 @@
 package net.ripe.rpki.publicationserver
 
 import java.io.{InputStream, OutputStream}
-import java.util.{Base64 => B64}
-
+import java.util.{Arrays, Base64 => B64}
 import com.google.common.io.ByteStreams
 
 object Binaries {
@@ -13,12 +12,12 @@ object Binaries {
   case class Base64(value: String)
 
   case class Bytes(value: Array[Byte]) {
-    override def equals(obj: Any): Boolean = {
-      if (canEqual(obj)) {
-        obj.asInstanceOf[Bytes].value.sameElements(this.value)
-      } else
-        false
+    override def equals(obj: Any): Boolean = obj match {
+      case that: Bytes => that.canEqual(this) && Arrays.equals(this.value, that.value)
+      case _ => false
     }
+
+    override def hashCode(): Int = Arrays.hashCode(value)
   }
 
   object Bytes {

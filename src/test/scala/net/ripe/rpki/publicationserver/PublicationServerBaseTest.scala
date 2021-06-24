@@ -12,7 +12,7 @@ import io.prometheus.client.CollectorRegistry
 import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver.metrics.Metrics
 import net.ripe.rpki.publicationserver.model._
-import net.ripe.rpki.publicationserver.store.postresql.PgStore
+import net.ripe.rpki.publicationserver.store.postgresql.PgStore
 import org.scalatest.BeforeAndAfter
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -82,7 +82,7 @@ abstract class PublicationServerBaseTest extends AnyFunSuite with BeforeAndAfter
         </publish>
 
       case PublishQ(uri, None, Some(hash), b) =>
-        <publish uri={uri.toASCIIString} hash={hash}>
+        <publish uri={uri.toASCIIString} hash={hash.toHex}>
           {Bytes.toBase64(b).value}
         </publish>
 
@@ -92,15 +92,15 @@ abstract class PublicationServerBaseTest extends AnyFunSuite with BeforeAndAfter
         </publish>
 
       case PublishQ(uri, Some(tag), Some(hash), b) =>
-        <publish uri={uri.toASCIIString} hash={hash} tag={tag}>
+        <publish uri={uri.toASCIIString} hash={hash.toHex} tag={tag}>
           {Bytes.toBase64(b).value}
         </publish>
 
       case WithdrawQ(uri, None, hash) =>
-          <withdraw uri={uri.toASCIIString} hash={hash}/>
+          <withdraw uri={uri.toASCIIString} hash={hash.toHex}/>
 
       case WithdrawQ(uri, Some(tag), hash) =>
-          <withdraw uri={uri.toASCIIString} hash={hash} tag={tag}/>
+          <withdraw uri={uri.toASCIIString} hash={hash.toHex} tag={tag}/>
 
       case ListQ(None) => <list/>
       case ListQ(Some(tag)) => <list tag={tag}/>

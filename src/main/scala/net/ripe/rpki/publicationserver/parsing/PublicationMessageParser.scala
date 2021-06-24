@@ -3,6 +3,7 @@ package net.ripe.rpki.publicationserver.parsing
 import java.net.URI
 
 import net.ripe.rpki.publicationserver.Binaries.{Base64, Bytes}
+import net.ripe.rpki.publicationserver.Hash
 import net.ripe.rpki.publicationserver.model._
 
 import scala.annotation.tailrec
@@ -38,7 +39,7 @@ class PublicationMessageParser extends MessageParser[Message] {
                 val trimmedText = trim(lastText)
                 try {
                   val bytes = Bytes.fromBase64(Base64(trimmedText))
-                  val pdu = PublishQ(uri = new URI(lastAttributes("uri")), tag = lastAttributes.get("tag"), hash = lastAttributes.get("hash"), bytes = bytes)
+                  val pdu = PublishQ(uri = new URI(lastAttributes("uri")), tag = lastAttributes.get("tag"), hash = lastAttributes.get("hash").map(Hash.fromHex), bytes = bytes)
                   Right(pdu)
                 } catch {
                   case _: Exception =>
@@ -46,7 +47,7 @@ class PublicationMessageParser extends MessageParser[Message] {
                 }
 
               case "withdraw" =>
-                val pdu = WithdrawQ(uri = new URI(lastAttributes("uri")), tag = lastAttributes.get("tag"), hash = lastAttributes("hash"))
+                val pdu = WithdrawQ(uri = new URI(lastAttributes("uri")), tag = lastAttributes.get("tag"), hash = Hash.fromHex(lastAttributes("hash")))
                 Right(pdu)
 
               case "list" => // TODO ??? implement tags for list query

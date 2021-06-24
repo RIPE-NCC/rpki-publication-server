@@ -59,7 +59,7 @@ class PublicationServiceTest extends PublicationServerBaseTest with Hashing with
     val pdus = Seq(PublishQ(new URI(certUrl), None, None, bytes))
     updateState(service, pdus)
 
-    val withdrawXml = xml(WithdrawQ(new URI(certUrl), tag = None, hash(bytes).hash))
+    val withdrawXml = xml(WithdrawQ(new URI(certUrl), tag = None, hashOf(bytes)))
     val withdrawXmlResponse = getFile("/withdrawResponse.xml")
 
     POST("/?clientId=1234", withdrawXml.mkString) ~> service.publicationRoutes ~> check {
@@ -75,7 +75,7 @@ class PublicationServiceTest extends PublicationServerBaseTest with Hashing with
     val pdus = Seq(PublishQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), None, None, bytes))
     updateState(service, pdus)
 
-    val withdrawXml = xml(WithdrawQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), tag = None, hash(bytes).hash.toLowerCase))
+    val withdrawXml = xml(WithdrawQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), tag = None, hashOf(bytes)))
     val withdrawXmlResponse = getFile("/withdrawResponse.xml")
 
     POST("/?clientId=1234", withdrawXml.mkString) ~> service.publicationRoutes ~> check {
@@ -92,7 +92,7 @@ class PublicationServiceTest extends PublicationServerBaseTest with Hashing with
     val pdus = Seq(PublishQ(uri, None, None, bytes))
     updateState(service, pdus)
 
-    val publishWithHashXml = xml(PublishQ(uri, None, Some(hash(bytes).hash), bytes))
+    val publishWithHashXml = xml(PublishQ(uri, None, Some(hashOf(bytes)), bytes))
     val publishWithHashXmlResponse = getFile("/publishWithHashXmlResponse.xml")
 
     POST("/?clientId=1234", publishWithHashXml.mkString) ~> service.publicationRoutes ~> check {
@@ -109,7 +109,7 @@ class PublicationServiceTest extends PublicationServerBaseTest with Hashing with
     val pdus = Seq(PublishQ(uri, None, None, bytes))
     updateState(service, pdus)
 
-    val publishWithHashXml = xml(PublishQ(uri, None, Some(hash(bytes).hash.toLowerCase), bytes))
+    val publishWithHashXml = xml(PublishQ(uri, None, Some(hashOf(bytes)), bytes))
     val publishWithHashXmlResponse = getFile("/publishWithHashXmlResponse.xml")
 
     POST("/?clientId=1234", publishWithHashXml.mkString) ~> service.publicationRoutes ~> check {
@@ -125,7 +125,7 @@ class PublicationServiceTest extends PublicationServerBaseTest with Hashing with
     val pdus = Seq(PublishQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), None, None, bytes))
     updateState(service, pdus)
 
-    val withdrawXml = xml(WithdrawQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), tag = Some("123"), hash(bytes).hash))
+    val withdrawXml = xml(WithdrawQ(new URI("rsync://wombat.example/Alice/blCrcCp9ltyPDNzYKPfxc.cer"), tag = Some("123"), hashOf(bytes)))
     val withdrawXmlResponse = getFile("/withdrawWithTagResponse.xml")
 
     POST("/?clientId=1234", withdrawXml.mkString) ~> publicationService.publicationRoutes ~> check {

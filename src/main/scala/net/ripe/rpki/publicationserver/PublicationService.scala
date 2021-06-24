@@ -9,7 +9,7 @@ import akka.util.ByteString
 import net.ripe.rpki.publicationserver.metrics.Metrics
 import net.ripe.rpki.publicationserver.model._
 import net.ripe.rpki.publicationserver.parsing.PublicationMessageParser
-import net.ripe.rpki.publicationserver.store.postresql.{PgStore, RollbackException}
+import net.ripe.rpki.publicationserver.store.postgresql.{PgStore, RollbackException}
 
 import java.io.ByteArrayInputStream
 import java.net.URI
