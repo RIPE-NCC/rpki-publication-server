@@ -245,6 +245,12 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
 
 
   def writeNotification(snapshotInfo: SnapshotInfo, deltas: Seq[DeltaInfo], stream: HashingSizedStream) = {
+    require(deltas.forall(_.sessionId == snapshotInfo.sessionId), s"sessionId mismatch between snapshot and delta: $snapshotInfo <-> $deltas")
+    if (deltas.nonEmpty) {
+      require(deltas.head.serial == snapshotInfo.serial, s"most recent delta serial must match snapshot serial: $snapshotInfo <-> $deltas")
+      require(deltas.zip(deltas.tail).forall { case (a, b) => a.serial == b.serial + 1 }, s"delta serials must be consecutive: $deltas")
+    }
+
     IOStream.string(s"""<notification version="1" session_id="${snapshotInfo.sessionId}" serial="${snapshotInfo.serial}" xmlns="http://www.ripe.net/rpki/rrdp">\n""", stream)
     val snapshotUrl = conf.snapshotUrl(snapshotInfo)
     IOStream.string(s"""  <snapshot uri="$snapshotUrl" hash="${snapshotInfo.hash.toHex}"/>\n""", stream)
