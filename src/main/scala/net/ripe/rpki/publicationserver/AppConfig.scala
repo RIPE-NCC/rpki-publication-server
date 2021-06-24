@@ -4,13 +4,13 @@ import java.net.URI
 import java.nio.file.{Path, Paths}
 import java.util.Map.Entry
 import java.util.concurrent.TimeUnit
-
 import akka.http.scaladsl.settings.ServerSettings
 import com.typesafe.config.{Config, ConfigFactory, ConfigObject, ConfigValue}
+import net.ripe.rpki.publicationserver.store.postgresql.{DeltaInfo, SnapshotInfo}
 
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.jdk.CollectionConverters.CollectionHasAsScala
-import scala.util.{Failure, Try, Success}
+import scala.util.{Failure, Success, Try}
 
 /**
  * Helper class which can be wired into clients while making sure that the config file is loaded only once.
@@ -56,11 +56,11 @@ class AppConfig {
                         getConfig.getString("postgresql.password")
                     )      
 
-  def snapshotUrl(sessionId: String, serial: Long, snapshotFileName: String) =
-    s"$rrdpRepositoryUri/$sessionId/$serial/$snapshotFileName"
+  def snapshotUrl(snapshotInfo: SnapshotInfo) =
+    s"$rrdpRepositoryUri/${snapshotInfo.sessionId}/${snapshotInfo.serial}/${snapshotInfo.name}"
 
-  def deltaUrl(sessionId: String, serial: Long, deltaFileName: String) =
-    s"$rrdpRepositoryUri/$sessionId/$serial/$deltaFileName"
+  def deltaUrl(deltaInfo: DeltaInfo) =
+    s"$rrdpRepositoryUri/${deltaInfo.sessionId}/${deltaInfo.serial}/${deltaInfo.name}"
 
   lazy val writeRsync = isMode("rsync")
   lazy val writeRrdp = isMode("rrdp")
