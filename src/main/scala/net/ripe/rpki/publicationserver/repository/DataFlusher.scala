@@ -89,46 +89,38 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
 
   private def updateSnapshot(sessionId: String, serial: Long)(implicit session: DBSession) = {
     val currentSession = pgStore.getCurrentSessionInfo
-    val (snapshotFileName, snapshotPath, generatedSnapshotName) = currentSession match {
+    val (snapshotFileName, snapshotPath) = currentSession match {
       case Some((sessionId_, serial_, Some(SnapshotInfo(_, _, knownName, _, _)), _))
         if (sessionId_ == sessionId && serial_ == serial) =>
-          (knownName, snapshotPathKnownName(sessionId, serial, knownName), true)
+          (knownName, snapshotPathKnownName(sessionId, serial, knownName))
       case _ =>
-        val (name, path) = snapshotPathRandom(sessionId, serial)
-        (name, path, true)
+        snapshotPathRandom(sessionId, serial)
     }
 
     val (snapshotHash, snapshotSize) = withAtomicStream(snapshotPath, rrdpWriter.fileAttributes) {
       writeRrdpSnapshot(sessionId, serial, _)
     }
     val info = SnapshotInfo(sessionId, serial, snapshotFileName, snapshotHash, snapshotSize)
-    if (generatedSnapshotName) {
-      pgStore.updateSnapshotInfo(info)
-    }
+    pgStore.updateSnapshotInfo(info)
     info
   }
 
 
   private def updateDelta(sessionId: String, serial: Long)(implicit session: DBSession) = {
     val currentSession = pgStore.getCurrentSessionInfo
-    val (deltaFileName, deltaPath, generatedDeltaName) = currentSession match {
+    val (deltaFileName, deltaPath) = currentSession match {
       case Some((sessionId_, serial_, _, Some(DeltaInfo(_, _, knownName, _, _))))
         if (sessionId_ == sessionId && serial_ == serial) =>
-          (knownName, deltaPathKnownName(sessionId, serial, knownName), false)
+          (knownName, deltaPathKnownName(sessionId, serial, knownName))
       case _ =>
-        val (name, path) = deltaPathRandom(sessionId, serial)
-        (name, path, true)
+        deltaPathRandom(sessionId, serial)
     }
 
-    val (deltaHash, deltaSize) = {
-      withAtomicStream(deltaPath, rrdpWriter.fileAttributes) {
-        writeRrdpDelta(sessionId, serial, _)
-      }
+    val (deltaHash, deltaSize) = withAtomicStream(deltaPath, rrdpWriter.fileAttributes) {
+      writeRrdpDelta(sessionId, serial, _)
     }
     val deltaInfo = DeltaInfo(sessionId, serial, deltaFileName, deltaHash, deltaSize)
-    if (generatedDeltaName) {
-      pgStore.updateDeltaInfo(deltaInfo)
-    }
+    pgStore.updateDeltaInfo(deltaInfo)
     deltaInfo
   }
 
@@ -171,18 +163,19 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
       updateDelta(sessionId, latestSerial)
     }
 
-    val deltas = pgStore.getReasonableDeltas(sessionId)
-    for {
-      DeltaInfo(_, serial, deltaFileName, _, _) <- deltas
-      // Delta for the latest serial was already created above, so we can skip it here.
-      if serial != latestSerial
-    } {
+    val deltas = for {
+      DeltaInfo(_, serial, deltaFileName, _, _) <- pgStore.getReasonableDeltas(sessionId)
+    } yield {
       val deltaPath = deltaPathKnownName(sessionId, serial, deltaFileName)
       val (deltaHash, deltaSize) =
         withAtomicStream(deltaPath, rrdpWriter.fileAttributes) {
           writeRrdpDelta(sessionId, serial, _)
         }
+      DeltaInfo(sessionId, serial, deltaFileName, deltaHash, deltaSize)
     }
+
+    // In case the hash/size changed due to rewriting the delta, e.g. when we change the format of a delta.
+    deltas.foreach(pgStore.updateDeltaInfo)
 
     val (_, duration) = Time.timed {
       rrdpWriter.writeNotification(conf.rrdpRepositoryPath) { os =>
