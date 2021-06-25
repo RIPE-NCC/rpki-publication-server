@@ -27,9 +27,9 @@ CREATE OR REPLACE FUNCTION merge_object(bytes_ BYTEA,
                                         url_ TEXT,
                                         client_id_ TEXT) RETURNS SETOF objects AS
 $$
-    INSERT INTO objects (hash, content, url, client_id)
-         VALUES (hash_, bytes_, url_, client_id_)
-    ON CONFLICT (hash) DO UPDATE
+    INSERT INTO objects (url, hash, content, client_id)
+         VALUES (url_, hash_, bytes_, client_id_)
+    ON CONFLICT (url, hash) DO UPDATE
             SET deleted_at = NULL
       RETURNING *;
 $$ LANGUAGE SQL;
@@ -54,11 +54,6 @@ BEGIN
     END IF;
 
     SELECT sha256(bytes_) INTO hash_;
-
-    IF EXISTS (SELECT * FROM live_objects WHERE hash = hash_) THEN
-        RETURN json_build_object('code', 'object_already_present', 'message',
-                                 format('An object with the same hash is already present with different URI, [%s].', url_));
-    END IF;
 
     WITH merged_object AS (
         SELECT *

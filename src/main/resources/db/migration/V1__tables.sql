@@ -14,7 +14,7 @@ CREATE TABLE objects
 );
 
 CREATE UNIQUE INDEX idx_objects_url ON objects (url) WHERE deleted_at IS NULL;
-CREATE UNIQUE INDEX idx_objects_hash ON objects (hash);
+CREATE UNIQUE INDEX idx_objects_url_hash ON objects (url, hash);
 CREATE INDEX idx_objects_client_id ON objects (client_id);
 
 
