@@ -171,6 +171,24 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
       sql"SELECT acquire_client_id_lock(${clientId.value})".execute().apply()
 
       changeSet.pdus.foreach {
+        case PublishQ(uri, _, None, _) =>
+          executeSql(
+            sql"SELECT verify_object_is_absent(${uri.toString})",
+            {},
+            metrics.failedToAdd())
+        case PublishQ(uri, _, Some(oldHash), _) =>
+          executeSql(
+            sql"SELECT verify_object_is_present(${uri.toString}, ${oldHash.toBytes}, ${clientId.value})",
+            {},
+            metrics.failedToReplace())
+        case WithdrawQ(uri, _, hash) =>
+          executeSql(
+            sql"SELECT verify_object_is_present(${uri.toString}, ${hash.toBytes}, ${clientId.value})",
+            {},
+            metrics.failedToDelete())
+      }
+
+      changeSet.pdus.foreach {
         case PublishQ(uri, _, None, Bytes(bytes)) =>
           executeSql(
             sql"SELECT create_object(${bytes}, ${uri.toString}, ${clientId.value})",

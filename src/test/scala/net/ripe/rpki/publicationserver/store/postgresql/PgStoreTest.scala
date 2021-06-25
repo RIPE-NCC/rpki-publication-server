@@ -92,7 +92,7 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
     ))
   }
 
-  test("should replace an object in the same message") {
+  test("should prevent replacing an object in the same message") {
     val clientId = ClientId("client1")
 
     val uri1 = new URI(urlPrefix1 + "/path1")
@@ -100,19 +100,15 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
     val (bytes2, _) = TestBinaries.generateObject(500)
 
     val hash1 = hashOf(bytes1)
-    pgStore.applyChanges(QueryMessage(Seq(
+    val RollbackException(error) = the [RollbackException] thrownBy pgStore.applyChanges(QueryMessage(Seq(
       PublishQ(uri1, tag = None, hash = None, bytes1),
       PublishQ(uri1, tag = None, Some(hash1), bytes2)
     )), clientId)
+    error.code should be ("no_object_present")
+    error.message should be (s"There is no object present at this URI [$uri1].")
 
-    pgStore.getState should be(Map(
-      uri1 -> (bytes2, hashOf(bytes2), clientId)
-    ))
-
-    pgStore.getLog should be(Seq(
-      ("INS", uri1, None, Some(bytes1)),
-      ("UPD", uri1, Some(hash1), Some(bytes2))
-    ))
+    pgStore.getState should be(empty)
+    pgStore.getLog should be(empty)
   }
 
   test("should not replace an object of a different client") {
@@ -221,24 +217,22 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
     ))
   }
 
-  test("should store and withdraw object in the same message") {
+  test("should prevent storing and withdrawing an object in the same message") {
     val clientId = ClientId("client1")
 
     val uri1 = new URI(urlPrefix1 + "/path1")
     val (bytes1, _) = TestBinaries.generateObject(1000)
 
     val hash1 = hashOf(bytes1)
-    pgStore.applyChanges(QueryMessage(Seq(
+    val RollbackException(error) = the [RollbackException] thrownBy pgStore.applyChanges(QueryMessage(Seq(
       PublishQ(uri1, tag = None, hash = None, bytes1),
       WithdrawQ(uri1, tag = None, hash1)
     )), clientId)
+    error.code should be("no_object_present")
+    error.message should be(s"There is no object present at this URI [$uri1].")
 
-    pgStore.getState should be(Map())
-
-    pgStore.getLog should be(Seq(
-      ("INS", uri1, None, Some(bytes1)),
-      ("DEL", uri1, Some(hash1), None)
-    ))
+    pgStore.getState should be(empty)
+    pgStore.getLog should be(empty)
   }
 
   test("should fail to withdraw an object from a different client") {
