@@ -113,7 +113,7 @@ BEGIN
 
     WITH deleted_object AS (
         UPDATE objects SET deleted_at = NOW()
-        WHERE hash = hash_to_replace
+        WHERE url = url_ AND hash = hash_to_replace AND client_id = client_id_
         RETURNING id
     ),
      merged_object AS (
@@ -169,7 +169,7 @@ BEGIN
 
     WITH deleted_object AS (
         UPDATE objects SET deleted_at = NOW()
-        WHERE hash = hash_to_delete
+        WHERE url = url_ AND hash = hash_to_delete AND client_id = client_id_
         RETURNING id
     )
     INSERT INTO object_log(operation, old_object_id)
