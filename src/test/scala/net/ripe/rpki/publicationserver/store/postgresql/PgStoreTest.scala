@@ -131,7 +131,7 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
     } catch {
       case RollbackException(e) =>
         e.code should be ("permission_failure")
-        e.message should be (s"Not allowed to update an object of another client: [$uri1].")
+        e.message should be (s"Not allowed to replace or withdraw an object of another client: [$uri1].")
     }
 
     pgStore.getState should be(Map(
@@ -189,8 +189,8 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
     } catch {
       case RollbackException(e) =>
         e.code should be ("no_object_matching_hash")
-        e.message should be (s"Cannot republish the object [$uri1], hash doesn't match, " +
-            s"passed ${wrongHash.toHex}, but existing one is ${hashOf(bytes1).toHex}")
+        e.message should be (s"Cannot replace or withdraw the object [$uri1], hash does not match, " +
+            s"passed ${wrongHash.toHex}, but existing one is ${hashOf(bytes1).toHex}.")
     }
 
     pgStore.getState should be(Map(
@@ -257,7 +257,7 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
     } catch {
       case RollbackException(e) =>
           e.code should be ("permission_failure")
-          e.message should be (s"Not allowed to delete an object of another client: [$uri1].")
+          e.message should be (s"Not allowed to replace or withdraw an object of another client: [$uri1].")
     }
 
     pgStore.getState should be(Map(
@@ -315,7 +315,7 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
     } catch {
       case RollbackException(e) =>
         e.code should be ("no_object_matching_hash")
-        e.message should be (s"Cannot withdraw the object [$uri1], hash does not match, " +
+        e.message should be (s"Cannot replace or withdraw the object [$uri1], hash does not match, " +
             s"passed ${wrongHash.toHex}, but existing one is ${hashOf(bytes1).toHex}.")
     }
 

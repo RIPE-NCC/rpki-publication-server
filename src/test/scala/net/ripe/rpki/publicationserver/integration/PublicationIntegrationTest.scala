@@ -98,7 +98,7 @@ class PublicationIntegrationTest
     val wrongHash = hashOf(Base64(TestBinaries.generateSomeBase64()))
     val w = client.withdraw(clientId, url, wrongHash.toHex)
     w should include(s"""<report_error error_code="no_object_matching_hash">""")
-    w should include(s"""Cannot withdraw the object [${url}], hash does not match, passed ${wrongHash.toHex}, but existing one is $hashStr.""")
+    w should include(s"""Cannot replace or withdraw the object [${url}], hash does not match, passed ${wrongHash.toHex}, but existing one is $hashStr.""")
 
     forMetrics { metrics =>
         metrics should include("""rpkipublicationserver_objects_failure_total{operation="delete",} 1.0""")
@@ -144,7 +144,7 @@ class PublicationIntegrationTest
    val wrongHash = hashOf(Base64(TestBinaries.generateSomeBase64()))
     val response = client.publish(clientId, url, wrongHash.toHex, newBase64)
     response should include(s"""<report_error error_code="no_object_matching_hash">""")
-    response should include(s"""Cannot republish the object [${url}], hash doesn't match, passed ${wrongHash.toHex}, but existing one is $hashStr""")
+    response should include(s"""Cannot replace or withdraw the object [${url}], hash does not match, passed ${wrongHash.toHex}, but existing one is $hashStr""")
 
     forMetrics { metrics =>
         metrics should  include("""rpkipublicationserver_objects_failure_total{operation="replace",} 1.0""")

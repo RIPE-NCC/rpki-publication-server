@@ -35,6 +35,50 @@ $$
       RETURNING *;
 $$ LANGUAGE SQL;
 
+CREATE OR REPLACE FUNCTION verify_object_is_absent(url_ TEXT) RETURNS JSON AS
+$body$
+BEGIN
+    IF EXISTS (SELECT * FROM live_objects WHERE url = url_) THEN
+        RETURN json_build_object('code', 'object_already_present', 'message',
+                                 format('An object is already present at this URI [%s].', url_));
+    ELSE
+        RETURN NULL;
+    END IF;
+END;
+$body$
+  LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION verify_object_is_present(url_ TEXT, hash_to_replace BYTEA, client_id_ TEXT) RETURNS JSON AS
+$body$
+DECLARE
+    existing_client_id TEXT;
+    existing_hash      BYTEA;
+BEGIN
+    SELECT hash, client_id
+    INTO existing_hash, existing_client_id
+    FROM live_objects
+    WHERE url = url_;
+
+    IF NOT FOUND THEN
+        RETURN json_build_object('code', 'no_object_present', 'message',
+                                 format('There is no object present at this URI [%s].', url_));
+    END IF;
+
+    IF existing_hash <> hash_to_replace THEN
+        RETURN json_build_object('code', 'no_object_matching_hash', 'message',
+                                 format('Cannot replace or withdraw the object [%s], hash does not match, passed %s, but existing one is %s.',
+                                    url_, ENCODE(hash_to_replace, 'hex'), ENCODE(existing_hash, 'hex')));
+    END IF;
+
+    IF existing_client_id <> client_id_ THEN
+        RETURN json_build_object('code', 'permission_failure', 'message',
+                                 format('Not allowed to replace or withdraw an object of another client: [%s].', url_));
+    END IF;
+
+    RETURN NULL;
+END;
+$body$
+  LANGUAGE plpgsql;
 
 -- Add an object, corresponds to <publish> without hash to replace.
 --
@@ -47,18 +91,16 @@ CREATE OR REPLACE FUNCTION create_object(bytes_ BYTEA,
                                          client_id_ TEXT) RETURNS JSON AS
 $body$
 DECLARE
-    hash_ BYTEA;
+    error_ JSON;
 BEGIN
-    IF EXISTS (SELECT * FROM live_objects WHERE url = url_) THEN
-        RETURN json_build_object('code', 'object_already_present', 'message',
-                                 format('An object is already present at this URI [%s].', url_));
+    SELECT verify_object_is_absent(url_) INTO error_;
+    IF error_ IS NOT NULL THEN
+        RETURN error_;
     END IF;
-
-    SELECT sha256(bytes_) INTO hash_;
 
     WITH merged_object AS (
         SELECT *
-        FROM merge_object(bytes_, hash_, url_, client_id_)
+        FROM merge_object(bytes_, sha256(bytes_), url_, client_id_)
     )
     INSERT INTO object_log (operation, new_object_id)
     SELECT 'INS', z.id
@@ -83,34 +125,12 @@ CREATE OR REPLACE FUNCTION replace_object(bytes_ BYTEA,
                                           client_id_ TEXT) RETURNS JSON AS
 $body$
 DECLARE
-    existing_object_id BIGINT;
-    existing_client_id TEXT;
-    hash_              BYTEA;
-    existing_hash      BYTEA;
+    error_ JSON;
 BEGIN
-
-    SELECT hash, id, client_id
-    INTO existing_hash, existing_object_id, existing_client_id
-    FROM live_objects
-    WHERE url = url_;
-
-    IF NOT FOUND THEN
-        RETURN json_build_object('code', 'no_object_present', 'message',
-                                 format('There is no object present at this URI [%s].', url_));
+    SELECT verify_object_is_present(url_, hash_to_replace, client_id_) INTO error_;
+    IF error_ IS NOT NULL THEN
+        RETURN error_;
     END IF;
-
-    IF existing_hash <> hash_to_replace THEN
-        RETURN json_build_object('code', 'no_object_matching_hash', 'message',
-                                 format('Cannot republish the object [%s], hash doesn''t match, passed %s, but existing one is %s',
-                                    url_, ENCODE(hash_to_replace, 'hex'), ENCODE(existing_hash, 'hex')));
-    END IF;
-
-    IF existing_client_id <> client_id_ THEN
-        RETURN json_build_object('code', 'permission_failure', 'message',
-                                 format('Not allowed to update an object of another client: [%s].', url_));
-    END IF;
-
-    SELECT sha256(bytes_) INTO hash_;
 
     WITH deleted_object AS (
         UPDATE objects SET deleted_at = NOW()
@@ -119,14 +139,13 @@ BEGIN
     ),
      merged_object AS (
         SELECT *
-        FROM merge_object(bytes_, hash_, url_, client_id_)
+        FROM merge_object(bytes_, sha256(bytes_), url_, client_id_)
     )
     INSERT INTO object_log (operation, new_object_id, old_object_id)
     SELECT 'UPD', n.id, d.id
     FROM merged_object AS n, deleted_object AS d;
 
     RETURN NULL;
-
 END
 $body$
     LANGUAGE plpgsql;
@@ -142,30 +161,11 @@ CREATE OR REPLACE FUNCTION delete_object(url_ TEXT,
                                          client_id_ TEXT) RETURNS JSON AS
 $body$
 DECLARE
-    existing_object_id BIGINT;
-    existing_client_id TEXT;
-    existing_hash      BYTEA;
+    error_ JSON;
 BEGIN
-
-    SELECT hash, id, client_id
-    INTO existing_hash, existing_object_id, existing_client_id
-    FROM live_objects
-    WHERE url = url_;
-
-    IF NOT FOUND THEN
-        RETURN json_build_object('code', 'no_object_present', 'message',
-                                 format('There is no object present at this URI [%s].', url_));
-    END IF;
-
-    IF existing_hash <> hash_to_delete THEN
-        RETURN json_build_object('code', 'no_object_matching_hash', 'message',
-                                 format('Cannot withdraw the object [%s], hash does not match, ' ||
-                                 'passed %s, but existing one is %s.', url_, ENCODE(hash_to_delete, 'hex'), ENCODE(existing_hash, 'hex')));
-    END IF;
-
-    IF existing_client_id <> client_id_ THEN
-        RETURN json_build_object('code', 'permission_failure', 'message',
-                                 format('Not allowed to delete an object of another client: [%s].', url_));
+    SELECT verify_object_is_present(url_, hash_to_delete, client_id_) INTO error_;
+    IF error_ IS NOT NULL THEN
+        RETURN error_;
     END IF;
 
     WITH deleted_object AS (
