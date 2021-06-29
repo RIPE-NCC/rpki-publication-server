@@ -328,4 +328,74 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
     ))
   }
 
+  test("should allow same object to be published in multiple locations") {
+    val clientId1 = ClientId("client1")
+    val clientId2 = ClientId("client2")
+
+    val uri1 = new URI(urlPrefix1 + "/path1")
+    val uri2 = new URI(urlPrefix1 + "/path2")
+    val (bytes1, _) = TestBinaries.generateObject(10)
+
+    pgStore.applyChanges(QueryMessage(Seq(
+      PublishQ(uri1, tag = None, hash = None, bytes1),
+      PublishQ(uri2, tag = None, hash = None, bytes1),
+    )), clientId1)
+
+    pgStore.getState should be(Map(
+      uri1 -> (bytes1, hashOf(bytes1), clientId1),
+      uri2 -> (bytes1, hashOf(bytes1), clientId1)
+    ))
+
+    pgStore.getLog should be(Seq(
+      ("INS", uri1, None, Some(bytes1)),
+      ("INS", uri2, None, Some(bytes1)),
+    ))
+
+    pgStore.applyChanges(QueryMessage(Seq(
+      WithdrawQ(uri1, tag = None, hash = hashOf(bytes1))
+    )), clientId1)
+
+    pgStore.getState should be(Map(
+      uri2 -> (bytes1, hashOf(bytes1), clientId1)
+    ))
+
+    pgStore.getLog should be(Seq(
+      ("INS", uri1, None, Some(bytes1)),
+      ("INS", uri2, None, Some(bytes1)),
+      ("DEL", uri1, Some(hashOf(bytes1)), None),
+    ))
+  }
+
+  test("should update client id when another client publishes object at location of withdrawn object") {
+    val clientId1 = ClientId("client1")
+    val clientId2 = ClientId("client2")
+
+    val uri1 = new URI(urlPrefix1 + "/path1")
+    val uri2 = new URI(urlPrefix1 + "/path2")
+    val (bytes1, _) = TestBinaries.generateObject(10)
+
+    pgStore.applyChanges(QueryMessage(Seq(
+      PublishQ(uri1, tag = None, hash = None, bytes1),
+    )), clientId1)
+    pgStore.applyChanges(QueryMessage(Seq(
+      WithdrawQ(uri1, tag = None, hash = hashOf(bytes1)),
+    )), clientId1)
+
+    pgStore.getState should be(empty)
+
+    // Replace withdrawn object by another client
+    pgStore.applyChanges(QueryMessage(Seq(
+      PublishQ(uri1, tag = None, hash = None, bytes1),
+    )), clientId2)
+
+    pgStore.getState should be(Map(
+      uri1 -> (bytes1, hashOf(bytes1), clientId2)
+    ))
+    pgStore.getLog should be(Seq(
+      ("INS", uri1, None, Some(bytes1)),
+      ("DEL", uri1, Some(hashOf(bytes1)), None),
+      ("INS", uri1, None, Some(bytes1)),
+    ))
+  }
+
 }

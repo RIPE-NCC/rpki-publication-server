@@ -30,7 +30,8 @@ $$
     INSERT INTO objects (url, hash, content, client_id)
          VALUES (url_, hash_, bytes_, client_id_)
     ON CONFLICT (url, hash) DO UPDATE
-            SET deleted_at = NULL
+            SET deleted_at = NULL,
+                client_id = EXCLUDED.client_id
       RETURNING *;
 $$ LANGUAGE SQL;
 
