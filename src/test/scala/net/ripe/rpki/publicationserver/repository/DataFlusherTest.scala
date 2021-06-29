@@ -436,6 +436,45 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     }
   }
 
+  test("Should combine multiple updates to same URI when generating deltas") {
+    val flusher = newFlusher()
+    flusher.initFS()
+    waitForRrdpCleanup()
+
+    val clientId = ClientId("client1")
+
+    val uri1 = new URI(urlPrefix1 + "/path1.roa")
+
+    val (bytes1, base64_1) = TestBinaries.generateObject(1000)
+    val (bytes2, base64_2) = TestBinaries.generateObject(200)
+
+    pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = None, bytes1))), clientId)
+    flusher.updateFS()
+    waitForRrdpCleanup()
+
+    pgStore.applyChanges(QueryMessage(Seq(WithdrawQ(uri1, tag = None, hash = hashOf(bytes1)))), clientId)
+    pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = None, bytes2))), clientId)
+
+    flusher.updateFS()
+    waitForRrdpCleanup()
+
+    //Bytes(Files.readAllBytes(rsyncRootDir2.resolve("online").resolve("path1.roa"))) should be(bytes2)
+
+    val (sessionId, serial) = verifySessionAndSerial
+    serial should be(3)
+
+    verifyExpectedSnapshot(sessionId, serial) {
+      s"""<snapshot version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
+          <publish uri="${uri1}">${base64_2}</publish>
+      </snapshot>"""
+    }
+
+    verifyExpectedDelta(sessionId, serial) {
+      s"""<delta version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
+          <publish uri="${uri1}" hash="${hashOf(bytes1).toHex}">${base64_2}</publish>
+      </delta>"""
+    }
+  }
 
   test("Should update RRDP and rsync when objects are published and withdrawn") {
     val flusher = newFlusher()

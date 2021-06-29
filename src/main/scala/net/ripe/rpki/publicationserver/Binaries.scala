@@ -18,6 +18,8 @@ object Binaries {
     }
 
     override def hashCode(): Int = Arrays.hashCode(value)
+
+    override def toString: String = s"${this.productPrefix}(${Hashing.bytesToHex(value)})"
   }
 
   object Bytes {

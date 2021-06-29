@@ -74,6 +74,6 @@ CREATE TABLE object_log
     FOREIGN KEY (version_id) REFERENCES versions (id) ON DELETE CASCADE ON UPDATE RESTRICT
 );
 
-CREATE INDEX idx_object_log_new_object_id ON object_log (new_object_id) WHERE new_object_id IS NOT NULL;
-CREATE INDEX idx_object_log_old_object_id ON object_log (old_object_id) WHERE old_object_id IS NOT NULL;
+CREATE INDEX idx_object_log_new_object_id ON object_log (new_object_id);
+CREATE INDEX idx_object_log_old_object_id ON object_log (old_object_id);
 CREATE INDEX idx_object_log_version_id ON object_log (version_id);

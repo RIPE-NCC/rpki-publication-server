@@ -196,29 +196,23 @@ ORDER BY url;
 
 -- Currently existing log of object changes
 CREATE OR REPLACE VIEW current_log AS
-SELECT
-    ol.id,
-    ol.version_id,
-    operation,
-    CASE operation
-        WHEN 'DEL' THEN old_o.url
-        WHEN 'INS' THEN new_o.url
-        WHEN 'UPD' THEN new_o.url
-    END AS url,
-    CASE operation
-        WHEN 'DEL' THEN old_o.hash
-        WHEN 'INS' THEN NULL
-        WHEN 'UPD' THEN old_o.hash
-    END AS old_hash,
-    CASE operation
-        WHEN 'DEL' THEN NULL
-        WHEN 'INS' THEN new_o.content
-        WHEN 'UPD' THEN new_o.content
-    END AS content
-FROM object_log ol
-LEFT JOIN objects old_o ON old_o.id = ol.old_object_id
-LEFT JOIN objects new_o ON new_o.id = ol.new_object_id
-ORDER BY id ASC;
+    WITH combined_operations AS (
+        SELECT ol.version_id,
+               o.url,
+               min(ol.id) AS oldest_id,
+               max(ol.id) AS newest_id
+          FROM object_log ol
+              JOIN objects o ON o.id = COALESCE(ol.new_object_id, ol.old_object_id)
+         GROUP BY ol.version_id, o.url
+    )
+    SELECT op.version_id, op.url, old.hash AS old_hash, new.content
+      FROM combined_operations op
+          JOIN object_log oldest ON op.oldest_id = oldest.id
+          JOIN object_log newest ON op.newest_id = newest.id
+          LEFT JOIN objects old ON old.id = oldest.old_object_id
+          LEFT JOIN objects new ON new.id = newest.new_object_id
+     WHERE COALESCE(old.hash, '\x') <> COALESCE(new.hash, '\x')
+     ORDER BY op.version_id ASC, op.url ASC;
 
 
 CREATE OR REPLACE FUNCTION read_delta(session_id_ TEXT, serial_ BIGINT)
@@ -286,9 +280,11 @@ BEGIN
         RETURNING id INTO STRICT new_version_id_;
     END IF;
 
-    UPDATE object_log
-       SET version_id = new_version_id_
-     WHERE version_id IS NULL;
+    IF new_version_id_ IS NOT NULL THEN
+        UPDATE object_log
+           SET version_id = new_version_id_
+         WHERE version_id IS NULL;
+    END IF;
 
     RETURN QUERY SELECT * FROM latest_version;
 END
@@ -302,7 +298,7 @@ $body$
 CREATE OR REPLACE FUNCTION changes_exist() RETURNS BOOLEAN AS
 $body$
 BEGIN
-    RETURN EXISTS(SELECT * FROM object_log WHERE version_id IS NULL);
+    RETURN EXISTS(SELECT * FROM current_log WHERE version_id IS NULL);
 END
 $body$
     LANGUAGE plpgsql;

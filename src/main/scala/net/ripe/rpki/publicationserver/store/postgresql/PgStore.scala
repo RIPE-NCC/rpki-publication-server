@@ -43,15 +43,14 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
   }
 
   def getLog = DB.localTx { implicit session =>
-    sql"""SELECT operation, url, old_hash, content
+    sql"""SELECT url, old_hash, content
          FROM current_log
-         ORDER BY id ASC"""
+         ORDER BY url ASC"""
       .map { rs =>
-        val operation = rs.string(1)
-        val uri = URI.create(rs.string(2))
-        val hash = rs.bytesOpt(3).map(bs => Hash(bs))
-        val bytes = rs.binaryStreamOpt(4).map(Bytes.fromStream)
-        (operation, uri, hash, bytes)
+        val uri = URI.create(rs.string(1))
+        val hash = rs.bytesOpt(2).map(bs => Hash(bs))
+        val bytes = rs.binaryStreamOpt(3).map(Bytes.fromStream)
+        (uri, hash, bytes)
       }
       .list()
       .apply()
@@ -70,17 +69,16 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
       }
   }
 
-  def readDelta(sessionId: String, serial: Long)(f: (String, URI, Option[Hash], Option[Bytes]) => Unit)(implicit session: DBSession) = {
+  def readDelta(sessionId: String, serial: Long)(f: (URI, Option[Hash], Option[Bytes]) => Unit)(implicit session: DBSession) = {
     session.fetchSize(200)
-    sql"""SELECT operation, url, old_hash, content
+    sql"""SELECT url, old_hash, content
          FROM read_delta($sessionId, $serial)
          ORDER BY url"""
       .foreach { rs =>
-        val operation = rs.string(1)
-        val uri = URI.create(rs.string(2))
-        val oldHash = rs.bytesOpt(3).map(bs => Hash(bs))
-        val bytes = rs.binaryStreamOpt(4).map(Bytes.fromStream)
-        f(operation, uri, oldHash, bytes)
+        val uri = URI.create(rs.string(1))
+        val oldHash = rs.bytesOpt(2).map(bs => Hash(bs))
+        val bytes = rs.binaryStreamOpt(3).map(Bytes.fromStream)
+        f(uri, oldHash, bytes)
       }
   }
 

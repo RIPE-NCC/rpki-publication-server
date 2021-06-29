@@ -223,8 +223,8 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
   def writeRrdpDelta(sessionId: String, serial: Long, deltaOs: HashingSizedStream)(implicit session: DBSession) = {
     val (_, duration) = Time.timed {
       IOStream.string(s"""<delta version="1" session_id="$sessionId" serial="$serial" xmlns="http://www.ripe.net/rpki/rrdp">\n""", deltaOs)
-      pgStore.readDelta(sessionId, serial) { (operation, uri, oldHash, bytes) =>
-        writeLogEntryToDeltaFile(operation, uri, oldHash, bytes, deltaOs)
+      pgStore.readDelta(sessionId, serial) { (uri, oldHash, bytes) =>
+        writeLogEntryToDeltaFile(uri, oldHash, bytes, deltaOs)
       }
       IOStream.string("</delta>\n", deltaOs)
     }
@@ -233,8 +233,8 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
 
   def writeRsyncDelta(sessionId: String, serial: Long)(implicit session: DBSession) = {
     val (_, duration) = Time.timed {
-      pgStore.readDelta(sessionId, serial) { (operation, uri, _, bytes) =>
-        writeLogEntryToRsync(operation, uri, bytes)
+      pgStore.readDelta(sessionId, serial) { (uri, oldHash, bytes) =>
+        writeLogEntryToRsync(uri, oldHash, bytes)
       }
     }
     logger.info(s"Wrote rsync delta for ${sessionId}/${serial}, took ${duration}ms.")
@@ -280,11 +280,10 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
     Paths.get(conf.rrdpRepositoryPath, sessionId, String.valueOf(serial))
   }
 
-  protected def writeLogEntryToRsync(operation: String, uri: URI, bytes: Option[Bytes]) =
-    (operation, bytes) match {
-      case ("INS", Some(b)) => rsyncWriter.writeFile(uri, b)
-      case ("UPD", Some(b)) => rsyncWriter.writeFile(uri, b)
-      case ("DEL", _)       => rsyncWriter.removeFile(uri)
+  protected def writeLogEntryToRsync(uri: URI, oldHash: Option[Hash], bytes: Option[Bytes]) =
+    (oldHash, bytes) match {
+      case (_, Some(b)) => rsyncWriter.writeFile(uri, b)
+      case (Some(_), None) => rsyncWriter.removeFile(uri)
       case anythingElse =>
         logger.error(s"Log contains invalid row $anythingElse")
     }
@@ -292,15 +291,15 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
   private def writeObjectToSnapshotFile(uri: URI, bytes: Bytes, stream: HashingSizedStream): Unit =
     writePublish(uri, bytes, stream)
 
-  def writeLogEntryToDeltaFile(operation: String, uri: URI, oldHash: Option[Hash], bytes: Option[Bytes], stream: HashingSizedStream) = {
-    (operation, oldHash, bytes) match {
-      case ("INS", None, Some(bytes)) =>
+  def writeLogEntryToDeltaFile(uri: URI, oldHash: Option[Hash], bytes: Option[Bytes], stream: HashingSizedStream) = {
+    (oldHash, bytes) match {
+      case (None, Some(bytes)) =>
         writePublish(uri, bytes, stream)
-      case ("UPD", Some(hash), Some(bytes)) =>
+      case (Some(hash), Some(bytes)) =>
         IOStream.string(s"""<publish uri="${attr(uri.toASCIIString)}" hash="${hash.toHex}">""", stream)
         IOStream.string(Bytes.toBase64(bytes).value, stream)
         IOStream.string("</publish>\n", stream)
-      case ("DEL", Some(hash), None) =>
+      case (Some(hash), None) =>
         IOStream.string(s"""<withdraw uri="${attr(uri.toASCIIString)}" hash="${hash.toHex}"/>\n""", stream)
       case anythingElse =>
         logger.error(s"Log contains invalid row $anythingElse")
