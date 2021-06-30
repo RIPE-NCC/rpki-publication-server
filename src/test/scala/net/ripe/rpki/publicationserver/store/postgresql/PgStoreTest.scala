@@ -235,6 +235,38 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
     pgStore.getLog should be(empty)
   }
 
+  test("should reject change set with duplicate publish URIs") {
+    val clientId = ClientId("client1")
+
+    val uri1 = new URI(urlPrefix1 + "/path1")
+    val (bytes1, _) = TestBinaries.generateObject(100)
+
+    val RollbackException(error) = the [RollbackException] thrownBy pgStore.applyChanges(QueryMessage(Seq(
+      PublishQ(uri1, tag = None, hash = None, bytes1),
+      PublishQ(uri1, tag = None, hash = None, bytes1),
+    )), clientId)
+    error.code should be("object_already_present")
+    error.message should be(s"An object is already present at this URI [$uri1].")
+  }
+
+  test("should reject change set with duplicate withdraw URIs") {
+    val clientId = ClientId("client1")
+
+    val uri1 = new URI(urlPrefix1 + "/path1")
+    val (bytes1, _) = TestBinaries.generateObject(100)
+
+    pgStore.applyChanges(QueryMessage(Seq(
+      PublishQ(uri1, tag = None, hash = None, bytes1)
+    )), clientId)
+
+    val RollbackException(error) = the [RollbackException] thrownBy pgStore.applyChanges(QueryMessage(Seq(
+      WithdrawQ(uri1, tag = None, hash = hashOf(bytes1)),
+      WithdrawQ(uri1, tag = None, hash = hashOf(bytes1)),
+    )), clientId)
+    error.code should be("no_object_present")
+    error.message should be(s"There is no object present at this URI [$uri1].")
+  }
+
   test("should fail to withdraw an object from a different client") {
     val clientId1 = ClientId("client1")
     val clientId2 = ClientId("client2")
