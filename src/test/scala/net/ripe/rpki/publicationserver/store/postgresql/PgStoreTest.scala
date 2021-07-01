@@ -329,8 +329,7 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
   }
 
   test("should allow same object to be published in multiple locations") {
-    val clientId1 = ClientId("client1")
-    val clientId2 = ClientId("client2")
+    val clientId = ClientId("client")
 
     val uri1 = new URI(urlPrefix1 + "/path1")
     val uri2 = new URI(urlPrefix1 + "/path2")
@@ -339,11 +338,11 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
     pgStore.applyChanges(QueryMessage(Seq(
       PublishQ(uri1, tag = None, hash = None, bytes1),
       PublishQ(uri2, tag = None, hash = None, bytes1),
-    )), clientId1)
+    )), clientId)
 
     pgStore.getState should be(Map(
-      uri1 -> (bytes1, hashOf(bytes1), clientId1),
-      uri2 -> (bytes1, hashOf(bytes1), clientId1)
+      uri1 -> (bytes1, hashOf(bytes1), clientId),
+      uri2 -> (bytes1, hashOf(bytes1), clientId)
     ))
 
     pgStore.getLog should be(Seq(
@@ -353,10 +352,10 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
 
     pgStore.applyChanges(QueryMessage(Seq(
       WithdrawQ(uri1, tag = None, hash = hashOf(bytes1))
-    )), clientId1)
+    )), clientId)
 
     pgStore.getState should be(Map(
-      uri2 -> (bytes1, hashOf(bytes1), clientId1)
+      uri2 -> (bytes1, hashOf(bytes1), clientId)
     ))
 
     pgStore.getLog should be(Seq(
