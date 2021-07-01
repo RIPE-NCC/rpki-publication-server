@@ -458,8 +458,6 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     flusher.updateFS()
     waitForRrdpCleanup()
 
-    //Bytes(Files.readAllBytes(rsyncRootDir2.resolve("online").resolve("path1.roa"))) should be(bytes2)
-
     val (sessionId, serial) = verifySessionAndSerial
     serial should be(3)
 

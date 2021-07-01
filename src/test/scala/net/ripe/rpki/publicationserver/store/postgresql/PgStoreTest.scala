@@ -93,7 +93,7 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
     ))
   }
 
-  test("should hide object replacement in single version") {
+  test("should hide object replacement for same URI in single version") {
     val clientId = ClientId("client1")
 
     val uri1 = new URI(urlPrefix1 + "/path1")
@@ -112,6 +112,39 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
     pgStore.getLog should be(Seq(
       (uri1, None, Some(bytes2))
     ))
+  }
+
+  test("should not generate a new delta when combined operations become empty") {
+    val clientId = ClientId("client")
+
+    val uri1 = new URI(urlPrefix1 + "/path1")
+    val uri2 = new URI(urlPrefix1 + "/path2")
+    val (bytes1, _) = TestBinaries.generateObject(10)
+    val (bytes2, _) = TestBinaries.generateObject(10)
+    val (bytes3, _) = TestBinaries.generateObject(10)
+
+    pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = None, bytes1))), clientId)
+    val (_, initialSerial, _) = freezeVersion
+    val initialState = Map(uri1 -> (bytes1, hashOf(bytes1), clientId))
+    val initialLog = Seq((uri1, None, Some(bytes1)))
+
+    initialSerial should be(1)
+    pgStore.getState should be(initialState)
+    pgStore.getLog should be(initialLog)
+
+    pgStore.applyChanges(QueryMessage(Seq(
+      PublishQ(uri1, tag = None, hash = Some(hashOf(bytes1)), bytes3),
+      PublishQ(uri2, tag = None, hash = None, bytes2)),
+    ), clientId)
+    pgStore.applyChanges(QueryMessage(Seq(
+      PublishQ(uri1, tag = None, hash = Some(hashOf(bytes3)), bytes1), // Place back previous object
+      WithdrawQ(uri2, tag = None, hash = hashOf(bytes2)),              // Withdraw object not yet published in delta
+    )), clientId)
+
+    val (_, unchangedSerial, _) = freezeVersion
+    unchangedSerial should be(initialSerial)
+    pgStore.getState should be(initialState)
+    pgStore.getLog should be(initialLog)
   }
 
   test("should prevent replacing an object in the same message") {
