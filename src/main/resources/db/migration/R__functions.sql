@@ -20,21 +20,6 @@ SELECT pg_advisory_xact_lock(999999);
 $$ LANGUAGE SQL;
 
 
--- Reusable part of both create and replace an object in the 'objects' table.
---
-CREATE OR REPLACE FUNCTION merge_object(bytes_ BYTEA,
-                                        hash_ BYTEA,
-                                        url_ TEXT,
-                                        client_id_ TEXT) RETURNS SETOF objects AS
-$$
-    INSERT INTO objects (url, hash, content, client_id)
-         VALUES (url_, hash_, bytes_, client_id_)
-    ON CONFLICT (url, hash) DO UPDATE
-            SET deleted_at = NULL,
-                client_id = EXCLUDED.client_id
-      RETURNING *;
-$$ LANGUAGE SQL;
-
 CREATE OR REPLACE FUNCTION verify_object_is_absent(url_ TEXT) RETURNS JSON AS
 $body$
 BEGIN
@@ -92,19 +77,19 @@ CREATE OR REPLACE FUNCTION create_object(bytes_ BYTEA,
 $body$
 DECLARE
     error_ JSON;
+    new_object_id_ BIGINT;
 BEGIN
     SELECT verify_object_is_absent(url_) INTO error_;
     IF error_ IS NOT NULL THEN
         RETURN error_;
     END IF;
 
-    WITH merged_object AS (
-        SELECT *
-        FROM merge_object(bytes_, sha256(bytes_), url_, client_id_)
-    )
+    INSERT INTO objects (url, hash, content, client_id)
+    VALUES (url_, sha256(bytes_), bytes_, client_id_)
+    RETURNING id INTO STRICT new_object_id_;
+
     INSERT INTO object_log (operation, new_object_id)
-    SELECT 'INS', z.id
-    FROM merged_object AS z;
+    VALUES ('INS', new_object_id_);
 
     RETURN NULL;
 END
@@ -126,24 +111,24 @@ CREATE OR REPLACE FUNCTION replace_object(bytes_ BYTEA,
 $body$
 DECLARE
     error_ JSON;
+    old_object_id_ BIGINT;
+    new_object_id_ BIGINT;
 BEGIN
     SELECT verify_object_is_present(url_, hash_to_replace, client_id_) INTO error_;
     IF error_ IS NOT NULL THEN
         RETURN error_;
     END IF;
 
-    WITH deleted_object AS (
-        UPDATE objects SET deleted_at = NOW()
-        WHERE url = url_ AND hash = hash_to_replace AND client_id = client_id_
-        RETURNING id
-    ),
-     merged_object AS (
-        SELECT *
-        FROM merge_object(bytes_, sha256(bytes_), url_, client_id_)
-    )
+    UPDATE objects SET deleted_at = NOW()
+    WHERE url = url_ AND hash = hash_to_replace AND client_id = client_id_ AND deleted_at IS NULL
+    RETURNING id INTO STRICT old_object_id_;
+
+    INSERT INTO objects (url, hash, content, client_id)
+    VALUES (url_, sha256(bytes_), bytes_, client_id_)
+    RETURNING id INTO STRICT new_object_id_;
+
     INSERT INTO object_log (operation, new_object_id, old_object_id)
-    SELECT 'UPD', n.id, d.id
-    FROM merged_object AS n, deleted_object AS d;
+    VALUES ('UPD', new_object_id_, old_object_id_);
 
     RETURN NULL;
 END
@@ -162,20 +147,19 @@ CREATE OR REPLACE FUNCTION delete_object(url_ TEXT,
 $body$
 DECLARE
     error_ JSON;
+    old_object_id_ BIGINT;
 BEGIN
     SELECT verify_object_is_present(url_, hash_to_delete, client_id_) INTO error_;
     IF error_ IS NOT NULL THEN
         RETURN error_;
     END IF;
 
-    WITH deleted_object AS (
-        UPDATE objects SET deleted_at = NOW()
-        WHERE url = url_ AND hash = hash_to_delete AND client_id = client_id_
-        RETURNING id
-    )
+    UPDATE objects SET deleted_at = NOW()
+    WHERE url = url_ AND hash = hash_to_delete AND client_id = client_id_ AND deleted_at IS NULL
+    RETURNING id INTO STRICT old_object_id_;
+
     INSERT INTO object_log(operation, old_object_id)
-    SELECT 'DEL', id
-    FROM deleted_object;
+    VALUES ('DEL', old_object_id_);
 
     RETURN NULL;
 END
