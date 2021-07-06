@@ -202,12 +202,18 @@ CREATE OR REPLACE VIEW current_log AS
 CREATE OR REPLACE FUNCTION read_delta(session_id_ TEXT, serial_ BIGINT)
     RETURNS SETOF current_log AS
 $body$
+DECLARE
+    version_id_ BIGINT;
 BEGIN
+    -- Select the `version_id` first to avoid having to join to `current_log`, since joining is much slower in this case.
+    SELECT id
+      INTO version_id_
+      FROM versions
+     WHERE session_id = session_id_ AND serial = serial_;
+
     RETURN QUERY SELECT current_log.*
                    FROM current_log
-                   JOIN versions ON current_log.version_id = versions.id
-                  WHERE versions.session_id = session_id_
-                    AND versions.serial = serial_
+                  WHERE version_id = version_id_
                   ORDER BY url ASC;
 END
 $body$
