@@ -14,7 +14,6 @@ CREATE TABLE objects
 );
 
 CREATE UNIQUE INDEX idx_objects_url ON objects (url) WHERE deleted_at IS NULL;
-CREATE UNIQUE INDEX idx_objects_hash ON objects (hash);
 CREATE INDEX idx_objects_client_id ON objects (client_id);
 
 
@@ -51,7 +50,7 @@ CREATE TABLE versions
         )
 );
 
-CREATE UNIQUE INDEX idx_versions_session_id_serial ON versions (session_id, serial);
+CREATE UNIQUE INDEX idx_versions_session_id_serial ON versions (session_id ASC, serial DESC);
 
 
 CREATE TABLE object_log
@@ -74,6 +73,6 @@ CREATE TABLE object_log
     FOREIGN KEY (version_id) REFERENCES versions (id) ON DELETE CASCADE ON UPDATE RESTRICT
 );
 
-CREATE INDEX idx_object_log_new_object_id ON object_log (new_object_id) WHERE new_object_id IS NOT NULL;
-CREATE INDEX idx_object_log_old_object_id ON object_log (old_object_id) WHERE old_object_id IS NOT NULL;
+CREATE INDEX idx_object_log_new_object_id ON object_log (new_object_id);
+CREATE INDEX idx_object_log_old_object_id ON object_log (old_object_id);
 CREATE INDEX idx_object_log_version_id ON object_log (version_id);

@@ -5,7 +5,7 @@ import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.fs.{Rrdp, RrdpRepositoryWriter, RsyncRepositoryWriter}
 import net.ripe.rpki.publicationserver.model.INITIAL_SERIAL
-import net.ripe.rpki.publicationserver.store.postgresql.PgStore
+import net.ripe.rpki.publicationserver.store.postgresql.{DeltaInfo, PgStore, SnapshotInfo}
 import net.ripe.rpki.publicationserver.util.Time
 import scalikejdbc.DBSession
 
@@ -89,50 +89,45 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
 
   private def updateSnapshot(sessionId: String, serial: Long)(implicit session: DBSession) = {
     val currentSession = pgStore.getCurrentSessionInfo
-    val (snapshotFileName, snapshotPath, generatedSnapshotName) = currentSession match {
-      case Some((sessionId_, serial_, Some(pgStore.SnapshotInfo(knownName, _, _)), _))
+    val (snapshotFileName, snapshotPath) = currentSession match {
+      case Some((sessionId_, serial_, Some(SnapshotInfo(_, _, knownName, _, _)), _))
         if (sessionId_ == sessionId && serial_ == serial) =>
-          (knownName, snapshotPathKnownName(sessionId, serial, knownName), true)
+          (knownName, snapshotPathKnownName(sessionId, serial, knownName))
       case _ =>
-        val (name, path) = snapshotPathRandom(sessionId, serial)
-        (name, path, true)
+        snapshotPathRandom(sessionId, serial)
     }
 
     val (snapshotHash, snapshotSize) = withAtomicStream(snapshotPath, rrdpWriter.fileAttributes) {
       writeRrdpSnapshot(sessionId, serial, _)
     }
-    if (generatedSnapshotName) {
-      pgStore.updateSnapshotInfo(sessionId, serial, snapshotFileName, snapshotHash, snapshotSize)
-    }
-    (snapshotFileName, snapshotHash, snapshotSize)
+    val info = SnapshotInfo(sessionId, serial, snapshotFileName, snapshotHash, snapshotSize)
+    pgStore.updateSnapshotInfo(info)
+    info
   }
 
 
   private def updateDelta(sessionId: String, serial: Long)(implicit session: DBSession) = {
     val currentSession = pgStore.getCurrentSessionInfo
-    val (deltaFileName, deltaPath, generatedDeltaName) = currentSession match {
-      case Some((sessionId_, serial_, _, Some(pgStore.DeltaInfo(knownName, _, _))))
+    val (deltaFileName, deltaPath) = currentSession match {
+      case Some((sessionId_, serial_, _, Some(DeltaInfo(_, _, knownName, _, _))))
         if (sessionId_ == sessionId && serial_ == serial) =>
-          (knownName, deltaPathKnownName(sessionId, serial, knownName), false)
+          (knownName, deltaPathKnownName(sessionId, serial, knownName))
       case _ =>
-        val (name, path) = deltaPathRandom(sessionId, serial)
-        (name, path, true)
+        deltaPathRandom(sessionId, serial)
     }
 
-    val (deltaHash, deltaSize) = {
-      withAtomicStream(deltaPath, rrdpWriter.fileAttributes) {
-        writeRrdpDelta(sessionId, serial, _)
-      }
+    val (deltaHash, deltaSize) = withAtomicStream(deltaPath, rrdpWriter.fileAttributes) {
+      writeRrdpDelta(sessionId, serial, _)
     }
-    if (generatedDeltaName) {
-      pgStore.updateDeltaInfo(sessionId, serial, deltaFileName, deltaHash, deltaSize)
-    }
+    val deltaInfo = DeltaInfo(sessionId, serial, deltaFileName, deltaHash, deltaSize)
+    pgStore.updateDeltaInfo(deltaInfo)
+    deltaInfo
   }
 
   private def updateRrdpFS(sessionId: String, serial: Long, latestFrozenPreviously: Option[Long])(implicit session: DBSession) = {
 
     // Generate snapshot for the latest serial, we are only able to general the latest snapshot
-    val (snapshotFileName, snapshotHash, _) = updateSnapshot(sessionId, serial)
+    val snapshotInfo = updateSnapshot(sessionId, serial)
 
     latestFrozenPreviously match {
       case None =>
@@ -151,7 +146,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
     val (_, d) = Time.timed {
       val deltas = pgStore.getReasonableDeltas(sessionId)
       rrdpWriter.writeNotification(conf.rrdpRepositoryPath) { os =>
-        writeNotification(sessionId, serial, snapshotHash, snapshotFileName, deltas, new HashingSizedStream(os))
+        writeNotification(snapshotInfo, deltas, new HashingSizedStream(os))
       }
     }
     logger.info(s"Generated notification $sessionId/$serial, took ${d}ms")
@@ -159,7 +154,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
   }
 
   private def initRrdpFS(sessionId: String, latestSerial: Long)(implicit session: DBSession) = {
-    val (snapshotFileName, snapshotHash, _) = updateSnapshot(sessionId, latestSerial)
+    val snapshotInfo = updateSnapshot(sessionId, latestSerial)
 
     if (latestSerial > INITIAL_SERIAL) {
       // When there are changes since the last freeze the latest delta might not yet exist, so ensure it gets created.
@@ -168,22 +163,23 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
       updateDelta(sessionId, latestSerial)
     }
 
-    val deltas = pgStore.getReasonableDeltas(sessionId)
-    for {
-      (serial, _, deltaFileName) <- deltas
-      // Delta for the latest serial was already created above, so we can skip it here.
-      if serial != latestSerial
-    } {
+    val deltas = for {
+      DeltaInfo(_, serial, deltaFileName, _, _) <- pgStore.getReasonableDeltas(sessionId)
+    } yield {
       val deltaPath = deltaPathKnownName(sessionId, serial, deltaFileName)
       val (deltaHash, deltaSize) =
         withAtomicStream(deltaPath, rrdpWriter.fileAttributes) {
           writeRrdpDelta(sessionId, serial, _)
         }
+      DeltaInfo(sessionId, serial, deltaFileName, deltaHash, deltaSize)
     }
+
+    // In case the hash/size changed due to rewriting the delta, e.g. when we change the format of a delta.
+    deltas.foreach(pgStore.updateDeltaInfo)
 
     val (_, duration) = Time.timed {
       rrdpWriter.writeNotification(conf.rrdpRepositoryPath) { os =>
-        writeNotification(sessionId, latestSerial, snapshotHash, snapshotFileName, deltas, new HashingSizedStream(os))
+        writeNotification(snapshotInfo, deltas, new HashingSizedStream(os))
       }
     }
     logger.info(s"Generated notification $sessionId/$latestSerial, took ${duration}ms")
@@ -223,8 +219,8 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
   def writeRrdpDelta(sessionId: String, serial: Long, deltaOs: HashingSizedStream)(implicit session: DBSession) = {
     val (_, duration) = Time.timed {
       IOStream.string(s"""<delta version="1" session_id="$sessionId" serial="$serial" xmlns="http://www.ripe.net/rpki/rrdp">\n""", deltaOs)
-      pgStore.readDelta(sessionId, serial) { (operation, uri, oldHash, bytes) =>
-        writeLogEntryToDeltaFile(operation, uri, oldHash, bytes, deltaOs)
+      pgStore.readDelta(sessionId, serial) { (uri, oldHash, bytes) =>
+        writeLogEntryToDeltaFile(uri, oldHash, bytes, deltaOs)
       }
       IOStream.string("</delta>\n", deltaOs)
     }
@@ -233,21 +229,27 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
 
   def writeRsyncDelta(sessionId: String, serial: Long)(implicit session: DBSession) = {
     val (_, duration) = Time.timed {
-      pgStore.readDelta(sessionId, serial) { (operation, uri, _, bytes) =>
-        writeLogEntryToRsync(operation, uri, bytes)
+      pgStore.readDelta(sessionId, serial) { (uri, oldHash, bytes) =>
+        writeLogEntryToRsync(uri, oldHash, bytes)
       }
     }
     logger.info(s"Wrote rsync delta for ${sessionId}/${serial}, took ${duration}ms.")
   }
 
 
-  def writeNotification(sessionId: String, serial: Long, snapshotHash: Hash, snapshotFileName: String, deltas: Seq[(Long, Hash, String)], stream: HashingSizedStream) = {
-    IOStream.string(s"""<notification version="1" session_id="$sessionId" serial="$serial" xmlns="http://www.ripe.net/rpki/rrdp">\n""", stream)
-    val snapshotUrl = conf.snapshotUrl(sessionId, serial, snapshotFileName)
-    IOStream.string(s"""  <snapshot uri="$snapshotUrl" hash="${snapshotHash.toHex}"/>\n""", stream)
-    deltas.foreach { case (deltaSerial, deltaHash, deltaFileName) =>
-      val deltaUrl = conf.deltaUrl(sessionId, deltaSerial, deltaFileName)
-      IOStream.string(s"""  <delta serial="$deltaSerial" uri="${deltaUrl}" hash="${deltaHash.toHex}"/>\n""", stream)
+  def writeNotification(snapshotInfo: SnapshotInfo, deltas: Seq[DeltaInfo], stream: HashingSizedStream) = {
+    require(deltas.forall(_.sessionId == snapshotInfo.sessionId), s"sessionId mismatch between snapshot and delta: $snapshotInfo <-> $deltas")
+    if (deltas.nonEmpty) {
+      require(deltas.head.serial == snapshotInfo.serial, s"most recent delta serial must match snapshot serial: $snapshotInfo <-> $deltas")
+      require(deltas.zip(deltas.tail).forall { case (a, b) => a.serial == b.serial + 1 }, s"delta serials must be consecutive: $deltas")
+    }
+
+    IOStream.string(s"""<notification version="1" session_id="${snapshotInfo.sessionId}" serial="${snapshotInfo.serial}" xmlns="http://www.ripe.net/rpki/rrdp">\n""", stream)
+    val snapshotUrl = conf.snapshotUrl(snapshotInfo)
+    IOStream.string(s"""  <snapshot uri="$snapshotUrl" hash="${snapshotInfo.hash.toHex}"/>\n""", stream)
+    deltas.foreach { delta =>
+      val deltaUrl = conf.deltaUrl(delta)
+      IOStream.string(s"""  <delta serial="${delta.serial}" uri="$deltaUrl" hash="${delta.hash.toHex}"/>\n""", stream)
     }
     IOStream.string("</notification>", stream)
   }
@@ -280,11 +282,10 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
     Paths.get(conf.rrdpRepositoryPath, sessionId, String.valueOf(serial))
   }
 
-  protected def writeLogEntryToRsync(operation: String, uri: URI, bytes: Option[Bytes]) =
-    (operation, bytes) match {
-      case ("INS", Some(b)) => rsyncWriter.writeFile(uri, b)
-      case ("UPD", Some(b)) => rsyncWriter.writeFile(uri, b)
-      case ("DEL", _)       => rsyncWriter.removeFile(uri)
+  protected def writeLogEntryToRsync(uri: URI, oldHash: Option[Hash], bytes: Option[Bytes]) =
+    (oldHash, bytes) match {
+      case (_, Some(b)) => rsyncWriter.writeFile(uri, b)
+      case (Some(_), None) => rsyncWriter.removeFile(uri)
       case anythingElse =>
         logger.error(s"Log contains invalid row $anythingElse")
     }
@@ -292,15 +293,15 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
   private def writeObjectToSnapshotFile(uri: URI, bytes: Bytes, stream: HashingSizedStream): Unit =
     writePublish(uri, bytes, stream)
 
-  def writeLogEntryToDeltaFile(operation: String, uri: URI, oldHash: Option[Hash], bytes: Option[Bytes], stream: HashingSizedStream) = {
-    (operation, oldHash, bytes) match {
-      case ("INS", None, Some(bytes)) =>
+  def writeLogEntryToDeltaFile(uri: URI, oldHash: Option[Hash], bytes: Option[Bytes], stream: HashingSizedStream) = {
+    (oldHash, bytes) match {
+      case (None, Some(bytes)) =>
         writePublish(uri, bytes, stream)
-      case ("UPD", Some(hash), Some(bytes)) =>
+      case (Some(hash), Some(bytes)) =>
         IOStream.string(s"""<publish uri="${attr(uri.toASCIIString)}" hash="${hash.toHex}">""", stream)
         IOStream.string(Bytes.toBase64(bytes).value, stream)
         IOStream.string("</publish>\n", stream)
-      case ("DEL", Some(hash), None) =>
+      case (Some(hash), None) =>
         IOStream.string(s"""<withdraw uri="${attr(uri.toASCIIString)}" hash="${hash.toHex}"/>\n""", stream)
       case anythingElse =>
         logger.error(s"Log contains invalid row $anythingElse")

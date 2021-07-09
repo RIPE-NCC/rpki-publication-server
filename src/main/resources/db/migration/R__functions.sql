@@ -20,20 +20,50 @@ SELECT pg_advisory_xact_lock(999999);
 $$ LANGUAGE SQL;
 
 
--- Reusable part of both create and replace an object in the 'objects' table.
---
-CREATE OR REPLACE FUNCTION merge_object(bytes_ BYTEA,
-                                        hash_ BYTEA,
-                                        url_ TEXT,
-                                        client_id_ TEXT) RETURNS SETOF objects AS
-$$
-    INSERT INTO objects (hash, content, url, client_id)
-         VALUES (hash_, bytes_, url_, client_id_)
-    ON CONFLICT (hash) DO UPDATE
-            SET deleted_at = NULL
-      RETURNING *;
-$$ LANGUAGE SQL;
+CREATE OR REPLACE FUNCTION verify_object_is_absent(url_ TEXT) RETURNS JSON AS
+$body$
+BEGIN
+    IF EXISTS (SELECT * FROM live_objects WHERE url = url_) THEN
+        RETURN json_build_object('code', 'object_already_present', 'message',
+                                 format('An object is already present at this URI [%s].', url_));
+    ELSE
+        RETURN NULL;
+    END IF;
+END;
+$body$
+  LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION verify_object_is_present(url_ TEXT, hash_to_replace BYTEA, client_id_ TEXT) RETURNS JSON AS
+$body$
+DECLARE
+    existing_client_id TEXT;
+    existing_hash      BYTEA;
+BEGIN
+    SELECT hash, client_id
+    INTO existing_hash, existing_client_id
+    FROM live_objects
+    WHERE url = url_;
+
+    IF NOT FOUND THEN
+        RETURN json_build_object('code', 'no_object_present', 'message',
+                                 format('There is no object present at this URI [%s].', url_));
+    END IF;
+
+    IF existing_hash <> hash_to_replace THEN
+        RETURN json_build_object('code', 'no_object_matching_hash', 'message',
+                                 format('Cannot replace or withdraw the object [%s], hash does not match, passed %s, but existing one is %s.',
+                                    url_, ENCODE(hash_to_replace, 'hex'), ENCODE(existing_hash, 'hex')));
+    END IF;
+
+    IF existing_client_id <> client_id_ THEN
+        RETURN json_build_object('code', 'permission_failure', 'message',
+                                 format('Not allowed to replace or withdraw an object of another client: [%s].', url_));
+    END IF;
+
+    RETURN NULL;
+END;
+$body$
+  LANGUAGE plpgsql;
 
 -- Add an object, corresponds to <publish> without hash to replace.
 --
@@ -46,27 +76,20 @@ CREATE OR REPLACE FUNCTION create_object(bytes_ BYTEA,
                                          client_id_ TEXT) RETURNS JSON AS
 $body$
 DECLARE
-    hash_ BYTEA;
+    error_ JSON;
+    new_object_id_ BIGINT;
 BEGIN
-    IF EXISTS (SELECT * FROM live_objects WHERE url = url_) THEN
-        RETURN json_build_object('code', 'object_already_present', 'message',
-                                 format('An object is already present at this URI [%s].', url_));
+    SELECT verify_object_is_absent(url_) INTO error_;
+    IF error_ IS NOT NULL THEN
+        RETURN error_;
     END IF;
 
-    SELECT sha256(bytes_) INTO hash_;
+    INSERT INTO objects (url, hash, content, client_id)
+    VALUES (url_, sha256(bytes_), bytes_, client_id_)
+    RETURNING id INTO STRICT new_object_id_;
 
-    IF EXISTS (SELECT * FROM live_objects WHERE hash = hash_) THEN
-        RETURN json_build_object('code', 'object_already_present', 'message',
-                                 format('An object with the same hash is already present with different URI, [%s].', url_));
-    END IF;
-
-    WITH merged_object AS (
-        SELECT *
-        FROM merge_object(bytes_, hash_, url_, client_id_)
-    )
     INSERT INTO object_log (operation, new_object_id)
-    SELECT 'INS', z.id
-    FROM merged_object AS z;
+    VALUES ('INS', new_object_id_);
 
     RETURN NULL;
 END
@@ -87,50 +110,27 @@ CREATE OR REPLACE FUNCTION replace_object(bytes_ BYTEA,
                                           client_id_ TEXT) RETURNS JSON AS
 $body$
 DECLARE
-    existing_object_id BIGINT;
-    existing_client_id TEXT;
-    hash_              BYTEA;
-    existing_hash      BYTEA;
+    error_ JSON;
+    old_object_id_ BIGINT;
+    new_object_id_ BIGINT;
 BEGIN
-
-    SELECT hash, id, client_id
-    INTO existing_hash, existing_object_id, existing_client_id
-    FROM live_objects
-    WHERE url = url_;
-
-    IF NOT FOUND THEN
-        RETURN json_build_object('code', 'no_object_present', 'message',
-                                 format('There is no object present at this URI [%s].', url_));
+    SELECT verify_object_is_present(url_, hash_to_replace, client_id_) INTO error_;
+    IF error_ IS NOT NULL THEN
+        RETURN error_;
     END IF;
 
-    IF existing_hash <> hash_to_replace THEN
-        RETURN json_build_object('code', 'no_object_matching_hash', 'message',
-                                 format('Cannot republish the object [%s], hash doesn''t match, passed %s, but existing one is %s',
-                                    url_, ENCODE(hash_to_replace, 'hex'), ENCODE(existing_hash, 'hex')));
-    END IF;
+    UPDATE objects SET deleted_at = NOW()
+    WHERE url = url_ AND hash = hash_to_replace AND client_id = client_id_ AND deleted_at IS NULL
+    RETURNING id INTO STRICT old_object_id_;
 
-    IF existing_client_id <> client_id_ THEN
-        RETURN json_build_object('code', 'permission_failure', 'message',
-                                 format('Not allowed to update an object of another client: [%s].', url_));
-    END IF;
+    INSERT INTO objects (url, hash, content, client_id)
+    VALUES (url_, sha256(bytes_), bytes_, client_id_)
+    RETURNING id INTO STRICT new_object_id_;
 
-    SELECT sha256(bytes_) INTO hash_;
-
-    WITH deleted_object AS (
-        UPDATE objects SET deleted_at = NOW()
-        WHERE hash = hash_to_replace
-        RETURNING id
-    ),
-     merged_object AS (
-        SELECT *
-        FROM merge_object(bytes_, hash_, url_, client_id_)
-    )
     INSERT INTO object_log (operation, new_object_id, old_object_id)
-    SELECT 'UPD', n.id, d.id
-    FROM merged_object AS n, deleted_object AS d;
+    VALUES ('UPD', new_object_id_, old_object_id_);
 
     RETURN NULL;
-
 END
 $body$
     LANGUAGE plpgsql;
@@ -146,40 +146,20 @@ CREATE OR REPLACE FUNCTION delete_object(url_ TEXT,
                                          client_id_ TEXT) RETURNS JSON AS
 $body$
 DECLARE
-    existing_object_id BIGINT;
-    existing_client_id TEXT;
-    existing_hash      BYTEA;
+    error_ JSON;
+    old_object_id_ BIGINT;
 BEGIN
-
-    SELECT hash, id, client_id
-    INTO existing_hash, existing_object_id, existing_client_id
-    FROM live_objects
-    WHERE url = url_;
-
-    IF NOT FOUND THEN
-        RETURN json_build_object('code', 'no_object_present', 'message',
-                                 format('There is no object present at this URI [%s].', url_));
+    SELECT verify_object_is_present(url_, hash_to_delete, client_id_) INTO error_;
+    IF error_ IS NOT NULL THEN
+        RETURN error_;
     END IF;
 
-    IF existing_hash <> hash_to_delete THEN
-        RETURN json_build_object('code', 'no_object_matching_hash', 'message',
-                                 format('Cannot withdraw the object [%s], hash does not match, ' ||
-                                 'passed %s, but existing one is %s.', url_, ENCODE(hash_to_delete, 'hex'), ENCODE(existing_hash, 'hex')));
-    END IF;
+    UPDATE objects SET deleted_at = NOW()
+    WHERE url = url_ AND hash = hash_to_delete AND client_id = client_id_ AND deleted_at IS NULL
+    RETURNING id INTO STRICT old_object_id_;
 
-    IF existing_client_id <> client_id_ THEN
-        RETURN json_build_object('code', 'permission_failure', 'message',
-                                 format('Not allowed to delete an object of another client: [%s].', url_));
-    END IF;
-
-    WITH deleted_object AS (
-        UPDATE objects SET deleted_at = NOW()
-        WHERE hash = hash_to_delete
-        RETURNING id
-    )
     INSERT INTO object_log(operation, old_object_id)
-    SELECT 'DEL', id
-    FROM deleted_object;
+    VALUES ('DEL', old_object_id_);
 
     RETURN NULL;
 END
@@ -200,40 +180,40 @@ ORDER BY url;
 
 -- Currently existing log of object changes
 CREATE OR REPLACE VIEW current_log AS
-SELECT
-    ol.id,
-    ol.version_id,
-    operation,
-    CASE operation
-        WHEN 'DEL' THEN old_o.url
-        WHEN 'INS' THEN new_o.url
-        WHEN 'UPD' THEN new_o.url
-    END AS url,
-    CASE operation
-        WHEN 'DEL' THEN old_o.hash
-        WHEN 'INS' THEN NULL
-        WHEN 'UPD' THEN old_o.hash
-    END AS old_hash,
-    CASE operation
-        WHEN 'DEL' THEN NULL
-        WHEN 'INS' THEN new_o.content
-        WHEN 'UPD' THEN new_o.content
-    END AS content
-FROM object_log ol
-LEFT JOIN objects old_o ON old_o.id = ol.old_object_id
-LEFT JOIN objects new_o ON new_o.id = ol.new_object_id
-ORDER BY id ASC;
+    WITH combined_operations AS (
+        SELECT ol.version_id,
+               o.url,
+               min(ol.id) AS oldest_id,
+               max(ol.id) AS newest_id
+          FROM object_log ol
+              JOIN objects o ON o.id = COALESCE(ol.new_object_id, ol.old_object_id)
+         GROUP BY ol.version_id, o.url
+    )
+    SELECT op.version_id, op.url, old.hash AS old_hash, new.content
+      FROM combined_operations op
+          JOIN object_log oldest ON op.oldest_id = oldest.id
+          JOIN object_log newest ON op.newest_id = newest.id
+          LEFT JOIN objects old ON old.id = oldest.old_object_id
+          LEFT JOIN objects new ON new.id = newest.new_object_id
+     WHERE COALESCE(old.hash, '\x') <> COALESCE(new.hash, '\x')
+     ORDER BY op.version_id ASC, op.url ASC;
 
 
 CREATE OR REPLACE FUNCTION read_delta(session_id_ TEXT, serial_ BIGINT)
     RETURNS SETOF current_log AS
 $body$
+DECLARE
+    version_id_ BIGINT;
 BEGIN
+    -- Select the `version_id` first to avoid having to join to `current_log`, since joining is much slower in this case.
+    SELECT id
+      INTO version_id_
+      FROM versions
+     WHERE session_id = session_id_ AND serial = serial_;
+
     RETURN QUERY SELECT current_log.*
                    FROM current_log
-                   JOIN versions ON current_log.version_id = versions.id
-                  WHERE versions.session_id = session_id_
-                    AND versions.serial = serial_
+                  WHERE version_id = version_id_
                   ORDER BY url ASC;
 END
 $body$
@@ -254,14 +234,14 @@ CREATE OR REPLACE VIEW latest_version AS
 CREATE OR REPLACE VIEW reasonable_deltas AS
 SELECT z.*
 FROM (SELECT v.*,
-             SUM(delta_size) OVER (PARTITION BY session_id ORDER BY id DESC) AS total_delta_size
+             CAST(SUM(delta_size) OVER (PARTITION BY session_id ORDER BY serial DESC) AS BIGINT) AS total_delta_size
       FROM versions v
      ) AS z,
      latest_version
 WHERE z.session_id = latest_version.session_id
 AND total_delta_size <= latest_version.snapshot_size
 AND z.delta_hash IS NOT NULL
-ORDER BY z.id DESC;
+ORDER BY z.serial DESC;
 
 
 -- Create another entry in the versions table, either the
@@ -290,9 +270,11 @@ BEGIN
         RETURNING id INTO STRICT new_version_id_;
     END IF;
 
-    UPDATE object_log
-       SET version_id = new_version_id_
-     WHERE version_id IS NULL;
+    IF new_version_id_ IS NOT NULL THEN
+        UPDATE object_log
+           SET version_id = new_version_id_
+         WHERE version_id IS NULL;
+    END IF;
 
     RETURN QUERY SELECT * FROM latest_version;
 END
@@ -306,7 +288,7 @@ $body$
 CREATE OR REPLACE FUNCTION changes_exist() RETURNS BOOLEAN AS
 $body$
 BEGIN
-    RETURN EXISTS(SELECT * FROM object_log WHERE version_id IS NULL);
+    RETURN EXISTS(SELECT * FROM current_log WHERE version_id IS NULL);
 END
 $body$
     LANGUAGE plpgsql;

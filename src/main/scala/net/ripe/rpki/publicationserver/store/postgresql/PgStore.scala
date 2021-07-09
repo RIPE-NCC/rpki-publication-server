@@ -11,6 +11,8 @@ import scalikejdbc._
 
 import java.net.URI
 
+case class SnapshotInfo(sessionId: String, serial: Long, name: String, hash: Hash, size: Long)
+case class DeltaInfo(sessionId: String, serial: Long, name: String, hash: Hash, size: Long)
 
 case class RollbackException(val error: BaseError) extends Exception
 
@@ -43,15 +45,14 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
   }
 
   def getLog = DB.localTx { implicit session =>
-    sql"""SELECT operation, url, old_hash, content
+    sql"""SELECT url, old_hash, content
          FROM current_log
-         ORDER BY id ASC"""
+         ORDER BY url ASC"""
       .map { rs =>
-        val operation = rs.string(1)
-        val uri = URI.create(rs.string(2))
-        val hash = rs.bytesOpt(3).map(bs => Hash(bs))
-        val bytes = rs.binaryStreamOpt(4).map(Bytes.fromStream)
-        (operation, uri, hash, bytes)
+        val uri = URI.create(rs.string(1))
+        val hash = rs.bytesOpt(2).map(bs => Hash(bs))
+        val bytes = rs.binaryStreamOpt(3).map(Bytes.fromStream)
+        (uri, hash, bytes)
       }
       .list()
       .apply()
@@ -70,76 +71,74 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
       }
   }
 
-  def readDelta(sessionId: String, serial: Long)(f: (String, URI, Option[Hash], Option[Bytes]) => Unit)(implicit session: DBSession) = {
+  def readDelta(sessionId: String, serial: Long)(f: (URI, Option[Hash], Option[Bytes]) => Unit)(implicit session: DBSession) = {
     session.fetchSize(200)
-    sql"""SELECT operation, url, old_hash, content
+    sql"""SELECT url, old_hash, content
          FROM read_delta($sessionId, $serial)
          ORDER BY url"""
       .foreach { rs =>
-        val operation = rs.string(1)
-        val uri = URI.create(rs.string(2))
-        val oldHash = rs.bytesOpt(3).map(bs => Hash(bs))
-        val bytes = rs.binaryStreamOpt(4).map(Bytes.fromStream)
-        f(operation, uri, oldHash, bytes)
+        val uri = URI.create(rs.string(1))
+        val oldHash = rs.bytesOpt(2).map(bs => Hash(bs))
+        val bytes = rs.binaryStreamOpt(3).map(Bytes.fromStream)
+        f(uri, oldHash, bytes)
       }
   }
 
-  case class SnapshotInfo(name: String, hash: Hash, size: Long)
-  case class DeltaInfo(name: String, hash: Hash, size: Long)
-
   def getCurrentSessionInfo(implicit session: DBSession) = {
 
-    def toSnapshotInfo(name: Option[String], hash: Option[Array[Byte]], size: Option[Long]) =
+    def toSnapshotInfo(sessionId: String, serial: Long, name: Option[String], hash: Option[Array[Byte]], size: Option[Long]) =
       for (n <- name; h <- hash; s <- size)
-        yield SnapshotInfo(n, Hash(h), s)
+        yield SnapshotInfo(sessionId, serial, n, Hash(h), s)
 
-    def toDeltaInfo(name: Option[String], hash: Option[Array[Byte]], size: Option[Long]) =
+    def toDeltaInfo(sessionId: String, serial: Long, name: Option[String], hash: Option[Array[Byte]], size: Option[Long]) =
       for (n <- name; h <- hash; s <- size)
-        yield DeltaInfo(n, Hash(h), s)
+        yield DeltaInfo(sessionId, serial, n, Hash(h), s)
 
     sql"""SELECT session_id, serial,
             snapshot_file_name, snapshot_hash, snapshot_size,
             delta_file_name, delta_hash, delta_size
          FROM latest_version"""
-      .map(rs => (
-        rs.string(1),
-        rs.long(2),
-        toSnapshotInfo(rs.stringOpt(3), rs.bytesOpt(4), rs.longOpt(5)),
-        toDeltaInfo(rs.stringOpt(6), rs.bytesOpt(7), rs.longOpt(8))
-      ))
+      .map(rs => {
+        val sessionId = rs.string(1)
+        val serial = rs.long(2)
+        (
+          sessionId, serial,
+          toSnapshotInfo(sessionId, serial, rs.stringOpt(3), rs.bytesOpt(4), rs.longOpt(5)),
+          toDeltaInfo(sessionId, serial, rs.stringOpt(6), rs.bytesOpt(7), rs.longOpt(8))
+        )
+      })
       .single()
       .apply()
   }
 
   def getReasonableDeltas(sessionId: String)(implicit session: DBSession) = {
-    sql"""SELECT serial, delta_hash, delta_file_name
+    sql"""SELECT session_id, serial, delta_file_name, delta_hash, delta_size
           FROM reasonable_deltas
           WHERE session_id = $sessionId
           ORDER BY serial DESC"""
-      .map { rs =>
-        (rs.long(1),
-          Hash(rs.bytes(2)),
-          rs.string(3))
+      .map { rs => DeltaInfo(rs.string(1), rs.long(2), rs.string(3), Hash(rs.bytes(4)), rs.long(5))
       }
       .list()
       .apply()
   }
 
-  def updateSnapshotInfo(sessionId: String, serial: Long, snapshotFileName: String, hash: Hash, size: Long)(implicit session: DBSession): Unit = {
+  def updateSnapshotInfo(snapshotInfo: SnapshotInfo)(implicit session: DBSession): Unit = {
+    import snapshotInfo._
     sql"""UPDATE versions SET
             snapshot_hash = ${hash.toBytes},
             snapshot_size = $size,
-            snapshot_file_name = $snapshotFileName
+            snapshot_file_name = $name
           WHERE session_id = $sessionId AND serial = $serial"""
       .execute()
       .apply()
   }
 
-  def updateDeltaInfo(sessionId: String, serial: Long, deltaFileName: String, hash: Hash, size: Long)(implicit session: DBSession): Unit = {
+  def updateDeltaInfo(deltaInfo: DeltaInfo)(implicit session: DBSession): Unit = {
+    import deltaInfo._
     sql"""UPDATE versions SET
             delta_hash = ${hash.toBytes},
             delta_size = $size,
-            delta_file_name = $deltaFileName
+            delta_file_name = $name
           WHERE session_id = $sessionId AND serial = $serial"""
       .execute()
       .apply()
@@ -169,6 +168,24 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
       // Apply all modification while holding a lock on the client ID
       // (which most often is the CA owning the objects)
       sql"SELECT acquire_client_id_lock(${clientId.value})".execute().apply()
+
+      changeSet.pdus.foreach {
+        case PublishQ(uri, _, None, _) =>
+          executeSql(
+            sql"SELECT verify_object_is_absent(${uri.toString})",
+            {},
+            metrics.failedToAdd())
+        case PublishQ(uri, _, Some(oldHash), _) =>
+          executeSql(
+            sql"SELECT verify_object_is_present(${uri.toString}, ${oldHash.toBytes}, ${clientId.value})",
+            {},
+            metrics.failedToReplace())
+        case WithdrawQ(uri, _, hash) =>
+          executeSql(
+            sql"SELECT verify_object_is_present(${uri.toString}, ${hash.toBytes}, ${clientId.value})",
+            {},
+            metrics.failedToDelete())
+      }
 
       changeSet.pdus.foreach {
         case PublishQ(uri, _, None, Bytes(bytes)) =>
