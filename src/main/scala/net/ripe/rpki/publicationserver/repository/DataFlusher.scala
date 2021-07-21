@@ -88,18 +88,12 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
   }
 
   private def updateSnapshot(sessionId: String, serial: Long)(implicit session: DBSession) = {
-    val currentSession = pgStore.getCurrentSessionInfo
-    val (snapshotFileName, snapshotPath) = currentSession match {
-      case Some((sessionId_, serial_, Some(SnapshotInfo(_, _, knownName, _, _)), _))
-        if (sessionId_ == sessionId && serial_ == serial) =>
-          (knownName, snapshotPathKnownName(sessionId, serial, knownName))
-      case _ =>
-        snapshotPathRandom(sessionId, serial)
-    }
+    val (snapshotFileName, snapshotPath) = snapshotPathRandom(sessionId, serial)
 
     val (snapshotHash, snapshotSize) = withAtomicStream(snapshotPath, rrdpWriter.fileAttributes) {
       writeRrdpSnapshot(sessionId, serial, _)
     }
+
     val info = SnapshotInfo(sessionId, serial, snapshotFileName, snapshotHash, snapshotSize)
     pgStore.updateSnapshotInfo(info)
     info
@@ -107,18 +101,12 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
 
 
   private def updateDelta(sessionId: String, serial: Long)(implicit session: DBSession) = {
-    val currentSession = pgStore.getCurrentSessionInfo
-    val (deltaFileName, deltaPath) = currentSession match {
-      case Some((sessionId_, serial_, _, Some(DeltaInfo(_, _, knownName, _, _))))
-        if (sessionId_ == sessionId && serial_ == serial) =>
-          (knownName, deltaPathKnownName(sessionId, serial, knownName))
-      case _ =>
-        deltaPathRandom(sessionId, serial)
-    }
+    val (deltaFileName, deltaPath) = deltaPathRandom(sessionId, serial)
 
     val (deltaHash, deltaSize) = withAtomicStream(deltaPath, rrdpWriter.fileAttributes) {
       writeRrdpDelta(sessionId, serial, _)
     }
+
     val deltaInfo = DeltaInfo(sessionId, serial, deltaFileName, deltaHash, deltaSize)
     pgStore.updateDeltaInfo(deltaInfo)
     deltaInfo
@@ -163,19 +151,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
       updateDelta(sessionId, latestSerial)
     }
 
-    val deltas = for {
-      DeltaInfo(_, serial, deltaFileName, _, _) <- pgStore.getReasonableDeltas(sessionId)
-    } yield {
-      val deltaPath = deltaPathKnownName(sessionId, serial, deltaFileName)
-      val (deltaHash, deltaSize) =
-        withAtomicStream(deltaPath, rrdpWriter.fileAttributes) {
-          writeRrdpDelta(sessionId, serial, _)
-        }
-      DeltaInfo(sessionId, serial, deltaFileName, deltaHash, deltaSize)
-    }
-
-    // In case the hash/size changed due to rewriting the delta, e.g. when we change the format of a delta.
-    deltas.foreach(pgStore.updateDeltaInfo)
+    val deltas = pgStore.getReasonableDeltas(sessionId).map(delta => updateDelta(sessionId, delta.serial))
 
     val (_, duration) = Time.timed {
       rrdpWriter.writeNotification(conf.rrdpRepositoryPath) { os =>
@@ -260,10 +236,6 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
     random.alphanumeric.map(c => c.toLower).take(20).mkString
   }
 
-  def deltaPathKnownName(sessionId: String, serial: Long, deltaFileName: String): Path = {
-    Files.createDirectories(commonSubPath(sessionId, serial)).resolve(deltaFileName)
-  }
-
   def deltaPathRandom(sessionId: String, serial: Long): (String, Path) = {
     val deltaFileName = Rrdp.deltaFileNameWithExtra(generateRandomPart)
     (deltaFileName, Files.createDirectories(commonSubPath(sessionId, serial)).resolve(deltaFileName))
@@ -272,10 +244,6 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
   def snapshotPathRandom(sessionId: String, serial: Long): (String, Path) = {
     val snapshotFileName = Rrdp.snapshotFileNameWithExtra(generateRandomPart)
     (snapshotFileName, Files.createDirectories(commonSubPath(sessionId, serial)).resolve(snapshotFileName))
-  }
-
-  def snapshotPathKnownName(sessionId: String, serial: Long, snapshotFileName: String): Path = {
-    Files.createDirectories(commonSubPath(sessionId, serial)).resolve(snapshotFileName)
   }
 
   private def commonSubPath(sessionId: String, serial: Long) = {

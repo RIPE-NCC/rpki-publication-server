@@ -7,8 +7,10 @@ import net.ripe.rpki.publicationserver.model._
 
 import java.net.URI
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, NoSuchFileException, Path}
+import java.nio.file.{Files, Path}
+import scala.collection.immutable.SortedMap
 import scala.concurrent.duration._
+import scala.xml.XML
 
 class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
@@ -54,18 +56,14 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     waitForRrdpCleanup()
 
     val (sessionId, serial) = verifySessionAndSerial
+    val (snapshotName, _) = parseNotification(sessionId, serial)
 
-    val (snapshotName, snapshotBytes) = verifyExpectedSnapshot(sessionId, serial) {
+    val snapshotBytes = verifyExpectedSnapshot(sessionId, serial, snapshotName) {
       s"""<snapshot version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
       </snapshot>"""
     }
 
-    try {
-      val deltaBytes = Files.readAllBytes(rrdpRootDfir.resolve(sessionId).resolve(serial.toString).resolve("delta.xml"))
-      if (deltaBytes != null) fail()
-    } catch {
-      case e: java.nio.file.NoSuchFileException => ()
-    }
+    verifyDeltaDoesntExist(sessionId, serial)
 
     verifyExpectedNotification {
       s"""<notification version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
@@ -76,17 +74,14 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
   test("initFS function must be idempotent") {
     def verifyRrdpFiles(sessionId: String, serial: Long) = {
-      val (snapshotName, snapshotBytes) = verifyExpectedSnapshot(sessionId, serial) {
+      val (snapshotName, _) = parseNotification(sessionId, serial)
+
+      val snapshotBytes = verifyExpectedSnapshot(sessionId, serial, snapshotName) {
         s"""<snapshot version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
       </snapshot>"""
       }
 
-      try {
-        val deltaBytes = Files.readAllBytes(rrdpRootDfir.resolve(sessionId).resolve(serial.toString).resolve("delta.xml"))
-        if (deltaBytes != null) fail()
-      } catch {
-        case e: NoSuchFileException => ()
-      }
+      verifyDeltaDoesntExist(sessionId, serial)
 
       verifyExpectedNotification {
         s"""<notification version="1" session_id="$sessionId" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
@@ -136,10 +131,11 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
         .resolve("directory").resolve("path2.cer"))) should be(bytes2)
 
     val (sessionId, serial) = verifySessionAndSerial
-
     serial should be(INITIAL_SERIAL)
 
-    val (snapshotName, snapshotBytes) = verifyExpectedSnapshot(sessionId, serial) {
+    val (snapshotName, _) = parseNotification(sessionId, serial)
+
+    val snapshotBytes = verifyExpectedSnapshot(sessionId, serial, snapshotName) {
       s"""<snapshot version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
           <publish uri="${uri1}">${base64_1}</publish>
           <publish uri="${uri2}">${base64_2}</publish>
@@ -177,8 +173,9 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     Bytes(Files.readAllBytes(rsyncRootDir2.resolve("online").resolve("directory").resolve("path2.cer"))) should be(bytes2)
 
     val (sessionId, serial) = verifySessionAndSerial
+    val (snapshotName, deltaNames) = parseNotification(sessionId, serial)
 
-    val (snapshotName, snapshotBytes) = verifyExpectedSnapshot(sessionId, serial) {
+    val snapshotBytes = verifyExpectedSnapshot(sessionId, serial, snapshotName) {
       s"""<snapshot version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
           <publish uri="${uri1}">${base64_1}</publish>
           <publish uri="${uri2}">${base64_2}</publish>
@@ -187,7 +184,7 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
     verifyDeltaDoesntExist(sessionId, serial - 1)
 
-    val (deltaName2, deltaBytes2) = verifyExpectedDelta(sessionId, serial) {
+    val deltaBytes2 = verifyExpectedDelta(sessionId, serial, deltaNames(serial)) {
       s"""<delta version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
           <publish uri="${uri2}">${base64_2}</publish>
       </delta>"""
@@ -196,7 +193,7 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     verifyExpectedNotification {
       s"""<notification version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
             <snapshot uri="http://localhost:7788/${sessionId}/${serial}/$snapshotName" hash="${hashOf(snapshotBytes).toHex}"/>
-            <delta serial="${serial}" uri="http://localhost:7788/${sessionId}/${serial}/$deltaName2" hash="${hashOf(deltaBytes2).toHex}"/>
+            <delta serial="${serial}" uri="http://localhost:7788/${sessionId}/${serial}/${deltaNames(serial)}" hash="${hashOf(deltaBytes2).toHex}"/>
           </notification>"""
     }
   }
@@ -220,11 +217,11 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     waitForRrdpCleanup()
 
     pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri2, tag = None, hash = None, bytes2))), clientId)
-    flusher.initFS()
+    flusher.updateFS()
     waitForRrdpCleanup()
 
     pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri3, tag = None, hash = None, bytes3))), clientId)
-    flusher.initFS()
+    flusher.updateFS()
     waitForRrdpCleanup()
 
     Bytes(Files.readAllBytes(rsyncRootDir1.resolve("online").resolve("path1.roa"))) should be(bytes1)
@@ -236,8 +233,9 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
       .resolve("path3.mft"))) should be(bytes3)
 
     val (sessionId, serial) = verifySessionAndSerial
+    val (snapshotName, deltaNames) = parseNotification(sessionId, serial)
 
-    val (snapshotName, snapshotBytes) = verifyExpectedSnapshot(sessionId, serial) {
+    val snapshotBytes = verifyExpectedSnapshot(sessionId, serial, snapshotName) {
       s"""<snapshot version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
           <publish uri="${uri1}">${base64_1}</publish>
           <publish uri="${uri2}">${base64_2}</publish>
@@ -247,13 +245,13 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
     verifyDeltaDoesntExist(sessionId, serial-2)
 
-    val (deltaName2, deltaBytes2) = verifyExpectedDelta(sessionId, serial-1) {
+    val deltaBytes2 = verifyExpectedDelta(sessionId, serial-1, deltaNames(serial-1)) {
       s"""<delta version="1" session_id="${sessionId}" serial="${serial-1}" xmlns="http://www.ripe.net/rpki/rrdp">
           <publish uri="${uri2}">${base64_2}</publish>
       </delta>"""
     }
 
-    val (deltaName3, deltaBytes3) = verifyExpectedDelta(sessionId, serial) {
+    val deltaBytes3 = verifyExpectedDelta(sessionId, serial, deltaNames(serial)) {
       s"""<delta version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
           <publish uri="${uri3}">${base64_3}</publish>
       </delta>"""
@@ -262,8 +260,8 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     verifyExpectedNotification {
       s"""<notification version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
             <snapshot uri="http://localhost:7788/${sessionId}/${serial}/$snapshotName" hash="${hashOf(snapshotBytes).toHex}"/>
-            <delta serial="${serial}" uri="http://localhost:7788/${sessionId}/${serial}/$deltaName3" hash="${hashOf(deltaBytes3).toHex}"/>
-            <delta serial="${serial-1}" uri="http://localhost:7788/${sessionId}/${serial-1}/$deltaName2" hash="${hashOf(deltaBytes2).toHex}"/>
+            <delta serial="${serial}" uri="http://localhost:7788/${sessionId}/${serial}/${deltaNames(serial)}" hash="${hashOf(deltaBytes3).toHex}"/>
+            <delta serial="${serial-1}" uri="http://localhost:7788/${sessionId}/${serial-1}/${deltaNames(serial-1)}" hash="${hashOf(deltaBytes2).toHex}"/>
           </notification>"""
     }
   }
@@ -287,15 +285,16 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     waitForRrdpCleanup()
 
     val (sessionId, serial) = verifySessionAndSerial
+    val (snapshotName, deltaNames) = parseNotification(sessionId, serial)
 
-    val (snapshotName, snapshotBytes) = verifyExpectedSnapshot(sessionId, serial) {
+    val snapshotBytes = verifyExpectedSnapshot(sessionId, serial, snapshotName) {
       s"""<snapshot version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
           <publish uri="${uri1}">${base64_1}</publish>
           <publish uri="${uri2}">${base64_2}</publish>
       </snapshot>"""
     }
 
-    val (deltaName, deltaBytes) = verifyExpectedDelta(sessionId, serial) {
+    val deltaBytes = verifyExpectedDelta(sessionId, serial, deltaNames(serial)) {
       s"""<delta version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
           <publish uri="${uri1}">${base64_1}</publish>
           <publish uri="${uri2}">${base64_2}</publish>
@@ -305,7 +304,7 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     verifyExpectedNotification {
       s"""<notification version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
             <snapshot uri="http://localhost:7788/${sessionId}/${serial}/$snapshotName" hash="${hashOf(snapshotBytes).toHex}"/>
-            <delta serial="${serial}" uri="http://localhost:7788/${sessionId}/${serial}/$deltaName" hash="${hashOf(deltaBytes).toHex}"/>
+            <delta serial="${serial}" uri="http://localhost:7788/${sessionId}/${serial}/${deltaNames(serial)}" hash="${hashOf(deltaBytes).toHex}"/>
           </notification>"""
     }
   }
@@ -343,15 +342,16 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     waitForRrdpCleanup()
 
     val (sessionId, serial) = verifySessionAndSerial
+    val (snapshotName, deltaNames) = parseNotification(sessionId, serial)
 
-    val (snapshotName, snapshotBytes) = verifyExpectedSnapshot(sessionId, serial) {
+    val snapshotBytes = verifyExpectedSnapshot(sessionId, serial, snapshotName) {
       s"""<snapshot version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
           <publish uri="${uri1}">${base64_1}</publish>
           <publish uri="${uri2}">${base64_2}</publish>
       </snapshot>"""
     }
 
-    val (deltaName, deltaBytes) = verifyExpectedDelta(sessionId, serial) {
+    val deltaBytes = verifyExpectedDelta(sessionId, serial, deltaNames(serial)) {
       s"""<delta version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
           <publish uri="${uri1}">${base64_1}</publish>
           <publish uri="${uri2}">${base64_2}</publish>
@@ -361,7 +361,7 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     verifyExpectedNotification {
       s"""<notification version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
             <snapshot uri="http://localhost:7788/${sessionId}/${serial}/$snapshotName" hash="${hashOf(snapshotBytes).toHex}"/>
-            <delta serial="${serial}" uri="http://localhost:7788/${sessionId}/${serial}/$deltaName" hash="${hashOf(deltaBytes).toHex}"/>
+            <delta serial="${serial}" uri="http://localhost:7788/${sessionId}/${serial}/${deltaNames(serial)}" hash="${hashOf(deltaBytes).toHex}"/>
           </notification>"""
     }
   }
@@ -402,7 +402,9 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     val (sessionId, serial) = verifySessionAndSerial
     serial should be(4)
 
-    val (snapshotName, snapshotBytes) = verifyExpectedSnapshot(sessionId, serial) {
+    val (snapshotName, deltaNames) = parseNotification(sessionId, serial)
+
+    val snapshotBytes = verifyExpectedSnapshot(sessionId, serial, snapshotName) {
       s"""<snapshot version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
           <publish uri="${uri1}">${base64_1}</publish>
           <publish uri="${uri2}">${base64_2}</publish>
@@ -415,13 +417,13 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     verifyDeltaDoesntExist(sessionId, serial - 3)
     verifyDeltaDoesntExist(sessionId, serial - 2)
 
-    val (deltaName2, deltaBytes2) = verifyExpectedDelta(sessionId, serial - 1) {
+    val deltaBytes2 = verifyExpectedDelta(sessionId, serial - 1, deltaNames(serial - 1)) {
       s"""<delta version="1" session_id="${sessionId}" serial="${serial - 1}" xmlns="http://www.ripe.net/rpki/rrdp">
           <publish uri="${uri2}">${base64_2}</publish>
       </delta>"""
     }
 
-    val (deltaName3, deltaBytes3) = verifyExpectedDelta(sessionId, serial) {
+    val deltaBytes3 = verifyExpectedDelta(sessionId, serial, deltaNames(serial)) {
       s"""<delta version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
           <publish uri="${uri3}">${base64_3}</publish>
       </delta>"""
@@ -430,23 +432,26 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     verifyExpectedNotification {
       s"""<notification version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
             <snapshot uri="http://localhost:7788/${sessionId}/${serial}/$snapshotName" hash="${hashOf(snapshotBytes).toHex}"/>
-            <delta serial="${serial}" uri="http://localhost:7788/${sessionId}/${serial}/$deltaName3" hash="${hashOf(deltaBytes3).toHex}"/>
-            <delta serial="${serial - 1}" uri="http://localhost:7788/${sessionId}/${serial - 1}/$deltaName2" hash="${hashOf(deltaBytes2).toHex}"/>
+            <delta serial="${serial}" uri="http://localhost:7788/${sessionId}/${serial}/${deltaNames(serial)}" hash="${hashOf(deltaBytes3).toHex}"/>
+            <delta serial="${serial - 1}" uri="http://localhost:7788/${sessionId}/${serial - 1}/${deltaNames(serial - 1)}" hash="${hashOf(deltaBytes2).toHex}"/>
           </notification>"""
     }
   }
 
   test("Should combine multiple updates to same URI when generating deltas") {
-    val flusher = newFlusher()
-    flusher.initFS()
-    waitForRrdpCleanup()
-
     val clientId = ClientId("client1")
 
+    val uri0 = new URI(urlPrefix1 + "/large-to-keep-all-deltas.roa")
     val uri1 = new URI(urlPrefix1 + "/path1.roa")
 
-    val (bytes1, base64_1) = TestBinaries.generateObject(1000)
+    val (bytes0, base64_0) = TestBinaries.generateObject(10000)
+    val (bytes1, base64_1) = TestBinaries.generateObject(100)
     val (bytes2, base64_2) = TestBinaries.generateObject(200)
+
+    val flusher = newFlusher()
+    pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri0, tag = None, hash = None, bytes0))), clientId)
+    flusher.initFS()
+    waitForRrdpCleanup()
 
     pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = None, bytes1))), clientId)
     flusher.updateFS()
@@ -461,30 +466,50 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     val (sessionId, serial) = verifySessionAndSerial
     serial should be(3)
 
-    verifyExpectedSnapshot(sessionId, serial) {
-      s"""<snapshot version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
-          <publish uri="${uri1}">${base64_2}</publish>
+    val (snapshotName, deltaNames) = parseNotification(sessionId, serial)
+
+    val snapshotBytes = verifyExpectedSnapshot(sessionId, serial, snapshotName) {
+      s"""<snapshot version="1" session_id="$sessionId" serial="$serial" xmlns="http://www.ripe.net/rpki/rrdp">
+          <publish uri="$uri0">$base64_0</publish>
+          <publish uri="$uri1">$base64_2</publish>
       </snapshot>"""
     }
 
-    verifyExpectedDelta(sessionId, serial) {
-      s"""<delta version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
-          <publish uri="${uri1}" hash="${hashOf(bytes1).toHex}">${base64_2}</publish>
+    val deltaBytes2 = verifyExpectedDelta(sessionId, serial - 1, deltaNames(serial - 1)) {
+      s"""<delta version="1" session_id="$sessionId" serial="${serial - 1}" xmlns="http://www.ripe.net/rpki/rrdp">
+          <publish uri="$uri1">$base64_1</publish>
       </delta>"""
+    }
+
+    val deltaBytes3 = verifyExpectedDelta(sessionId, serial, deltaNames(serial)) {
+      s"""<delta version="1" session_id="$sessionId" serial="$serial" xmlns="http://www.ripe.net/rpki/rrdp">
+          <publish uri="$uri1" hash="${hashOf(bytes1).toHex}">$base64_2</publish>
+      </delta>"""
+    }
+
+    verifyExpectedNotification {
+      s"""<notification version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
+            <snapshot uri="http://localhost:7788/${sessionId}/${serial}/$snapshotName" hash="${hashOf(snapshotBytes).toHex}"/>
+            <delta serial="${serial}" uri="http://localhost:7788/${sessionId}/${serial}/${deltaNames(serial)}" hash="${hashOf(deltaBytes3).toHex}"/>
+            <delta serial="${serial - 1}" uri="http://localhost:7788/${sessionId}/${serial - 1}/${deltaNames(serial - 1)}" hash="${hashOf(deltaBytes2).toHex}"/>
+          </notification>"""
     }
   }
 
   test("Should update RRDP and rsync when objects are published and withdrawn") {
-    val flusher = newFlusher()
-    flusher.initFS()
-    waitForRrdpCleanup()
-
     val clientId = ClientId("client1")
 
+    val uri0 = new URI(urlPrefix1 + "/large-to-keep-last-delta.roa")
     val uri1 = new URI(urlPrefix1 + "/path1.roa")
 
+    val (bytes0, base64_0) = TestBinaries.generateObject(200)
     val (bytes1, _) = TestBinaries.generateObject(1000)
     val (bytes2, _) = TestBinaries.generateObject(200)
+
+    val flusher = newFlusher()
+    pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri0, tag = None, hash = None, bytes0))), clientId)
+    flusher.initFS()
+    waitForRrdpCleanup()
 
     pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = None, bytes1))), clientId)
     flusher.updateFS()
@@ -507,16 +532,20 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     val (sessionId, serial) = verifySessionAndSerial
     serial should be(4L)
 
+    val (snapshotName, deltaNames) = parseNotification(sessionId, serial)
+
     verifySnapshotDoesntExist(sessionId, serial - 2)
     verifySnapshotDoesntExist(sessionId, serial - 1)
     verifyDeltaDoesntExist(sessionId, serial - 2)
     verifyDeltaDoesntExist(sessionId, serial - 1)
 
-    val (snapshotName, snapshotBytes) = verifyExpectedSnapshot(sessionId, serial) {
-      s"""<snapshot version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp"></snapshot>"""
+    val snapshotBytes = verifyExpectedSnapshot(sessionId, serial, snapshotName) {
+      s"""<snapshot version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
+          <publish uri="$uri0">$base64_0</publish>
+      </snapshot>""".stripMargin
     }
 
-    verifyExpectedDelta(sessionId, serial) {
+    val deltaBytes = verifyExpectedDelta(sessionId, serial, deltaNames(serial)) {
       s"""<delta version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
           <withdraw uri="${uri1}" hash="${hashOf(bytes2).toHex}"/>
       </delta>"""
@@ -525,6 +554,7 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     verifyExpectedNotification {
       s"""<notification version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
             <snapshot uri="http://localhost:7788/${sessionId}/${serial}/$snapshotName" hash="${hashOf(snapshotBytes).toHex}"/>
+            <delta serial="${serial}" uri="http://localhost:7788/${sessionId}/${serial}/${deltaNames(serial)}" hash="${hashOf(deltaBytes).toHex}"/>
           </notification>"""
     }
   }
@@ -544,14 +574,16 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     val (bytes2, base64_2) = TestBinaries.generateObject()
 
     def verifyRrpdFiles(sessionId : String, serial: Long) = {
-      val (snapshotName, snapshotBytes) = verifyExpectedSnapshot(sessionId, serial) {
+      val (snapshotName, deltaNames) = parseNotification(sessionId, serial)
+
+      val snapshotBytes = verifyExpectedSnapshot(sessionId, serial, snapshotName) {
         s"""<snapshot version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
               <publish uri="${uri1}">${base64_1}</publish>
               <publish uri="${uri2}">${base64_2}</publish>
           </snapshot>"""
       }
 
-      val (deltaName, deltaBytes) = verifyExpectedDelta(sessionId, serial) {
+      val deltaBytes = verifyExpectedDelta(sessionId, serial, deltaNames(serial)) {
         s"""<delta version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
               <publish uri="${uri1}">${base64_1}</publish>
               <publish uri="${uri2}">${base64_2}</publish>
@@ -561,7 +593,7 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
       verifyExpectedNotification {
         s"""<notification version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
             <snapshot uri="http://localhost:7788/${sessionId}/${serial}/$snapshotName" hash="${hashOf(snapshotBytes).toHex}"/>
-            <delta serial="${serial}" uri="http://localhost:7788/${sessionId}/${serial}/$deltaName" hash="${hashOf(deltaBytes).toHex}"/>
+            <delta serial="${serial}" uri="http://localhost:7788/${sessionId}/${serial}/${deltaNames(serial)}" hash="${hashOf(deltaBytes).toHex}"/>
           </notification>"""
       }
     }
@@ -597,8 +629,7 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
     val uri1 = new URI(urlPrefix1 + "/path1.roa")
 
-    val (bytes1, _) = TestBinaries.generateObject(1000)
-    val (bytes2, _) = TestBinaries.generateObject(200)
+    val (bytes1, base64_1) = TestBinaries.generateObject(1000)
 
     pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = None, bytes1))), clientId)
     flusher.updateFS()
@@ -606,39 +637,27 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
     rsyncRootDir1.resolve("online").resolve("path1.roa").toFile.exists() should be(false)
 
-    pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = Some(hashOf(bytes1)), bytes2))), clientId)
-    flusher.updateFS()
-    waitForRrdpCleanup()
-
-    rsyncRootDir1.resolve("online").resolve("path1.roa").toFile.exists() should be(false)
-
-    pgStore.applyChanges(QueryMessage(Seq(WithdrawQ(uri1, tag = None, hash = hashOf(bytes2)))), clientId)
-    flusher.updateFS()
-    waitForRrdpCleanup()
-
-    rsyncRootDir1.resolve("online").resolve("path1.roa").toFile.exists() should be(false)
-
     val (sessionId, serial) = verifySessionAndSerial
-    serial should be(4L)
+    serial should be(2L)
 
-    verifySnapshotDoesntExist(sessionId, serial - 2)
-    verifySnapshotDoesntExist(sessionId, serial - 1)
-    verifyDeltaDoesntExist(sessionId, serial - 2)
-    verifyDeltaDoesntExist(sessionId, serial - 1)
+    val (snapshotName, deltaNames) = parseNotification(sessionId, serial)
 
-    val (snapshotName, snapshotBytes) = verifyExpectedSnapshot(sessionId, serial) {
-      s"""<snapshot version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp"></snapshot>"""
+    val snapshotBytes = verifyExpectedSnapshot(sessionId, serial, snapshotName) {
+      s"""<snapshot version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
+            <publish uri="$uri1">$base64_1</publish>
+          </snapshot>"""
     }
 
-    verifyExpectedDelta(sessionId, serial) {
+    val deltaBytes = verifyExpectedDelta(sessionId, serial, deltaNames(serial)) {
       s"""<delta version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
-            <withdraw uri="${uri1}" hash="${hashOf(bytes2).toHex}"/>
-        </delta>"""
+            <publish uri="$uri1">$base64_1</publish>
+      </delta>"""
     }
 
     verifyExpectedNotification {
       s"""<notification version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
             <snapshot uri="http://localhost:7788/${sessionId}/${serial}/$snapshotName" hash="${hashOf(snapshotBytes).toHex}"/>
+            <delta serial="${serial}" uri="http://localhost:7788/${sessionId}/${serial}/${deltaNames(serial)}" hash="${hashOf(deltaBytes).toHex}"/>
           </notification>"""
     }
   }
@@ -680,16 +699,19 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
 
   test("Should update rrdp and rsync when DB is modified by `another instance` in the meantime") {
-    val flusher = newFlusher()
-    flusher.initFS()
-    waitForRrdpCleanup()
-
     val clientId = ClientId("client1")
 
+    val uri0 = new URI(urlPrefix1 + "/large-to-keep-last-delta.roa")
     val uri1 = new URI(urlPrefix1 + "/path1.roa")
 
+    val (bytes0, base64_0) = TestBinaries.generateObject(200)
     val (bytes1, _) = TestBinaries.generateObject(1000)
     val (bytes2, _) = TestBinaries.generateObject(200)
+
+    val flusher = newFlusher()
+    pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri0, tag = None, hash = None, bytes0))), clientId)
+    flusher.initFS()
+    waitForRrdpCleanup()
 
     pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = None, bytes1))), clientId)
     flusher.updateFS()
@@ -714,16 +736,20 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     val (sessionId, serial) = verifySessionAndSerial
     serial should be(4L)
 
+    val (snapshotName, deltaNames) = parseNotification(sessionId, serial)
+
     verifySnapshotDoesntExist(sessionId, serial - 2)
     verifySnapshotDoesntExist(sessionId, serial - 1)
     verifyDeltaDoesntExist(sessionId, serial - 2)
     verifyDeltaDoesntExist(sessionId, serial - 1)
 
-    val (snapshotName, snapshotBytes) = verifyExpectedSnapshot(sessionId, serial) {
-      s"""<snapshot version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp"></snapshot>"""
+    val snapshotBytes = verifyExpectedSnapshot(sessionId, serial, snapshotName) {
+      s"""<snapshot version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
+            <publish uri="$uri0">$base64_0</publish>
+         </snapshot>"""
     }
 
-    verifyExpectedDelta(sessionId, serial) {
+    val deltaBytes = verifyExpectedDelta(sessionId, serial, deltaNames(serial)) {
       s"""<delta version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
             <withdraw uri="${uri1}" hash="${hashOf(bytes2).toHex}"/>
         </delta>"""
@@ -732,30 +758,25 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     verifyExpectedNotification {
       s"""<notification version="1" session_id="${sessionId}" serial="${serial}" xmlns="http://www.ripe.net/rpki/rrdp">
             <snapshot uri="http://localhost:7788/${sessionId}/${serial}/$snapshotName" hash="${hashOf(snapshotBytes).toHex}"/>
+            <delta serial="${serial}" uri="http://localhost:7788/${sessionId}/${serial}/${deltaNames(serial)}" hash="${hashOf(deltaBytes).toHex}"/>
           </notification>"""
     }
   }
 
-  private def verifyExpectedSnapshot(sessionId: String, serial: Long)(expected: String) = {
-    val snapshotFile = Files.list(sessionSerialDir(sessionId, serial)).
-      filter(Rrdp.isSnapshot).
-      findFirst().
-      get()
+  private def verifyExpectedSnapshot(sessionId: String, serial: Long, filename: String)(expected: String): Array[Byte] = {
+    val snapshotFile = sessionSerialDir(sessionId, serial).resolve(filename)
     val bytes = Files.readAllBytes(snapshotFile)
     val generatedSnapshot = new String(bytes, StandardCharsets.US_ASCII)
     trim(generatedSnapshot) should be(trim(expected))
-    (snapshotFile.getFileName.toString, bytes)
+    bytes
   }
 
-  private def verifyExpectedDelta(sessionId: String, serial: Long)(expected: String) = {
-    val deltaFile = Files.list(sessionSerialDir(sessionId, serial)).
-      filter(Rrdp.isDelta).
-      findFirst().
-      get()
+  private def verifyExpectedDelta(sessionId: String, serial: Long, filename: String)(expected: String) = {
+    val deltaFile = sessionSerialDir(sessionId, serial).resolve(filename)
     val bytes = Files.readAllBytes(deltaFile)
     val generatedDelta = new String(bytes, StandardCharsets.US_ASCII)
     trim(generatedDelta) should be(trim(expected))
-    (deltaFile.getFileName.toString, bytes)
+    bytes
   }
 
   def sessionSerialDir(sessionId: String, serial: Long) =
@@ -768,6 +789,18 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     version.isDefined should be(true)
     val (session, serial, _, _) = version.get
     (session, serial)
+  }
+
+  private def parseNotification(sessionId: String, serial: Long): (String, SortedMap[Long, String]) = {
+    val notificationContents = Files.readString(rrdpRootDfir.resolve("notification.xml"), StandardCharsets.US_ASCII)
+    val notification = XML.loadString(notificationContents)
+    notification \@ "session_id" should be(sessionId)
+    notification \@ "serial" should be(serial.toString)
+
+    val snapshotFilename = (notification \ "snapshot" \@ "uri").split('/').last
+    val deltaFilenames = (notification \ "delta").map(elem => (elem \@ "serial").toLong -> (elem \@ "uri").split('/').last)
+
+    (snapshotFilename, SortedMap.from(deltaFilenames))
   }
 
   private def verifyExpectedNotification(expected: String) = {
