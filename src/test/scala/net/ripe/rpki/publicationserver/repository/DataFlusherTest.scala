@@ -16,7 +16,7 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
   private var rsyncRootDir1: Path = _
   private var rsyncRootDir2: Path = _
-  private var rrdpRootDfir: Path = _
+  private var rrdpRootDir: Path = _
 
   private val pgStore = createPgStore
 
@@ -32,10 +32,10 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
   private def newFlusher(writeRsyncFlag: Boolean = true, writeRrdpFlag: Boolean = true) = {
     rsyncRootDir1 = Files.createTempDirectory("test_pub_server_rsync_")
     rsyncRootDir2 = Files.createTempDirectory("test_pub_server_rsync_")
-    rrdpRootDfir = Files.createTempDirectory("test_pub_server_rrdp_")
+    rrdpRootDir = Files.createTempDirectory("test_pub_server_rrdp_")
     conf = new AppConfig() {
       override lazy val pgConfig = pgTestConfig
-      override lazy val rrdpRepositoryPath = rrdpRootDfir.toAbsolutePath.toString
+      override lazy val rrdpRepositoryPath = rrdpRootDir.toAbsolutePath.toString
       override lazy val unpublishedFileRetainPeriod = Duration(20, MILLISECONDS)
       override lazy val writeRsync = writeRsyncFlag
       override lazy val writeRrdp = writeRrdpFlag
@@ -694,7 +694,7 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     verifyDeltaDoesntExist(sessionId, serial - 1)
     verifyDeltaDoesntExist(sessionId, serial)
 
-    rrdpRootDfir.resolve("notification.xml").toFile.exists() should be(false)
+    rrdpRootDir.resolve("notification.xml").toFile.exists() should be(false)
   }
 
 
@@ -780,7 +780,7 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
   }
 
   def sessionSerialDir(sessionId: String, serial: Long) =
-    rrdpRootDfir.resolve(sessionId).resolve(serial.toString)
+    rrdpRootDir.resolve(sessionId).resolve(serial.toString)
 
   private def verifySessionAndSerial = {
     val version = pgStore.inRepeatableReadTx { implicit session =>
@@ -792,7 +792,7 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
   }
 
   private def parseNotification(sessionId: String, serial: Long): (String, SortedMap[Long, String]) = {
-    val notificationContents = Files.readString(rrdpRootDfir.resolve("notification.xml"), StandardCharsets.US_ASCII)
+    val notificationContents = Files.readString(rrdpRootDir.resolve("notification.xml"), StandardCharsets.US_ASCII)
     val notification = XML.loadString(notificationContents)
     notification \@ "session_id" should be(sessionId)
     notification \@ "serial" should be(serial.toString)
@@ -804,7 +804,7 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
   }
 
   private def verifyExpectedNotification(expected: String) = {
-    val bytes = Files.readAllBytes(rrdpRootDfir.resolve("notification.xml"))
+    val bytes = Files.readAllBytes(rrdpRootDir.resolve("notification.xml"))
     val generatedNotification = new String(bytes, StandardCharsets.US_ASCII)
     trim(generatedNotification) should be(trim(expected))
     bytes
