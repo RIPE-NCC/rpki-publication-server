@@ -9,7 +9,7 @@ import net.ripe.rpki.publicationserver.store.postgresql.{DeltaInfo, PgStore, Sna
 import net.ripe.rpki.publicationserver.util.Time
 import scalikejdbc.DBSession
 
-import java.io.FileOutputStream
+import java.io.{FileOutputStream, OutputStream}
 import java.net.URI
 import java.nio.file.attribute.FileTime
 import java.nio.file.{Files, Path, Paths, StandardCopyOption}
@@ -134,7 +134,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
     val (_, d) = Time.timed {
       val deltas = pgStore.getReasonableDeltas(sessionId)
       rrdpWriter.writeNotification(conf.rrdpRepositoryPath) { os =>
-        writeNotification(snapshotInfo, deltas, new HashingSizedStream(os))
+        writeNotification(snapshotInfo, deltas, os)
       }
     }
     logger.info(s"Generated notification $sessionId/$serial, took ${d}ms")
@@ -155,7 +155,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
 
     val (_, duration) = Time.timed {
       rrdpWriter.writeNotification(conf.rrdpRepositoryPath) { os =>
-        writeNotification(snapshotInfo, deltas, new HashingSizedStream(os))
+        writeNotification(snapshotInfo, deltas, os)
       }
     }
     logger.info(s"Generated notification $sessionId/$latestSerial, took ${duration}ms")
@@ -213,7 +213,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
   }
 
 
-  def writeNotification(snapshotInfo: SnapshotInfo, deltas: Seq[DeltaInfo], stream: HashingSizedStream) = {
+  def writeNotification(snapshotInfo: SnapshotInfo, deltas: Seq[DeltaInfo], stream: OutputStream) = {
     require(deltas.forall(_.sessionId == snapshotInfo.sessionId), s"sessionId mismatch between snapshot and delta: $snapshotInfo <-> $deltas")
     if (deltas.nonEmpty) {
       require(deltas.head.serial == snapshotInfo.serial, s"most recent delta serial must match snapshot serial: $snapshotInfo <-> $deltas")
