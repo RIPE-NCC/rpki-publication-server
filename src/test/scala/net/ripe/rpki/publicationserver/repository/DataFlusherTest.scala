@@ -5,6 +5,7 @@ import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.fs.Rrdp
 import net.ripe.rpki.publicationserver.model._
 
+import java.io.{FileInputStream, InputStreamReader}
 import java.net.URI
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
@@ -794,8 +795,7 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
   }
 
   private def parseNotification(sessionId: String, serial: Long): (String, SortedMap[Long, String]) = {
-    val notificationContents = Files.readString(rrdpRootDir.resolve("notification.xml"), StandardCharsets.US_ASCII)
-    val notification = XML.loadString(notificationContents)
+    val notification = XML.load(new InputStreamReader(new FileInputStream(rrdpRootDir.resolve("notification.xml").toFile), StandardCharsets.US_ASCII))
     notification \@ "session_id" should be(sessionId)
     notification \@ "serial" should be(serial.toString)
 
