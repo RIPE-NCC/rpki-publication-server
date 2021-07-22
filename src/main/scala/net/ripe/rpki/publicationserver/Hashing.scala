@@ -1,8 +1,10 @@
 package net.ripe.rpki.publicationserver
 
-import java.security.MessageDigest
-
 import net.ripe.rpki.publicationserver.Binaries.{Base64, Bytes}
+
+import java.security.MessageDigest
+import javax.crypto.Mac
+import javax.crypto.spec.SecretKeySpec
 
 case class Hash(private val bytes: Bytes) {
   require(bytes.value.length == 32, s"SHA-256 hash must have length 32, was: ${bytes.value.length}")
@@ -50,5 +52,11 @@ trait Hashing {
 
   def hashOf(b64: Base64): Hash = hashOf(Bytes.fromBase64(b64))
   def hashOf(bytes: Bytes): Hash = hashOf(bytes.value)
+
+  def hmacOf(secret: Bytes, message: Bytes): Bytes = {
+    val mac = Mac.getInstance("HmacSHA256")
+    mac.init(new SecretKeySpec(secret.value, "HmacSHA256"))
+    Bytes(mac.doFinal(message.value))
+  }
 }
 object Hashing extends Hashing

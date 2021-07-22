@@ -167,7 +167,7 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     Bytes(Files.readAllBytes(rsyncRootDir1.resolve("online").resolve("path1.cer"))) should be(bytes1)
 
     pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri2, tag = None, hash = None, bytes2))), clientId)
-    flusher.initFS()
+    flusher.updateFS()
     waitForRrdpCleanup()
 
     Bytes(Files.readAllBytes(rsyncRootDir2.resolve("online").resolve("directory").resolve("path2.cer"))) should be(bytes2)
@@ -268,6 +268,8 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
   test("Should publish, create a session and serial and generate XML files with updateFS") {
     val flusher = newFlusher()
+    flusher.initFS()
+    waitForRrdpCleanup()
 
     val clientId = ClientId("client1")
 
@@ -787,8 +789,8 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
       pgStore.getCurrentSessionInfo
     }
     version.isDefined should be(true)
-    val (session, serial, _, _) = version.get
-    (session, serial)
+    val (versionInfo, _, _) = version.get
+    (versionInfo.sessionId, versionInfo.serial)
   }
 
   private def parseNotification(sessionId: String, serial: Long): (String, SortedMap[Long, String]) = {

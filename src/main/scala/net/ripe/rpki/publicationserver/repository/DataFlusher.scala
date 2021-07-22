@@ -4,8 +4,7 @@ import akka.actor.ActorSystem
 import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.fs.{Rrdp, RrdpRepositoryWriter, RsyncRepositoryWriter}
-import net.ripe.rpki.publicationserver.model.INITIAL_SERIAL
-import net.ripe.rpki.publicationserver.store.postgresql.{DeltaInfo, PgStore, SnapshotInfo}
+import net.ripe.rpki.publicationserver.store.postgresql.{DeltaInfo, PgStore, SnapshotInfo, VersionInfo}
 import net.ripe.rpki.publicationserver.util.Time
 import scalikejdbc.DBSession
 
@@ -40,19 +39,19 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
       pgStore.inRepeatableReadTx { implicit session =>
         pgStore.lockVersions
 
-        val ((sessionId, latestSerial, _), duration) = Time.timed(pgStore.freezeVersion)
-        logger.info(s"Froze version $sessionId, $latestSerial, took ${duration}ms")
+        val (version, duration) = Time.timed(pgStore.freezeVersion)
+        logger.info(s"Froze version ${version.sessionId}, ${version.serial}, took ${duration}ms")
 
         if (conf.writeRsync) {
-          initRsyncFS(sessionId, latestSerial)
+          initRsyncFS()
         }
 
         if (conf.writeRrdp) {
-          initRrdpFS(sessionId, latestSerial)
-          initialRrdpRepositoryCleanup(UUID.fromString(sessionId))
+          initRrdpFS(version)
+          initialRrdpRepositoryCleanup(UUID.fromString(version.sessionId))
         }
 
-        latestFrozenSerial = Some(latestSerial)
+        latestFrozenSerial = Some(version.serial)
       }
       logger.info("Done initialising FS content")
     }
@@ -66,68 +65,74 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
         pgStore.lockVersions
 
         if (pgStore.changesExist()) {
-          val ((sessionId, serial, _), duration) = Time.timed(pgStore.freezeVersion)
-          logger.info(s"Froze version $sessionId, $serial, took ${duration}ms")
+          val (version, duration) = Time.timed(pgStore.freezeVersion)
+          logger.info(s"Froze version ${version.sessionId}, ${version.serial}, took ${duration}ms")
 
           if (conf.writeRsync) {
-            writeRsyncDelta(sessionId, serial)
+            writeRsyncDelta(version.sessionId, version.serial)
           }
 
           if (conf.writeRrdp) {
-            updateRrdpFS(sessionId, serial, latestFrozenSerial)
+            updateRrdpFS(version, latestFrozenSerial)
             val (_, cleanupDuration) = Time.timed {
               updateRrdpRepositoryCleanup()
             }
-            logger.info(s"Cleanup $sessionId, $serial, took ${cleanupDuration}ms")
+            logger.info(s"Cleanup ${version.sessionId}, ${version.serial}, took ${cleanupDuration}ms")
           }
 
-          latestFrozenSerial = Some(serial)
+          latestFrozenSerial = Some(version.serial)
         }
       }
     }
   }
 
-  private def updateSnapshot(sessionId: String, serial: Long)(implicit session: DBSession) = {
-    val (snapshotFileName, snapshotPath) = snapshotPathRandom(sessionId, serial)
+  private def updateSnapshot(version: VersionInfo)(implicit session: DBSession) = {
+    import version._
+    val snapshotPath = rrdpFilePath(sessionId, serial)
 
-    val (snapshotHash, snapshotSize) = withAtomicStream(snapshotPath, rrdpWriter.fileAttributes) {
+    val (snapshotFileName, snapshotHash, snapshotSize) = withAtomicStream(snapshotPath, fileNameSecret, snapshotFileNameFromHmac, rrdpWriter.fileAttributes) {
       writeRrdpSnapshot(sessionId, serial, _)
     }
 
-    val info = SnapshotInfo(sessionId, serial, snapshotFileName, snapshotHash, snapshotSize)
+    val info = SnapshotInfo(version, snapshotFileName, snapshotHash, snapshotSize)
     pgStore.updateSnapshotInfo(info)
     info
   }
 
 
-  private def updateDelta(sessionId: String, serial: Long)(implicit session: DBSession) = {
-    val (deltaFileName, deltaPath) = deltaPathRandom(sessionId, serial)
+  private def updateDelta(version: VersionInfo)(implicit session: DBSession) = {
+    import version._
+    val deltaPath = rrdpFilePath(sessionId, serial)
 
-    val (deltaHash, deltaSize) = withAtomicStream(deltaPath, rrdpWriter.fileAttributes) {
+    val (deltaFileName, deltaHash, deltaSize) = withAtomicStream(deltaPath, fileNameSecret, deltaFileNameFromHmac, rrdpWriter.fileAttributes) {
       writeRrdpDelta(sessionId, serial, _)
     }
 
-    val deltaInfo = DeltaInfo(sessionId, serial, deltaFileName, deltaHash, deltaSize)
+    val deltaInfo = DeltaInfo(version, deltaFileName, deltaHash, deltaSize)
     pgStore.updateDeltaInfo(deltaInfo)
     deltaInfo
   }
 
-  private def updateRrdpFS(sessionId: String, serial: Long, latestFrozenPreviously: Option[Long])(implicit session: DBSession) = {
+  private def updateRrdpFS(version: VersionInfo, latestFrozenPreviously: Option[Long])(implicit session: DBSession) = {
+    import version._
 
     // Generate snapshot for the latest serial, we are only able to general the latest snapshot
-    val snapshotInfo = updateSnapshot(sessionId, serial)
+    val snapshotInfo = updateSnapshot(version)
+    if (!version.isInitialSerial) {
+      updateDelta(version)
+    }
 
     latestFrozenPreviously match {
       case None =>
         // Generate only the latest delta, it's the first time
-        updateDelta(sessionId, serial)
 
       case Some(previous) =>
         // Catch up on deltas, i.e. generate deltas from `latestFrozenPreviously` to `serial`.
         // This is to cover the case if version freeze was initiated by some other instance
         // and this instance is lagging behind.
-        for (s <- (previous + 1) to serial) {
-          updateDelta(sessionId, s)
+        val deltas = pgStore.getReasonableDeltas(version.sessionId)
+        for (delta <- deltas if delta.serial > previous && delta.serial < version.serial) {
+          updateDelta(delta.version)
         }
     }
 
@@ -141,34 +146,38 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
 
   }
 
-  private def initRrdpFS(sessionId: String, latestSerial: Long)(implicit session: DBSession) = {
-    val snapshotInfo = updateSnapshot(sessionId, latestSerial)
+  private def initRrdpFS(latestVersion: VersionInfo)(implicit session: DBSession) = {
+    val snapshotInfo = updateSnapshot(latestVersion)
 
-    if (latestSerial > INITIAL_SERIAL) {
+    if (!latestVersion.isInitialSerial) {
       // When there are changes since the last freeze the latest delta might not yet exist, so ensure it gets created.
       // The `getReasonableDeltas` query below will then decide which deltas (if any) should be included in the
       // notification.xml file.
-      updateDelta(sessionId, latestSerial)
+      updateDelta(latestVersion)
     }
 
-    val deltas = pgStore.getReasonableDeltas(sessionId).map(delta => updateDelta(sessionId, delta.serial))
+    val deltas = for {
+      delta <- pgStore.getReasonableDeltas(latestVersion.sessionId)
+      if delta.serial < latestVersion.serial
+    } yield {
+      updateDelta(delta.version)
+    }
 
     val (_, duration) = Time.timed {
       rrdpWriter.writeNotification(conf.rrdpRepositoryPath) { os =>
         writeNotification(snapshotInfo, deltas, os)
       }
     }
-    logger.info(s"Generated notification $sessionId/$latestSerial, took ${duration}ms")
+    logger.info(s"Generated notification ${latestVersion.sessionId}/${latestVersion.serial}, took ${duration}ms")
   }
 
-  private def initRsyncFS(sessionId: String, latestSerial: Long)(implicit session: DBSession) = {
+  private def initRsyncFS()(implicit session: DBSession) = {
     writeRsyncSnapshot()
-    writeRsyncDelta(sessionId, latestSerial)
   }
 
   // Write snapshot, i.e. the current state of the dataset into RRDP snapshot.xml file
   // and in rsync repository at the same time.
-  def writeRrdpSnapshot(sessionId: String, serial: Long, snapshotOs: HashingSizedStream)(implicit session: DBSession) = {
+  def writeRrdpSnapshot(sessionId: String, serial: Long, snapshotOs: OutputStream)(implicit session: DBSession) = {
     val (_, duration) = Time.timed {
       IOStream.string(s"""<snapshot version="1" session_id="$sessionId" serial="$serial" xmlns="http://www.ripe.net/rpki/rrdp">\n""", snapshotOs)
       pgStore.readState { (uri, _, bytes) =>
@@ -192,7 +201,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
     logger.info(s"Wrote rsync snapshot, took ${duration}ms.")
   }
 
-  def writeRrdpDelta(sessionId: String, serial: Long, deltaOs: HashingSizedStream)(implicit session: DBSession) = {
+  def writeRrdpDelta(sessionId: String, serial: Long, deltaOs: OutputStream)(implicit session: DBSession) = {
     val (_, duration) = Time.timed {
       IOStream.string(s"""<delta version="1" session_id="$sessionId" serial="$serial" xmlns="http://www.ripe.net/rpki/rrdp">\n""", deltaOs)
       pgStore.readDelta(sessionId, serial) { (uri, oldHash, bytes) =>
@@ -230,21 +239,11 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
     IOStream.string("</notification>", stream)
   }
 
-  private val random = new scala.util.Random(new java.security.SecureRandom())
+  def rrdpFilePath(sessionId: String, serial: Long): Path = Files.createDirectories(commonSubPath(sessionId, serial))
 
-  private def generateRandomPart: String = {
-    random.alphanumeric.map(c => c.toLower).take(20).mkString
-  }
+  def deltaFileNameFromHmac(hmac: Bytes): String = Rrdp.deltaFileNameWithExtra(hmac.toHex)
 
-  def deltaPathRandom(sessionId: String, serial: Long): (String, Path) = {
-    val deltaFileName = Rrdp.deltaFileNameWithExtra(generateRandomPart)
-    (deltaFileName, Files.createDirectories(commonSubPath(sessionId, serial)).resolve(deltaFileName))
-  }
-
-  def snapshotPathRandom(sessionId: String, serial: Long): (String, Path) = {
-    val snapshotFileName = Rrdp.snapshotFileNameWithExtra(generateRandomPart)
-    (snapshotFileName, Files.createDirectories(commonSubPath(sessionId, serial)).resolve(snapshotFileName))
-  }
+  def snapshotFileNameFromHmac(hmac: Bytes): String = Rrdp.snapshotFileNameWithExtra(hmac.toHex)
 
   private def commonSubPath(sessionId: String, serial: Long) = {
     Paths.get(conf.rrdpRepositoryPath, sessionId, String.valueOf(serial))
@@ -258,10 +257,10 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
         logger.error(s"Log contains invalid row $anythingElse")
     }
 
-  private def writeObjectToSnapshotFile(uri: URI, bytes: Bytes, stream: HashingSizedStream): Unit =
+  private def writeObjectToSnapshotFile(uri: URI, bytes: Bytes, stream: OutputStream): Unit =
     writePublish(uri, bytes, stream)
 
-  def writeLogEntryToDeltaFile(uri: URI, oldHash: Option[Hash], bytes: Option[Bytes], stream: HashingSizedStream) = {
+  def writeLogEntryToDeltaFile(uri: URI, oldHash: Option[Hash], bytes: Option[Bytes], stream: OutputStream) = {
     (oldHash, bytes) match {
       case (None, Some(bytes)) =>
         writePublish(uri, bytes, stream)
@@ -276,20 +275,22 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
     }
   }
 
-  private def writePublish(uri: URI, bytes: Bytes, stream: HashingSizedStream) = {
+  private def writePublish(uri: URI, bytes: Bytes, stream: OutputStream) = {
     IOStream.string(s"""<publish uri="${attr(uri.toASCIIString)}">""", stream)
     IOStream.string(Bytes.toBase64(bytes).value, stream)
     IOStream.string("</publish>\n", stream)
   }
 
-  def withAtomicStream(targetFile: Path, attrs: FileAttributes)(f : HashingSizedStream => Unit) = {
-    val tmpFile = Files.createTempFile(targetFile.getParent, "", ".xml", attrs)
-    val tmpStream = new HashingSizedStream(new FileOutputStream(tmpFile.toFile))
+  def withAtomicStream(targetDirectory: Path, secret: Bytes, filenameFromMac: Bytes => String, attrs: FileAttributes)(f : OutputStream => Unit) = {
+    val tmpFile = Files.createTempFile(targetDirectory, "", ".xml", attrs)
+    val tmpStream = new HashingSizedStream(secret, new FileOutputStream(tmpFile.toFile))
     try {
       f(tmpStream)
       tmpStream.flush()
-      Files.move(tmpFile, targetFile.toAbsolutePath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
-      tmpStream.summary
+      val (hash, mac, size) = tmpStream.summary
+      val filename = filenameFromMac(mac)
+      Files.move(tmpFile, targetDirectory.resolve(filename).toAbsolutePath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+      (filename, hash, size)
     } finally {
       tmpStream.close()
       Files.deleteIfExists(tmpFile)
@@ -330,9 +331,9 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
       .minus(conf.unpublishedFileRetainPeriod.toMillis, ChronoUnit.MILLIS))
 
     // cleanup current session
-    pgStore.getCurrentSessionInfo.foreach { case (sessionId, serial, _, _) =>
-      logger.info(s"Removing snapshots from the session $sessionId older than $oldEnough and having serial number older than $serial")
-      rrdpWriter.deleteSnapshotsOlderThan(conf.rrdpRepositoryPath, oldEnough, serial)
+    pgStore.getCurrentSessionInfo.foreach { case (version, _, _) =>
+      logger.info(s"Removing snapshots from the session ${version.sessionId} older than $oldEnough and having serial number older than ${version.serial}")
+      rrdpWriter.deleteSnapshotsOlderThan(conf.rrdpRepositoryPath, oldEnough, version.serial)
     }
 
     // Delete version that are removed from the database
