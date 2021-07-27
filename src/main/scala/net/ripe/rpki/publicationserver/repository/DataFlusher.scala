@@ -116,7 +116,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
   private def updateRrdpFS(version: VersionInfo, latestFrozenPreviously: Option[Long])(implicit session: DBSession) = {
     import version._
 
-    // Generate snapshot for the latest serial, we are only able to general the latest snapshot
+    // Generate snapshot for the latest serial, we are only able to generate the latest snapshot
     val snapshotInfo = updateSnapshot(version)
     if (!version.isInitialSerial) {
       updateDelta(version)
