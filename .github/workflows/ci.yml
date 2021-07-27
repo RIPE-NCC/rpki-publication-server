@@ -45,3 +45,9 @@ jobs:
           POSTGRES_URL: "jdbc:postgresql://postgres:5432/pubserver_test"
           POSTGRES_PASSWORD: postgres
           CI_COMMIT_SHA: "${GITHUB_SHA}"
+
+      - name: Upload jar
+        uses: actions/upload-artifact@v2
+        with:
+          name: rpki-publication-server.jar
+          path: target/rpki-publication-server.jar
