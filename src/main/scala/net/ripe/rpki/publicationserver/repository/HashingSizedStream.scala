@@ -29,5 +29,8 @@ class HashingSizedStream(secret: Bytes, os: OutputStream) extends FilterOutputSt
     size += len - offset
   }
 
-  def summary = (Hash(digest.digest()), Bytes(mac.doFinal()), size)
+  def summary: (Hash, Bytes, Long) = {
+    close()
+    (Hash(digest.digest()), Bytes(mac.doFinal()), size)
+  }
 }
