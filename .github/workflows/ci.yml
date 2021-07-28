@@ -56,8 +56,13 @@ jobs:
       - name: Upload jar
         uses: actions/upload-artifact@v2
         with:
-          name: rpki-publication-server.jar
+          name: rpki-publication-server-jar
+          path: target/rpki-publication-server.*
+
+      - name: Upload reports
+        uses: actions/upload-artifact@v2
+        with:
+          name: reports
           path: |
-            target/rpki-publication-server.*
             target/scoverage-report/**/*
             target/test-reports/**/*
