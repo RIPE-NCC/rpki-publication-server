@@ -105,7 +105,7 @@ deploy_aws_prod:
     - docker:dind
   script:
     - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
-    - docker build --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA --tag $CI_REGISTRY_IMAGE:$IMAGE_TAG .
+    - docker build --label "org.label-schema.vcs-ref=$CI_COMMIT_SHORT_SHA" --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA --tag $CI_REGISTRY_IMAGE:$IMAGE_TAG .
     - echo "Releasing this image as :$IMAGE_TAG and :${CI_COMMIT_SHORT_SHA}"
     - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
     - docker push $CI_REGISTRY_IMAGE:$IMAGE_TAG
