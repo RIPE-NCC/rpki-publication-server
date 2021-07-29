@@ -32,6 +32,15 @@ jobs:
       - name: Check out repository code
         uses: actions/checkout@v2
 
+      - name: Cache ivy cache
+        id: ivy-cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.ivy2
+            ~/.sbt
+          key: ${{ runner.os }}--${{ hashFiles('build.sbt') }}
+
       - name: Compile
         run: sbt compile
         env:
@@ -40,8 +49,29 @@ jobs:
           CI_COMMIT_SHA: "${GITHUB_SHA}"
 
       - name: Test & package
-        run: sbt test assembly
+        run: sbt coverage test coverageReport
         env:
           POSTGRES_URL: "jdbc:postgresql://postgres:5432/pubserver_test"
           POSTGRES_PASSWORD: postgres
           CI_COMMIT_SHA: "${GITHUB_SHA}"
+
+      - name: Package
+        run: sbt assembly
+        env:
+          POSTGRES_URL: "jdbc:postgresql://postgres:5432/pubserver_test"
+          POSTGRES_PASSWORD: postgres
+          CI_COMMIT_SHA: "${GITHUB_SHA}"
+
+      - name: Upload jar
+        uses: actions/upload-artifact@v2
+        with:
+          name: rpki-publication-server-jar
+          path: target/rpki-publication-server.*
+
+      - name: Upload reports
+        uses: actions/upload-artifact@v2
+        with:
+          name: reports
+          path: |
+            target/scoverage-report/**/*
+            target/test-reports/**/*
