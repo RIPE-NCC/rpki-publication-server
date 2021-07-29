@@ -9,7 +9,7 @@ import scala.util.Try
 
 class HealthChecks {
 
-  case class BuildInformation(buildNumber: String, buildTimestamp: String, revisionNumber: String, host: String, memory : Memory)
+  case class BuildInformation(buildTimestamp: String, commit: String, host: String, memory : Memory)
   object BuildInformation
 
   case class Memory(free: String, total: String, max: String)
@@ -20,7 +20,7 @@ class HealthChecks {
 
   object HealthChecksJsonProtocol extends DefaultJsonProtocol {
     implicit val memoryFormat = jsonFormat3(Memory.apply)
-    implicit val buildInformationFormat = jsonFormat5(BuildInformation.apply)
+    implicit val buildInformationFormat = jsonFormat4(BuildInformation.apply)
     implicit val healthFormat = jsonFormat2(Health.apply)
   }
 
@@ -30,9 +30,8 @@ class HealthChecks {
 
   def healthString: String = {
     val buildInformation = BuildInformation(
-      buildNumber = GeneratedBuildInformation.version,
       buildTimestamp = GeneratedBuildInformation.buildDate,
-      revisionNumber = GeneratedBuildInformation.revision,
+      commit = GeneratedBuildInformation.commit,
       host = InetAddress.getLocalHost.getHostName,
       memory = memoryStat
     )
