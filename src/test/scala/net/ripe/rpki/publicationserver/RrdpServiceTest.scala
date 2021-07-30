@@ -12,7 +12,7 @@ class RrdpServiceTest extends PublicationServerBaseTest with ScalatestRouteTest 
   test("should return a health check response") {
     Get("/monitoring/healthcheck") ~> rrdpAndMonitoringRoutes ~> check {
       val response = responseAs[String]
-      response should include ("buildNumber")
+      response should include ("commit")
     }
   }
 
