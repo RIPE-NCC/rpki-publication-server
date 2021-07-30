@@ -50,7 +50,7 @@ deploy_aws_prod:
     DEPLOY_TARGET: "prod"
   <<: *deploy_aws_template
   only:
-    - master
+    - main
 
 .deploy_on_premise_template: &deploy_on_premise_template
   stage: deploy
@@ -124,7 +124,7 @@ production_image:
   when:
     manual
   only:
-    - master
+    - main
 
 deploy_prepdev_premise:
   <<: *deploy_on_premise_template
@@ -149,4 +149,3 @@ deploy_production_premise:
     - tags@rpki/rpki-publication-server
   when:
     manual
-
