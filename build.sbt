@@ -1,4 +1,3 @@
-val buildNumber = sys.props.getOrElse("build.number", "DEV")
 val nexusUser = sys.props.getOrElse("nexus.user", "?")
 val nexusPassword = sys.props.getOrElse("nexus.password", "?")
 
@@ -69,16 +68,15 @@ import scala.sys.process._
 sourceGenerators in Compile += Def.task {
   val generatedFile = (sourceManaged in Compile).value / "net.ripe.rpki.publicationserver" / "GeneratedBuildInformation.scala"
   val now = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date())
-  val rev = sys.env.get("CI_COMMIT_SHA") match {
-	case Some(sha) => sha
-	case None => "git rev-parse HEAD".!!.trim()
+  val rev = sys.env.get("CI_COMMIT_SHORT_SHA") match {
+        case Some(sha) => sha
+        case None => "git rev-parse --short HEAD".!!.trim()
   }
 
   val code = s"""package net.ripe.rpki.publicationserver
                 object GeneratedBuildInformation {
-                val version = "$buildNumber"
                 val buildDate = "$now"
-                val revision = "$rev"
+                val commit = "$rev"
             }""".stripMargin
   IO.write(generatedFile, code.getBytes)
   Seq(generatedFile)
@@ -105,13 +103,3 @@ crossPaths := false
 mappings in Universal += file("src/main/scripts/rpki-publication-server.sh") -> "bin/rpki-publication-server.sh"
 mappings in Universal += file("src/main/resources/reference.conf") -> "conf/rpki-publication-server.default.conf"
 mappings in Universal += file("src/main/resources/logback.xml") -> "lib/logback.xml"
-
-// Only change the version is there's is explicitly set build.number
-version in Universal := {
-  if (sys.props.isDefinedAt("build.number"))
-    buildNumber
-  else
-    version.value
-}
-
-
