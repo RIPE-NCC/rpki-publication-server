@@ -219,8 +219,8 @@ END
 $body$
     LANGUAGE plpgsql;
 
-
-CREATE OR REPLACE VIEW latest_version AS
+DROP VIEW IF EXISTS latest_version CASCADE;
+CREATE VIEW latest_version AS
   SELECT *
     FROM versions
     ORDER BY id DESC
@@ -231,7 +231,8 @@ CREATE OR REPLACE VIEW latest_version AS
 -- 1) deltas from the latest session
 -- 2) of total size not larger than the latest snapshot
 -- 3) having a definite hash (latest delta can have undefined hash until its file is generated and written)
-CREATE OR REPLACE VIEW reasonable_deltas AS
+DROP VIEW IF EXISTS reasonable_deltas CASCADE;
+CREATE VIEW reasonable_deltas AS
 SELECT z.*
 FROM (SELECT v.*,
              CAST(SUM(delta_size) OVER (PARTITION BY session_id ORDER BY serial DESC) AS BIGINT) AS total_delta_size
@@ -247,7 +248,7 @@ ORDER BY z.serial DESC;
 -- Create another entry in the versions table, either the
 -- next version (and the next serial) in the same session
 -- or generate a new session id if the table is empty.
-CREATE OR REPLACE FUNCTION freeze_version() RETURNS SETOF versions AS
+CREATE OR REPLACE FUNCTION freeze_version(file_name_secret_ BYTEA) RETURNS SETOF versions AS
 $body$
 DECLARE
     current_session_id_ TEXT;
@@ -261,12 +262,12 @@ BEGIN
       FROM latest_version;
 
     IF NOT FOUND THEN
-        INSERT INTO versions (session_id, serial)
-        VALUES (uuid_in(md5(random()::TEXT || clock_timestamp()::TEXT)::CSTRING), 1)
+        INSERT INTO versions (session_id, serial, file_name_secret)
+        VALUES (uuid_in(md5(random()::TEXT || clock_timestamp()::TEXT)::CSTRING), 1, file_name_secret_)
         RETURNING id INTO STRICT new_version_id_;
     ELSEIF changes_exist() THEN
-        INSERT INTO versions (session_id, serial)
-        VALUES (current_session_id_, current_serial_ + 1)
+        INSERT INTO versions (session_id, serial, file_name_secret)
+        VALUES (current_session_id_, current_serial_ + 1, file_name_secret_)
         RETURNING id INTO STRICT new_version_id_;
     END IF;
 

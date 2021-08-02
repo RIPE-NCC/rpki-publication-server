@@ -11,12 +11,24 @@ import scalikejdbc._
 
 import java.net.URI
 
-case class SnapshotInfo(sessionId: String, serial: Long, name: String, hash: Hash, size: Long)
-case class DeltaInfo(sessionId: String, serial: Long, name: String, hash: Hash, size: Long)
+case class VersionInfo(sessionId: String, serial: Long, fileNameSecret: Bytes) {
+  def isInitialSerial = serial == INITIAL_SERIAL
+  override def toString = s"${productPrefix}($sessionId, $serial, ********)"
+}
+case class SnapshotInfo(version: VersionInfo, name: String, hash: Hash, size: Long) {
+  def sessionId = version.sessionId
+  def serial = version.serial
+}
+case class DeltaInfo(version: VersionInfo, name: String, hash: Hash, size: Long) {
+  def sessionId = version.sessionId
+  def serial = version.serial
+}
 
 case class RollbackException(val error: BaseError) extends Exception
 
 class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
+
+  private val secureRandom = new scala.util.Random(new java.security.SecureRandom())
 
   def inRepeatableReadTx[T](f: DBSession => T): T = {
     DB(ConnectionPool.borrow())
@@ -86,25 +98,24 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
 
   def getCurrentSessionInfo(implicit session: DBSession) = {
 
-    def toSnapshotInfo(sessionId: String, serial: Long, name: Option[String], hash: Option[Array[Byte]], size: Option[Long]) =
+    def toSnapshotInfo(version: VersionInfo, name: Option[String], hash: Option[Array[Byte]], size: Option[Long]) =
       for (n <- name; h <- hash; s <- size)
-        yield SnapshotInfo(sessionId, serial, n, Hash(h), s)
+        yield SnapshotInfo(version, n, Hash(h), s)
 
-    def toDeltaInfo(sessionId: String, serial: Long, name: Option[String], hash: Option[Array[Byte]], size: Option[Long]) =
+    def toDeltaInfo(version: VersionInfo, name: Option[String], hash: Option[Array[Byte]], size: Option[Long]) =
       for (n <- name; h <- hash; s <- size)
-        yield DeltaInfo(sessionId, serial, n, Hash(h), s)
+        yield DeltaInfo(version, n, Hash(h), s)
 
-    sql"""SELECT session_id, serial,
+    sql"""SELECT session_id, serial, file_name_secret,
             snapshot_file_name, snapshot_hash, snapshot_size,
             delta_file_name, delta_hash, delta_size
          FROM latest_version"""
       .map(rs => {
-        val sessionId = rs.string(1)
-        val serial = rs.long(2)
+        val version = VersionInfo(rs.string("session_id"), rs.long("serial"), Bytes(rs.bytes("file_name_secret")))
         (
-          sessionId, serial,
-          toSnapshotInfo(sessionId, serial, rs.stringOpt(3), rs.bytesOpt(4), rs.longOpt(5)),
-          toDeltaInfo(sessionId, serial, rs.stringOpt(6), rs.bytesOpt(7), rs.longOpt(8))
+          version,
+          toSnapshotInfo(version, rs.stringOpt("snapshot_file_name"), rs.bytesOpt("snapshot_hash"), rs.longOpt("snapshot_size")),
+          toDeltaInfo(version, rs.stringOpt("delta_file_name"), rs.bytesOpt("delta_hash"), rs.longOpt("delta_size"))
         )
       })
       .single()
@@ -112,11 +123,11 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
   }
 
   def getReasonableDeltas(sessionId: String)(implicit session: DBSession) = {
-    sql"""SELECT session_id, serial, delta_file_name, delta_hash, delta_size
+    sql"""SELECT session_id, serial, file_name_secret, delta_file_name, delta_hash, delta_size
           FROM reasonable_deltas
           WHERE session_id = $sessionId
           ORDER BY serial DESC"""
-      .map { rs => DeltaInfo(rs.string(1), rs.long(2), rs.string(3), Hash(rs.bytes(4)), rs.long(5))
+      .map { rs => DeltaInfo(VersionInfo(rs.string(1), rs.long(2), Bytes(rs.bytes(3))), rs.string(4), Hash(rs.bytes(5)), rs.long(6))
       }
       .list()
       .apply()
@@ -216,8 +227,9 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
 
 
   def freezeVersion(implicit session: DBSession) = {
-    sql"SELECT session_id, serial, created_at FROM freeze_version()"
-      .map(rs => (rs.string(1), rs.long(2), rs.timestamp(3)))
+    val fileNameSecret = secureRandom.nextBytes(16)
+    sql"SELECT session_id, serial, file_name_secret FROM freeze_version($fileNameSecret)"
+      .map(rs => VersionInfo(rs.string(1), rs.long(2), Bytes(rs.bytes(3))))
       .single()
       .apply()
       .get
