@@ -108,8 +108,7 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: ripencc/rpki-publication-server:latest
-          labels:
-            - "org.label-schema.vcs-ref=${{ github.sha }}"
+          labels: "org.label-schema.vcs-ref=${{ github.sha }}"
 
       - name: Image digest
         run: echo ${{ steps.docker_build_publication_server.outputs.digest }}
