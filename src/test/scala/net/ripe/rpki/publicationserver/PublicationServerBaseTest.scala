@@ -28,7 +28,9 @@ abstract class PublicationServerBaseTest extends AnyFunSuite with BeforeAndAfter
 
   var tempXodusDir: File = _
 
-  val pgTestConfig = new AppConfig().pgConfig
+  val appConfig = new AppConfig()
+
+  val pgTestConfig = appConfig.pgConfig
 
   protected def createPgStore = {
     PgStore.migrateDB(pgTestConfig)

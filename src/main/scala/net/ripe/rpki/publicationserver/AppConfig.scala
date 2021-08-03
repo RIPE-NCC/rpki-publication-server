@@ -18,6 +18,7 @@ import scala.util.{Failure, Success, Try}
 class AppConfig {
   def getConfig = AppConfig.config
 
+  lazy val minimumSnapshotSize = getConfig.getMemorySize("minimum.snapshot.size").toBytes()
   lazy val publicationPort = getConfig.getInt("publication.port")
   lazy val rrdpPort = getConfig.getInt("rrdp.port")
   lazy val rrdpRepositoryPath = getConfig.getString("locations.rrdp.repository.path")

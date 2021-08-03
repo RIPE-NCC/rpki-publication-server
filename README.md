@@ -1,9 +1,9 @@
 RPKI Publication Server
 =======================
 
-This is the RIPE NCC's implementation of [A Publication Protocol for the Resource Public Key Infrastructure] 
-(https://tools.ietf.org/html/draft-weiler-sidr-publication) and [RPKI Repository Delta Protocol]
-(https://tools.ietf.org/wg/sidr/draft-ietf-sidr-delta-protocol/).
+This is the RIPE NCC's implementation of 
+[A Publication Protocol for the Resource Public Key Infrastructure](https://datatracker.ietf.org/doc/html/rfc8181) and 
+[RPKI Repository Delta Protocol](https://datatracker.ietf.org/doc/html/rfc8182).
 
 Building the project
 --------------------

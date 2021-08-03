@@ -31,4 +31,9 @@ class HealthChecksTest extends PublicationServerBaseTest {
     }
     thrown.getMessage should equal("Cannot connect!")
   }
+
+  test("check config parsing default minimum snapshot size in mega binary bytes"){
+    appConfig.minimumSnapshotSize should equal(300*1024*1024L)
+  }
+
 }
