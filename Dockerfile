@@ -1,10 +1,13 @@
 FROM mozilla/sbt as build
 
+ARG PUBLICATION_SERVER_JAR=target/rpki-publication-server.jar
+
 # Use /staging/data, since /app/../data is equal to /data and would be cleared
 # by the tests.
 RUN mkdir -p /staging/conf /staging/conf/ssl /staging/data/db /staging/data/logs /staging/data/rsync /staging/data/rrdp
 
 ADD . /app
+COPY ${PUBLICATION_SERVER_JAR} /app/rpki-publication-server.jar
 
 #
 # Container picks up the artifact from './target/rpki-publication-server.jar'
@@ -21,7 +24,7 @@ LABEL org.label-schema.vcs-ref="unknown"
 
 COPY --from=build /staging/conf/ /conf/
 COPY --from=build /staging/data/ /data/
-COPY --from=build /app/target/rpki-publication-server.jar /app/
+COPY --from=build /app/rpki-publication-server.jar /app/
 
 EXPOSE 7766
 EXPOSE 7788
