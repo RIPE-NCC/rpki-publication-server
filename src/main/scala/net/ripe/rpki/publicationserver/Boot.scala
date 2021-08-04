@@ -20,6 +20,8 @@ import scala.util.{Failure, Success}
 import net.ripe.rpki.publicationserver.repository.DataFlusher
 import akka.actor.Cancellable
 
+import scala.util.control.NonFatal
+
 
 object Boot extends App with Logging {
   lazy val conf = wire[AppConfig]
@@ -67,10 +69,16 @@ class PublicationServerApp(conf: AppConfig, https: HttpsConnectionContext, logge
     this.repositoryWriter = Future {
       val dataFlusher = new DataFlusher(conf)
       dataFlusher.initFS()
+      val interval = conf.repositoryFlushInterval
+      logger.info(s"Scheduling FS update every ${interval}")
       system.scheduler.scheduleAtFixedRate(
-        conf.repositoryFlushInterval,
-        conf.repositoryFlushInterval
+        interval,
+        interval
       ) (dataFlusher.updateFS _)
+    }.recover {
+      case NonFatal(e) =>
+        logger.error("Failed to start repository writer", e)
+        Cancellable.alreadyCancelled
     }
 
     val publicationService = new PublicationService(conf, metrics)

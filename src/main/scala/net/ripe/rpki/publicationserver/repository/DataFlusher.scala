@@ -15,6 +15,7 @@ import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.{Date, UUID}
+import scala.util.control.NonFatal
 
 
 class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
@@ -32,7 +33,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
 
   // Write initial state of the database into RRDP and rsync repositories
   // Do not change anything in the DB here.
-  def initFS() = {
+  def initFS() = try {
     // do not do anything at all if neither `writeRsync` nor `writeRrdp` is set.
     if (conf.writeRsync || conf.writeRrdp) {
       logger.info("Initialising FS content")
@@ -55,12 +56,17 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
       }
       logger.info("Done initialising FS content")
     }
+  } catch {
+    case NonFatal(e) =>
+      logger.error("Failed to initialise FS content", e)
+      throw e
   }
 
   // Write current state of the database into RRDP snapshot and delta and rsync repositories
-  def updateFS() = {
+  def updateFS() = try {
     // do not do anything at all if neither `writeRsync` nor `writeRrdp` is set.
     if (conf.writeRsync || conf.writeRrdp) {
+      logger.info("Updating FS content")
       pgStore.inRepeatableReadTx { implicit session =>
         pgStore.lockVersions
 
@@ -81,9 +87,16 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
           }
 
           latestFrozenSerial = Some(version.serial)
+          logger.info("Done updating FS content")
+        } else {
+          logger.info("No changes exist, nothing to update")
         }
       }
     }
+  } catch {
+    case NonFatal(e) =>
+      logger.error("failed to update FS", e)
+      throw e
   }
 
   private def updateSnapshot(version: VersionInfo)(implicit session: DBSession) = {
