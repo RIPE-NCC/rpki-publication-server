@@ -169,10 +169,8 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
       updateDelta(latestVersion)
     }
 
-    val deltas = for {
-      delta <- pgStore.getReasonableDeltas(latestVersion.sessionId)
-      if delta.serial < latestVersion.serial
-    } yield {
+    val deltas = pgStore.getReasonableDeltas(latestVersion.sessionId)
+    for (delta <- deltas if delta.serial < latestVersion.serial) {
       updateDelta(delta.version)
     }
 
