@@ -45,6 +45,7 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
         URI.create(urlPrefix2) -> rsyncRootDir2
       )
     }
+    implicit val healthChecks = new HealthChecks(conf)
     new DataFlusher(conf)
   }
 

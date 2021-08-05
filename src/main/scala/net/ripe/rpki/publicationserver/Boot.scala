@@ -53,7 +53,7 @@ class PublicationServerApp(conf: AppConfig, https: HttpsConnectionContext, logge
   var httpsBinding: Future[ServerBinding] = _
   var repositoryWriter: Future[Cancellable] = _
 
-  val healthChecks = new HealthChecks(conf)
+  implicit val healthChecks = new HealthChecks(conf)
 
   def run(): Unit = {
 

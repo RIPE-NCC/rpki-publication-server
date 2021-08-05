@@ -18,7 +18,7 @@ import java.util.{Date, UUID}
 import scala.util.control.NonFatal
 
 
-class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
+class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem, implicit val healthChecks: HealthChecks)
   extends Hashing with Formatting with Logging {
 
   implicit val executionContext = system.dispatcher
@@ -131,6 +131,10 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
 
     // Generate snapshot for the latest serial, we are only able to generate the latest snapshot
     val snapshotInfo = updateSnapshot(version)
+
+    // Inform healthcheck for readiness we have updated snapshot
+    healthChecks.updateSnapshot(snapshotInfo.size)
+
     if (!version.isInitialSerial) {
       updateDelta(version)
     }
@@ -156,7 +160,6 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem)
       }
     }
     logger.info(s"Generated notification $sessionId/$serial, took ${d}ms")
-
   }
 
   private def initRrdpFS(latestVersion: VersionInfo)(implicit session: DBSession) = {

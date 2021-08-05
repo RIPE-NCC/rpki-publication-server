@@ -33,7 +33,19 @@ class HealthChecksTest extends PublicationServerBaseTest {
   }
 
   test("check config parsing default minimum snapshot size in mega binary bytes"){
-    appConfig.minimumSnapshotSize should equal(300*1024*1024L)
+    appConfig.minimumSnapshotSize should equal(100*1024*1024L)
+  }
+
+  test("snapshot status should be ready when we have reasonable sized snapshot"){
+    val healthChecks = new HealthChecks(appConfig)
+    healthChecks.updateSnapshot(101*1024*1024L)
+    healthChecks.snapshotStatus.ready should be (true)
+  }
+
+  test("snapshot status should be ready when we don't yet have reasonable sized snapshot"){
+    val healthChecks = new HealthChecks(appConfig)
+    healthChecks.updateSnapshot(99*1024*1024L)
+    healthChecks.snapshotStatus.ready should be (false)
   }
 
 }
