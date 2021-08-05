@@ -103,13 +103,13 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem, implicit va
     import version._
     val snapshotPath = rrdpFilePath(sessionId, serial)
 
-    val (snapshotFileName, snapshotHash, snapshotSize) = withAtomicStream(snapshotPath, fileNameSecret, snapshotFileNameFromHmac, rrdpWriter.fileAttributes) {
+    val (snapshotFileName, snapshotHash, snapshotSize, objectCounts) = withAtomicStream(snapshotPath, fileNameSecret, snapshotFileNameFromHmac, rrdpWriter.fileAttributes) {
       writeRrdpSnapshot(sessionId, serial, _)
     }
 
     val info = SnapshotInfo(version, snapshotFileName, snapshotHash, snapshotSize)
     pgStore.updateSnapshotInfo(info)
-    info
+    (info, objectCounts)
   }
 
 
@@ -117,7 +117,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem, implicit va
     import version._
     val deltaPath = rrdpFilePath(sessionId, serial)
 
-    val (deltaFileName, deltaHash, deltaSize) = withAtomicStream(deltaPath, fileNameSecret, deltaFileNameFromHmac, rrdpWriter.fileAttributes) {
+    val (deltaFileName, deltaHash, deltaSize, deltaCount) = withAtomicStream(deltaPath, fileNameSecret, deltaFileNameFromHmac, rrdpWriter.fileAttributes) {
       writeRrdpDelta(sessionId, serial, _)
     }
 
@@ -130,10 +130,10 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem, implicit va
     import version._
 
     // Generate snapshot for the latest serial, we are only able to generate the latest snapshot
-    val snapshotInfo = updateSnapshot(version)
+    val (snapshotInfo, objectsCount) = updateSnapshot(version)
 
     // Inform healthcheck for readiness we have updated snapshot
-    healthChecks.updateSnapshot(snapshotInfo.size)
+    healthChecks.updateSnapshot(snapshotInfo.size, objectsCount)
 
     if (!version.isInitialSerial) {
       updateDelta(version)
@@ -163,7 +163,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem, implicit va
   }
 
   private def initRrdpFS(latestVersion: VersionInfo)(implicit session: DBSession) = {
-    val snapshotInfo = updateSnapshot(latestVersion)
+    val (snapshotInfo, _) = updateSnapshot(latestVersion)
 
     if (!latestVersion.isInitialSerial) {
       // When there are changes since the last freeze the latest delta might not yet exist, so ensure it gets created.
@@ -191,15 +191,18 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem, implicit va
 
   // Write snapshot, i.e. the current state of the dataset into RRDP snapshot.xml file
   // and in rsync repository at the same time.
-  def writeRrdpSnapshot(sessionId: String, serial: Long, snapshotOs: OutputStream)(implicit session: DBSession) = {
+  def writeRrdpSnapshot(sessionId: String, serial: Long, snapshotOs: OutputStream)(implicit session: DBSession): Int = {
+    var objectCounts = 0
     val (_, duration) = Time.timed {
       IOStream.string(s"""<snapshot version="1" session_id="$sessionId" serial="$serial" xmlns="http://www.ripe.net/rpki/rrdp">\n""", snapshotOs)
       pgStore.readState { (uri, _, bytes) =>
         writeObjectToSnapshotFile(uri, bytes, snapshotOs)
+        objectCounts += 1
       }
       IOStream.string("</snapshot>\n", snapshotOs)
     }
     logger.info(s"Wrote RRDP snapshot for ${sessionId}/${serial}, took ${duration}ms.")
+    objectCounts
   }
 
   // Write snapshot objects to rsync repository.
@@ -215,15 +218,18 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem, implicit va
     logger.info(s"Wrote rsync snapshot, took ${duration}ms.")
   }
 
-  def writeRrdpDelta(sessionId: String, serial: Long, deltaOs: OutputStream)(implicit session: DBSession) = {
+  def writeRrdpDelta(sessionId: String, serial: Long, deltaOs: OutputStream)(implicit session: DBSession):Int = {
+    var objectCounts = 0
     val (_, duration) = Time.timed {
       IOStream.string(s"""<delta version="1" session_id="$sessionId" serial="$serial" xmlns="http://www.ripe.net/rpki/rrdp">\n""", deltaOs)
       pgStore.readDelta(sessionId, serial) { (uri, oldHash, bytes) =>
         writeLogEntryToDeltaFile(uri, oldHash, bytes, deltaOs)
+        objectCounts += 1
       }
       IOStream.string("</delta>\n", deltaOs)
     }
     logger.info(s"Wrote RRDP delta for ${sessionId}/${serial}, took ${duration}ms.")
+    objectCounts
   }
 
   def writeRsyncDelta(sessionId: String, serial: Long)(implicit session: DBSession) = {
@@ -251,6 +257,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem, implicit va
       IOStream.string(s"""  <delta serial="${delta.serial}" uri="$deltaUrl" hash="${delta.hash.toHex}"/>\n""", stream)
     }
     IOStream.string("</notification>", stream)
+    deltas.size
   }
 
   def rrdpFilePath(sessionId: String, serial: Long): Path = Files.createDirectories(commonSubPath(sessionId, serial))
@@ -295,16 +302,17 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem, implicit va
     IOStream.string("</publish>\n", stream)
   }
 
-  def withAtomicStream(targetDirectory: Path, secret: Bytes, filenameFromMac: Bytes => String, attrs: FileAttributes)(f : OutputStream => Unit) = {
+  def withAtomicStream(targetDirectory: Path, secret: Bytes, filenameFromMac: Bytes => String, attrs: FileAttributes)(f : OutputStream => Int) = {
     val tmpFile = Files.createTempFile(targetDirectory, "", ".xml", attrs)
     val tmpStream = new HashingSizedStream(secret, new FileOutputStream(tmpFile.toFile))
+    var objectsCount = 0
     try {
-      f(tmpStream)
+      objectsCount = f(tmpStream)
       tmpStream.flush()
       val (hash, mac, size) = tmpStream.summary
       val filename = filenameFromMac(mac)
       Files.move(tmpFile, targetDirectory.resolve(filename).toAbsolutePath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
-      (filename, hash, size)
+      (filename, hash, size, objectsCount)
     } finally {
       tmpStream.close()
       Files.deleteIfExists(tmpFile)

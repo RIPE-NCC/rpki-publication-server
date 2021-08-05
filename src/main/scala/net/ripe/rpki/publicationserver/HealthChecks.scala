@@ -15,22 +15,22 @@ class HealthChecks(val appConfig: AppConfig) {
   case class Memory(free: String, total: String, max: String)
   object Memory
 
-  case class Health(buildInformation: BuildInformation, databaseConnectivity: String, snapshotStatus: SnapshotStatus)
+  case class Health(buildInformation: BuildInformation, databaseConnectivity: String)
   object Health
 
-  case class SnapshotStatus(ready: Boolean, size: Long)
+  case class SnapshotStatus(ready: Boolean, size: Long, objectsCount: Int)
   object SnapshotStatus
 
   object HealthChecksJsonProtocol extends DefaultJsonProtocol {
     implicit val memoryFormat = jsonFormat3(Memory.apply)
     implicit val buildInformationFormat = jsonFormat4(BuildInformation.apply)
-    implicit val snapshotFormat = jsonFormat2(SnapshotStatus.apply)
-    implicit val healthFormat = jsonFormat3(Health.apply)
+    implicit val snapshotFormat = jsonFormat3(SnapshotStatus.apply)
+    implicit val healthFormat = jsonFormat2(Health.apply)
   }
 
   lazy val objectStore = PgStore.get(appConfig.pgConfig)
 
-  var snapshotStatus = SnapshotStatus(false, 0)
+  var snapshotStatus = SnapshotStatus(false, 0, 0)
 
   import HealthChecksJsonProtocol._
 
@@ -41,9 +41,14 @@ class HealthChecks(val appConfig: AppConfig) {
       host = InetAddress.getLocalHost.getHostName,
       memory = memoryStat
     )
-    val health = Health(buildInformation, checkDatabaseStatus, snapshotStatus)
+    val health = Health(buildInformation, checkDatabaseStatus)
 
     health.toJson.prettyPrint
+  }
+
+  def readinessString: String = {
+
+    snapshotStatus.toJson.prettyPrint
   }
 
   def checkDatabaseStatus: String = {
@@ -58,7 +63,7 @@ class HealthChecks(val appConfig: AppConfig) {
     Memory(free = mb(r.freeMemory), total = mb(r.totalMemory), max = mb(r.maxMemory))
   }
 
-  def updateSnapshot(snapshotSize: Long) = {
-    snapshotStatus = SnapshotStatus(snapshotSize > appConfig.minimumSnapshotSize, snapshotSize)
+  def updateSnapshot(snapshotSize: Long, objectsCount: Int) = {
+    snapshotStatus = SnapshotStatus(snapshotSize > appConfig.minimumSnapshotSize && objectsCount > appConfig.minimumSnapshotObjectsCount, snapshotSize, objectsCount)
   }
 }
