@@ -18,7 +18,7 @@ import java.util.{Date, UUID}
 import scala.util.control.NonFatal
 
 
-class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem, implicit val healthChecks: HealthChecks)
+class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem,  val healthChecks: HealthChecks)
   extends Hashing with Formatting with Logging {
 
   implicit val executionContext = system.dispatcher
@@ -305,9 +305,8 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem, implicit va
   def withAtomicStream(targetDirectory: Path, secret: Bytes, filenameFromMac: Bytes => String, attrs: FileAttributes)(f : OutputStream => Int) = {
     val tmpFile = Files.createTempFile(targetDirectory, "", ".xml", attrs)
     val tmpStream = new HashingSizedStream(secret, new FileOutputStream(tmpFile.toFile))
-    var objectsCount = 0
     try {
-      objectsCount = f(tmpStream)
+      val objectsCount = f(tmpStream)
       tmpStream.flush()
       val (hash, mac, size) = tmpStream.summary
       val filename = filenameFromMac(mac)

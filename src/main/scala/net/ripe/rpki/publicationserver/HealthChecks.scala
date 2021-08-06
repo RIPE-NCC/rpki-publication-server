@@ -1,5 +1,6 @@
 package net.ripe.rpki.publicationserver
 
+import akka.http.scaladsl.marshalling.ToResponseMarshallable
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives.complete
 
@@ -7,9 +8,10 @@ import java.net.InetAddress
 import net.ripe.rpki.publicationserver.store.postgresql.PgStore
 import spray.json._
 
+import java.util.concurrent.atomic.{AtomicInteger, AtomicLong}
 import scala.util.Try
 
-class HealthChecks(val appConfig: AppConfig) {
+class HealthChecks(val appConfig: AppConfig) extends Logging {
 
   case class BuildInformation(buildTimestamp: String, commit: String, host: String, memory : Memory)
   object BuildInformation
@@ -32,7 +34,7 @@ class HealthChecks(val appConfig: AppConfig) {
 
   lazy val objectStore = PgStore.get(appConfig.pgConfig)
 
-  var snapshotStatus = SnapshotStatus(false, 0)
+  val snapshotObjectCounts = new AtomicInteger(0)
 
   import HealthChecksJsonProtocol._
 
@@ -48,13 +50,6 @@ class HealthChecks(val appConfig: AppConfig) {
     health.toJson.prettyPrint
   }
 
-  def readinessResponse = {
-    if(snapshotStatus.ready)
-      complete(snapshotStatus.toJson.prettyPrint)
-    else
-      complete(StatusCodes.ServiceUnavailable)
-  }
-
   def checkDatabaseStatus: String = {
     val result = Try(objectStore.check())
     if (result.isFailure) throw result.failed.get else "OK"
@@ -68,6 +63,21 @@ class HealthChecks(val appConfig: AppConfig) {
   }
 
   def updateSnapshot(objectsCount: Int) = {
-    snapshotStatus = SnapshotStatus(objectsCount > appConfig.minimumSnapshotObjectsCount, objectsCount)
+    snapshotObjectCounts.set(objectsCount)
+  }
+
+  def snapshotStatus(): SnapshotStatus = {
+    val current = snapshotObjectCounts.get()
+    SnapshotStatus(current > appConfig.minimumSnapshotObjectsCount, current)
+  }
+
+  def readinessResponse = {
+    val currentStatus = snapshotStatus()
+    if(currentStatus.ready)
+      complete(currentStatus.toJson.prettyPrint)
+    else {
+      logger.info(s"Service is not ready, snapshot object counts ${snapshotObjectCounts}")
+      complete(StatusCodes.ServiceUnavailable)
+    }
   }
 }
