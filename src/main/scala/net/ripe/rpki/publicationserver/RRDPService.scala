@@ -46,7 +46,7 @@ trait RRDPService extends RepositoryPath {
     } ~ 
     path("monitoring" / "readiness") {
       get {
-        complete(healthChecks.readinessString)
+        healthChecks.readinessResponse
       }
     }
 

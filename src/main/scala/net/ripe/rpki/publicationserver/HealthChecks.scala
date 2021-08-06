@@ -1,7 +1,9 @@
 package net.ripe.rpki.publicationserver
 
-import java.net.InetAddress
+import akka.http.scaladsl.model.StatusCodes
+import akka.http.scaladsl.server.Directives.complete
 
+import java.net.InetAddress
 import net.ripe.rpki.publicationserver.store.postgresql.PgStore
 import spray.json._
 
@@ -46,9 +48,11 @@ class HealthChecks(val appConfig: AppConfig) {
     health.toJson.prettyPrint
   }
 
-  def readinessString: String = {
-
-    snapshotStatus.toJson.prettyPrint
+  def readinessResponse = {
+    if(snapshotStatus.ready)
+      complete(snapshotStatus.toJson.prettyPrint)
+    else
+      complete(StatusCodes.ServiceUnavailable)
   }
 
   def checkDatabaseStatus: String = {
