@@ -133,7 +133,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem, implicit va
     val (snapshotInfo, objectsCount) = updateSnapshot(version)
 
     // Inform healthcheck for readiness we have updated snapshot
-    healthChecks.updateSnapshot(snapshotInfo.size, objectsCount)
+    healthChecks.updateSnapshot(objectsCount)
 
     if (!version.isInitialSerial) {
       updateDelta(version)

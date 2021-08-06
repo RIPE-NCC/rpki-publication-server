@@ -18,19 +18,19 @@ class HealthChecks(val appConfig: AppConfig) {
   case class Health(buildInformation: BuildInformation, databaseConnectivity: String)
   object Health
 
-  case class SnapshotStatus(ready: Boolean, size: Long, objectsCount: Int)
+  case class SnapshotStatus(ready: Boolean, objectsCount: Int)
   object SnapshotStatus
 
   object HealthChecksJsonProtocol extends DefaultJsonProtocol {
     implicit val memoryFormat = jsonFormat3(Memory.apply)
     implicit val buildInformationFormat = jsonFormat4(BuildInformation.apply)
-    implicit val snapshotFormat = jsonFormat3(SnapshotStatus.apply)
+    implicit val snapshotFormat = jsonFormat2(SnapshotStatus.apply)
     implicit val healthFormat = jsonFormat2(Health.apply)
   }
 
   lazy val objectStore = PgStore.get(appConfig.pgConfig)
 
-  var snapshotStatus = SnapshotStatus(false, 0, 0)
+  var snapshotStatus = SnapshotStatus(false, 0)
 
   import HealthChecksJsonProtocol._
 
@@ -63,7 +63,7 @@ class HealthChecks(val appConfig: AppConfig) {
     Memory(free = mb(r.freeMemory), total = mb(r.totalMemory), max = mb(r.maxMemory))
   }
 
-  def updateSnapshot(snapshotSize: Long, objectsCount: Int) = {
-    snapshotStatus = SnapshotStatus(snapshotSize > appConfig.minimumSnapshotSize && objectsCount > appConfig.minimumSnapshotObjectsCount, snapshotSize, objectsCount)
+  def updateSnapshot(objectsCount: Int) = {
+    snapshotStatus = SnapshotStatus(objectsCount > appConfig.minimumSnapshotObjectsCount, objectsCount)
   }
 }

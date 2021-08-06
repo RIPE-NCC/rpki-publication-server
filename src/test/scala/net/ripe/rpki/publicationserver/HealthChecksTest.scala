@@ -32,19 +32,15 @@ class HealthChecksTest extends PublicationServerBaseTest {
     thrown.getMessage should equal("Cannot connect!")
   }
 
-  test("check config parsing default minimum snapshot size in mega binary bytes"){
-    appConfig.minimumSnapshotSize should equal(100*1024*1024L)
-  }
-
   test("snapshot status should be ready when we have reasonable sized snapshot"){
     val healthChecks = new HealthChecks(appConfig)
-    healthChecks.updateSnapshot(101*1024*1024L, 1001)
+    healthChecks.updateSnapshot(1001)
     healthChecks.snapshotStatus.ready should be (true)
   }
 
   test("snapshot status should be ready when we don't yet have reasonable sized snapshot"){
     val healthChecks = new HealthChecks(appConfig)
-    healthChecks.updateSnapshot(99*1024*1024L, 999)
+    healthChecks.updateSnapshot(999)
     healthChecks.snapshotStatus.ready should be (false)
   }
 
