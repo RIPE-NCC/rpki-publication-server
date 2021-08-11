@@ -43,7 +43,13 @@ trait RRDPService extends RepositoryPath {
       get {
         complete(healthChecks.healthString)
       }
+    } ~ 
+    path("monitoring" / "readiness") {
+      get {
+        healthChecks.readinessResponse
+      }
     }
+
 
   val rrdpAndMonitoringRoutes: Route = rrdpRoutes ~ monitoringRoutes
 

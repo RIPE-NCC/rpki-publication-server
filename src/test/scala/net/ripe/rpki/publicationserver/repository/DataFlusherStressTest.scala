@@ -29,6 +29,7 @@ class DataFlusherStressTest extends PublicationServerBaseTest with Hashing {
     )
   }
 
+  implicit val healthChecks = new HealthChecks(conf)
   val flusher = new DataFlusher(conf)
 
   before {
