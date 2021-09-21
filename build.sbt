@@ -54,7 +54,6 @@ libraryDependencies ++= {
     "com.softwaremill.macwire" %% "util"                  % "2.3.3" % "provided",
     "com.softwaremill.macwire" %% "proxy"                 % "2.3.3" % "provided",
     "com.google.guava"         %  "guava"                 % "18.0",
-    "com.google.code.findbugs" %  "jsr305"                % "3.0.2",
     "org.apache.commons"       % "commons-io"             % "1.3.2",
     "io.prometheus"            % "simpleclient"           % "0.9.0",
     "io.prometheus"            % "simpleclient_common"    % "0.9.0",
