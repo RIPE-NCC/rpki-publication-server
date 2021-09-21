@@ -29,8 +29,6 @@ javaOptions in run ++= Seq("-Xmx2G")
 
 enablePlugins(JavaServerAppPackaging, UniversalDeployPlugin)
 
-resolvers += "JCenter" at "https://jcenter.bintray.com/"
-
 libraryDependencies ++= {
   val akkaV = "2.6.16"
   val akkaHttp = "10.2.6"
