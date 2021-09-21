@@ -39,7 +39,7 @@ libraryDependencies ++= {
   Seq(
     "com.typesafe.akka"        %% "akka-http"             % akkaHttp,
     "com.typesafe.akka"        %% "akka-http-core"        % akkaHttp,
-    "com.typesafe.akka"        %% "akka-http-testkit"     % akkaHttp,
+    "com.typesafe.akka"        %% "akka-http-testkit"     % akkaHttp  % "test",
     "com.typesafe.akka"        %% "akka-http-spray-json"  % akkaHttp,
     "com.typesafe.akka"        %% "akka-stream-testkit"   % akkaV,
     "com.typesafe.akka"        %% "akka-testkit"          % akkaV     % "test",
