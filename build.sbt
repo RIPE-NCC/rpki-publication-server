@@ -29,8 +29,6 @@ javaOptions in run ++= Seq("-Xmx2G")
 
 enablePlugins(JavaServerAppPackaging, UniversalDeployPlugin)
 
-resolvers += "Codehaus Maven2 Repository" at "https://repository.codehaus.org/"
-
 resolvers += "JCenter" at "https://jcenter.bintray.com/"
 
 libraryDependencies ++= {
