@@ -4,7 +4,7 @@ ARG PUBLICATION_SERVER_JAR=target/rpki-publication-server.jar
 
 # Use /staging/data, since /app/../data is equal to /data and would be cleared
 # by the tests.
-RUN mkdir -p /staging/conf /staging/conf/ssl /staging/data/db /staging/data/logs /staging/data/rsync /staging/data/rrdp
+RUN mkdir -p /staging/conf /staging/conf/ssl /staging/data/db /staging/data/logs /staging/data/rrdp
 
 ADD . /app
 COPY ${PUBLICATION_SERVER_JAR} /app/rpki-publication-server.jar

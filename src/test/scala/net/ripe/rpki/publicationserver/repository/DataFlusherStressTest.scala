@@ -14,7 +14,6 @@ import scala.concurrent.{Await, Future}
 @Ignore
 class DataFlusherStressTest extends PublicationServerBaseTest with Hashing {
 
-  val rsyncRootDir1 = Files.createTempDirectory("test_pub_server_rsync_")
   val rrdpRootDfir = Files.createTempDirectory("test_pub_server_rrdp_")
 
   val pgStore = createPgStore
@@ -24,9 +23,6 @@ class DataFlusherStressTest extends PublicationServerBaseTest with Hashing {
   private val conf = new AppConfig() {
     override lazy val pgConfig = pgTestConfig
     override lazy val rrdpRepositoryPath = rrdpRootDfir.toAbsolutePath.toString
-    override lazy val rsyncRepositoryMapping = Map(
-      URI.create(urlPrefix1) -> rsyncRootDir1
-    )
   }
 
   implicit val healthChecks = new HealthChecks(conf)

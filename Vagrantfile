@@ -6,7 +6,7 @@ Vagrant.configure("2") do |config|
   config.vm.network "forwarded_port", guest: 7766, host: 7766, host_ip: "127.0.0.1"
   config.vm.network "forwarded_port", guest: 7788, host: 7788, host_ip: "127.0.0.1"
 
-  # Put source in /src but not in /vagrant (because that is often rsync)
+  # Put source in /src but not in /vagrant
   config.vm.synced_folder ".", "/src"
   config.vm.synced_folder "../data", "/data"
   config.vm.synced_folder ".", "/vagrant", disabled: true

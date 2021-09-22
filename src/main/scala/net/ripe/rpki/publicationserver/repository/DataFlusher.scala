@@ -3,7 +3,7 @@ package net.ripe.rpki.publicationserver.repository
 import akka.actor.ActorSystem
 import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver._
-import net.ripe.rpki.publicationserver.fs.{Rrdp, RrdpRepositoryWriter, RsyncRepositoryWriter}
+import net.ripe.rpki.publicationserver.fs.{Rrdp, RrdpRepositoryWriter}
 import net.ripe.rpki.publicationserver.store.postgresql.{DeltaInfo, PgStore, SnapshotInfo, VersionInfo}
 import net.ripe.rpki.publicationserver.util.Time
 import scalikejdbc.DBSession
@@ -24,73 +24,54 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem,  val health
   implicit val executionContext = system.dispatcher
 
   protected lazy val rrdpWriter = new RrdpRepositoryWriter
-  protected lazy val rsyncWriter = new RsyncRepositoryWriter(conf)
 
   lazy val pgStore = PgStore.get(conf.pgConfig)
 
   // The latest serial for which version freeze was initiated by this server instance.
   private var latestFrozenSerial : Option[Long] = None
 
-  // Write initial state of the database into RRDP and rsync repositories
+  // Write initial state of the database into the RRDP repository
   // Do not change anything in the DB here.
   def initFS() = try {
-    // do not do anything at all if neither `writeRsync` nor `writeRrdp` is set.
-    if (conf.writeRsync || conf.writeRrdp) {
-      logger.info("Initialising FS content")
-      pgStore.inRepeatableReadTx { implicit session =>
-        pgStore.lockVersions
+    logger.info("Initialising FS content")
+    pgStore.inRepeatableReadTx { implicit session =>
+      pgStore.lockVersions
 
-        val (version, duration) = Time.timed(pgStore.freezeVersion)
-        logger.info(s"Froze version ${version.sessionId}, ${version.serial}, took ${duration}ms")
+      val (version, duration) = Time.timed(pgStore.freezeVersion)
+      logger.info(s"Froze version ${version.sessionId}, ${version.serial}, took ${duration}ms")
 
-        if (conf.writeRsync) {
-          initRsyncFS()
-        }
+      initRrdpFS(version)
+      initialRrdpRepositoryCleanup(UUID.fromString(version.sessionId))
 
-        if (conf.writeRrdp) {
-          initRrdpFS(version)
-          initialRrdpRepositoryCleanup(UUID.fromString(version.sessionId))
-        }
-
-        latestFrozenSerial = Some(version.serial)
-      }
-      logger.info("Done initialising FS content")
+      latestFrozenSerial = Some(version.serial)
     }
+    logger.info("Done initialising FS content")
   } catch {
     case NonFatal(e) =>
       logger.error("Failed to initialise FS content", e)
       throw e
   }
 
-  // Write current state of the database into RRDP snapshot and delta and rsync repositories
+  // Write current state of the database into the RRDP snapshot and delta
   def updateFS() = try {
-    // do not do anything at all if neither `writeRsync` nor `writeRrdp` is set.
-    if (conf.writeRsync || conf.writeRrdp) {
-      logger.info("Updating FS content")
-      pgStore.inRepeatableReadTx { implicit session =>
-        pgStore.lockVersions
+    logger.info("Updating FS content")
+    pgStore.inRepeatableReadTx { implicit session =>
+      pgStore.lockVersions
 
-        if (pgStore.changesExist()) {
-          val (version, duration) = Time.timed(pgStore.freezeVersion)
-          logger.info(s"Froze version ${version.sessionId}, ${version.serial}, took ${duration}ms")
+      if (pgStore.changesExist()) {
+        val (version, duration) = Time.timed(pgStore.freezeVersion)
+        logger.info(s"Froze version ${version.sessionId}, ${version.serial}, took ${duration}ms")
 
-          if (conf.writeRsync) {
-            writeRsyncDelta(version.sessionId, version.serial)
-          }
-
-          if (conf.writeRrdp) {
-            updateRrdpFS(version, latestFrozenSerial)
-            val (_, cleanupDuration) = Time.timed {
-              updateRrdpRepositoryCleanup()
-            }
-            logger.info(s"Cleanup ${version.sessionId}, ${version.serial}, took ${cleanupDuration}ms")
-          }
-
-          latestFrozenSerial = Some(version.serial)
-          logger.info("Done updating FS content")
-        } else {
-          logger.info("No changes exist, nothing to update")
+        updateRrdpFS(version, latestFrozenSerial)
+        val (_, cleanupDuration) = Time.timed {
+          updateRrdpRepositoryCleanup()
         }
+        logger.info(s"Cleanup ${version.sessionId}, ${version.serial}, took ${cleanupDuration}ms")
+
+        latestFrozenSerial = Some(version.serial)
+        logger.info("Done updating FS content")
+      } else {
+        logger.info("No changes exist, nothing to update")
       }
     }
   } catch {
@@ -186,12 +167,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem,  val health
     logger.info(s"Generated notification ${latestVersion.sessionId}/${latestVersion.serial}, took ${duration}ms")
   }
 
-  private def initRsyncFS()(implicit session: DBSession) = {
-    writeRsyncSnapshot()
-  }
-
-  // Write snapshot, i.e. the current state of the dataset into RRDP snapshot.xml file
-  // and in rsync repository at the same time.
+  // Write snapshot, i.e. the current state of the dataset into RRDP snapshot.xml file.
   def writeRrdpSnapshot(sessionId: String, serial: Long, snapshotOs: OutputStream)(implicit session: DBSession): Int = {
     var objectCounts = 0
     val (_, duration) = Time.timed {
@@ -204,19 +180,6 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem,  val health
     }
     logger.info(s"Wrote RRDP snapshot for ${sessionId}/${serial}, took ${duration}ms.")
     objectCounts
-  }
-
-  // Write snapshot objects to rsync repository.
-  def writeRsyncSnapshot()(implicit session: DBSession) = {
-    logger.info(s"Writing rsync snapshot.")
-    val (_, duration) = Time.timed {
-      val directoryMapping = rsyncWriter.startSnapshot
-      pgStore.readState { (uri, _, bytes) =>
-        rsyncWriter.writeFileInSnapshot(uri, bytes, directoryMapping)
-      }
-      rsyncWriter.promoteAllStagingToOnline(directoryMapping)
-    }
-    logger.info(s"Wrote rsync snapshot, took ${duration}ms.")
   }
 
   def writeRrdpDelta(sessionId: String, serial: Long, deltaOs: OutputStream)(implicit session: DBSession):Int = {
@@ -232,16 +195,6 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem,  val health
     logger.info(s"Wrote RRDP delta for ${sessionId}/${serial}, took ${duration}ms.")
     objectCounts
   }
-
-  def writeRsyncDelta(sessionId: String, serial: Long)(implicit session: DBSession) = {
-    val (_, duration) = Time.timed {
-      pgStore.readDelta(sessionId, serial) { (uri, oldHash, bytes) =>
-        writeLogEntryToRsync(uri, oldHash, bytes)
-      }
-    }
-    logger.info(s"Wrote rsync delta for ${sessionId}/${serial}, took ${duration}ms.")
-  }
-
 
   def writeNotification(snapshotInfo: SnapshotInfo, deltas: Seq[DeltaInfo], stream: OutputStream) = {
     require(deltas.forall(_.sessionId == snapshotInfo.sessionId), s"sessionId mismatch between snapshot and delta: $snapshotInfo <-> $deltas")
@@ -270,14 +223,6 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem,  val health
   private def commonSubPath(sessionId: String, serial: Long) = {
     Paths.get(conf.rrdpRepositoryPath, sessionId, String.valueOf(serial))
   }
-
-  protected def writeLogEntryToRsync(uri: URI, oldHash: Option[Hash], bytes: Option[Bytes]) =
-    (oldHash, bytes) match {
-      case (_, Some(b)) => rsyncWriter.writeFile(uri, b)
-      case (Some(_), None) => rsyncWriter.removeFile(uri)
-      case anythingElse =>
-        logger.error(s"Log contains invalid row $anythingElse")
-    }
 
   private def writeObjectToSnapshotFile(uri: URI, bytes: Bytes, stream: OutputStream): Unit =
     writePublish(uri, bytes, stream)
