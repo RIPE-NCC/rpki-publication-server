@@ -29,8 +29,8 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #
 
-EXECUTION_DIR=`dirname "$BASH_SOURCE"`
-cd ${EXECUTION_DIR}
+EXECUTION_DIR=$(dirname "${BASH_SOURCE[0]}")
+cd "${EXECUTION_DIR}" || exit 1
 
 APP_NAME="rpki-publication-server"
 PID_FILE=${APP_NAME}.pid
@@ -65,10 +65,10 @@ if [ -d "${JAVA_HOME}"  ] ; then
     JAVA_CMD="${JAVA_HOME}/bin/java"
 else
     warn "JAVA_HOME is not set, will try to find java on path."
-    JAVA_CMD=`which java`
+    JAVA_CMD=$(which java)
 fi
 
-if [ -z $JAVA_CMD ]; then
+if [ -z "$JAVA_CMD" ]; then
     error_exit "Cannot find java on path. Make sure java is installed and/or set JAVA_HOME"
 fi
 
@@ -83,6 +83,7 @@ fi
 
 
 # Determine config file location
+# shellcheck disable=SC2034
 getopts ":c:" OPT_NAME
 CONFIG_FILE=${OPTARG:-conf/rpki-publication-server.default.conf}
 
@@ -98,9 +99,10 @@ function check_config_location {
 
 function parse_config_line {
     local CONFIG_KEY=$1
-    local VALUE=`grep "^$CONFIG_KEY" "$CONFIG_FILE" | sed 's/#.*//g' | sed 's/^.*=[[:space:]]*\(.*\)/\1/g'`
+    local VALUE
+    VALUE=$(grep "^$CONFIG_KEY" "$CONFIG_FILE" | sed 's/#.*//g' | sed 's/^.*=[[:space:]]*\(.*\)/\1/g')
 
-    if [ -z $VALUE ]; then
+    if [ -z "$VALUE" ]; then
         error_exit "Cannot find value for: $CONFIG_KEY in config-file: $CONFIG_FILE"
     fi
     eval "$2=$VALUE"
@@ -110,9 +112,8 @@ function parse_config_line {
 # Determine if the application is already running
 #
 RUNNING="false"
-if [ -e ${PID_FILE} ]; then
-    ps `cat ${PID_FILE}` | grep "\-Dapp.name=${APP_NAME}" >/dev/null 2>&1
-    if [ $? == "0" ]; then
+if [ -e "${PID_FILE}" ]; then
+    if pgrep -F "${PID_FILE}" "\-Dapp.name=${APP_NAME}" >/dev/null 2>&1; then
         RUNNING="true"
     fi
 fi
@@ -146,21 +147,20 @@ case ${FIRST_ARG} in
 
         echo "CMDLINE=${CMDLINE}"
 
-        if [ ${FIRST_ARG} == "start" ]; then
+        if [ "${FIRST_ARG}" == "start" ]; then
             ${CMDLINE} &
-        elif [ ${FIRST_ARG} == "run" ]; then
-            ${CMDLINE}
-            exit $?
+        elif [ "${FIRST_ARG}" == "run" ]; then
+            exec ${CMDLINE}
         fi
 
         PID=$!
-        echo $PID > $PID_FILE
+        echo $PID > "$PID_FILE"
         info "Writing PID ${PID} to ${PID_FILE}"
         ;;
     stop)
         info "Stopping ${APP_NAME}..."
         if [ ${RUNNING} == "true" ]; then
-            kill `cat ${PID_FILE}` && rm ${PID_FILE}
+            pkill -F "${PID_FILE}" && rm "${PID_FILE}"
         else
             info "${APP_NAME} in not running"
         fi
