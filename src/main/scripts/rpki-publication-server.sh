@@ -137,9 +137,6 @@ case ${FIRST_ARG} in
 
         check_config_location
 
-        parse_config_line "locations.pidfile" PID_FILE
-        PID_FILE=$(resolve_path "$(dirname "$CONFIG_FILE")" "$PID_FILE")
-
         parse_config_line "locations.logfile" LOG_FILE
         LOG_FILE=$(resolve_path "$(dirname "$CONFIG_FILE")" "$LOG_FILE")
 
