@@ -1,8 +1,8 @@
 RPKI Publication Server
 =======================
 
-This is the RIPE NCC's implementation of 
-[A Publication Protocol for the Resource Public Key Infrastructure](https://datatracker.ietf.org/doc/html/rfc8181) and 
+This is the RIPE NCC's implementation of
+[A Publication Protocol for the Resource Public Key Infrastructure](https://datatracker.ietf.org/doc/html/rfc8181) and
 [RPKI Repository Delta Protocol](https://datatracker.ietf.org/doc/html/rfc8182).
 
 Building the project
@@ -23,6 +23,17 @@ Running the server
 ------------------
 
 Unpack the distribution archive into the directory of your choice.
+
+The publication server 2.0 and higher requires a PostgreSQL
+database. There is currently no migration from the Xodus database used
+by the 1.0 publication server. To create the initial database run:
+
+```
+createuser -P pubserver
+createdb -O pubserver pubserver
+```
+
+The publication server will automatically manage the database schema on startup.
 
 Inspect *conf/rpki-publication-server.default.conf* file and update it according to your preferences.
 Note that if the machine it runs on does not have IPv6, `server.address` needs
@@ -63,17 +74,17 @@ NOTE: You have to use the same password for the key and for the keystore.
 To enable client certificate validation on the publication server, set the publication.server.truststore.\\* properties.
 
 Use following commands to generate and install client's certificate into server's truststore:
- 
+
 * Generate client's key pair and certificate:
-  
+
 > $ keytool -genkey -alias pub-client -keystore clientKeyStore.ks
- 
+
 * Export client's certficate:
-  
+
 > $ keytool -export -alias pub-client -keystore clientKeyStore.ks -rfc -file aClient.cert
 
 * Install client's certificate in the server's trust store:
-  
+
 > $ keytool -import -alias pub-client -file aClient.cert -keystore serverTrustStore.ks
 
 
@@ -125,14 +136,14 @@ $ sbt clean test
 Architecture overview
 ----------------------
 
-The main entry point is PublicationService. The class PgStore operates with the database. 
+The main entry point is PublicationService. The class PgStore operates with the database.
 The concrete structure of the database is hidden behind SQL functions and views.
 
-Every publish/withdraw results in 
+Every publish/withdraw results in
 a) insertion/deletion in `objects` table;
 b) insertion into `object_log` table.
 
-From time to time we start a transaction that does the following: 
+From time to time we start a transaction that does the following:
 1) "freeze" the version, i.e. generate new serial (with some corner cases with empty tables in the beginning);
 2) read the objects to generate snapshot.xml for the latest frozen serial;
 3) read the object_log to generate the delta and update rsync repository;
@@ -140,6 +151,6 @@ From time to time we start a transaction that does the following:
 5) clean up corresponding entries in object_log;
 6) cleanup files in the file system.
 
-Important: transaction that generate the files needs to run with at least repeatable read isolation level to capture 
-the current state of the whole database. Repeatable read in PG is stronger than the standard requires and it is 
+Important: transaction that generate the files needs to run with at least repeatable read isolation level to capture
+the current state of the whole database. Repeatable read in PG is stronger than the standard requires and it is
 enough for our purposes https://www.postgresql.org/docs/12/transaction-iso.html#XACT-REPEATABLE-READ.
