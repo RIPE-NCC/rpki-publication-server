@@ -33,19 +33,21 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem,  val health
   // Write initial state of the database into the RRDP repository
   // Do not change anything in the DB here.
   def initFS() = try {
-    logger.info("Initialising FS content")
-    pgStore.inRepeatableReadTx { implicit session =>
-      pgStore.lockVersions
+    if (conf.writeRrdp) {
+      logger.info("Initialising FS content")
+      pgStore.inRepeatableReadTx { implicit session =>
+        pgStore.lockVersions
 
-      val (version, duration) = Time.timed(pgStore.freezeVersion)
-      logger.info(s"Froze version ${version.sessionId}, ${version.serial}, took ${duration}ms")
+        val (version, duration) = Time.timed(pgStore.freezeVersion)
+        logger.info(s"Froze version ${version.sessionId}, ${version.serial}, took ${duration}ms")
 
-      initRrdpFS(version)
-      initialRrdpRepositoryCleanup(UUID.fromString(version.sessionId))
+        initRrdpFS(version)
+        initialRrdpRepositoryCleanup(UUID.fromString(version.sessionId))
 
-      latestFrozenSerial = Some(version.serial)
+        latestFrozenSerial = Some(version.serial)
+      }
+      logger.info("Done initialising FS content")
     }
-    logger.info("Done initialising FS content")
   } catch {
     case NonFatal(e) =>
       logger.error("Failed to initialise FS content", e)
@@ -54,24 +56,26 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem,  val health
 
   // Write current state of the database into the RRDP snapshot and delta
   def updateFS() = try {
-    logger.info("Updating FS content")
-    pgStore.inRepeatableReadTx { implicit session =>
-      pgStore.lockVersions
+    if (conf.writeRrdp) {
+      logger.info("Updating FS content")
+      pgStore.inRepeatableReadTx { implicit session =>
+        pgStore.lockVersions
 
-      if (pgStore.changesExist()) {
-        val (version, duration) = Time.timed(pgStore.freezeVersion)
-        logger.info(s"Froze version ${version.sessionId}, ${version.serial}, took ${duration}ms")
+        if (pgStore.changesExist()) {
+          val (version, duration) = Time.timed(pgStore.freezeVersion)
+          logger.info(s"Froze version ${version.sessionId}, ${version.serial}, took ${duration}ms")
 
-        updateRrdpFS(version, latestFrozenSerial)
-        val (_, cleanupDuration) = Time.timed {
-          updateRrdpRepositoryCleanup()
+          updateRrdpFS(version, latestFrozenSerial)
+          val (_, cleanupDuration) = Time.timed {
+            updateRrdpRepositoryCleanup()
+          }
+          logger.info(s"Cleanup ${version.sessionId}, ${version.serial}, took ${cleanupDuration}ms")
+
+          latestFrozenSerial = Some(version.serial)
+          logger.info("Done updating FS content")
+        } else {
+          logger.info("No changes exist, nothing to update")
         }
-        logger.info(s"Cleanup ${version.sessionId}, ${version.serial}, took ${cleanupDuration}ms")
-
-        latestFrozenSerial = Some(version.serial)
-        logger.info("Done updating FS content")
-      } else {
-        logger.info("No changes exist, nothing to update")
       }
     }
   } catch {

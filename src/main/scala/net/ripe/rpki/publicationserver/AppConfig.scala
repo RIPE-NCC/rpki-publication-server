@@ -50,6 +50,14 @@ class AppConfig {
   def deltaUrl(deltaInfo: DeltaInfo) =
     s"$rrdpRepositoryUri/${deltaInfo.sessionId}/${deltaInfo.serial}/${deltaInfo.name}"
 
+  lazy val writeRrdp = isMode("rrdp")
+
+  def isMode(dataType: String) =
+    Try(getConfig.getBoolean(s"publication.server.write-$dataType")) match {
+      case Failure(_) => true
+      case Success(data) => data
+    }
+
   lazy val repositoryFlushInterval = FiniteDuration(
     getConfig.getDuration(
       "publication.server.repository-write-interval",

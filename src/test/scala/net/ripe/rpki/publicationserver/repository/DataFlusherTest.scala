@@ -27,12 +27,13 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     pgStore.clear()
   }
 
-  private def newFlusher() = {
+  private def newFlusher(writeRrdpFlag: Boolean = true) = {
     rrdpRootDir = Files.createTempDirectory("test_pub_server_rrdp_")
     conf = new AppConfig() {
       override lazy val pgConfig = pgTestConfig
       override lazy val rrdpRepositoryPath = rrdpRootDir.toAbsolutePath.toString
       override lazy val unpublishedFileRetainPeriod = Duration(20, MILLISECONDS)
+      override lazy val writeRrdp = writeRrdpFlag
     }
     implicit val healthChecks = new HealthChecks(conf)
     new DataFlusher(conf)
@@ -292,9 +293,7 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     flusher.updateFS()
     waitForRrdpCleanup()
 
-    pgStore.inRepeatableReadTx { implicit session =>
-      pgStore.getCurrentSessionInfo
-    } should be(None)
+    verifyNoCurrentSession
   }
 
   test("Should update an RRDP repository with a couple of objects published at once") {
@@ -584,6 +583,35 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
     verifyRrpdFiles(sessionId1, serial1)
   }
 
+  test("Should not update when write-rrdp is disabled") {
+    val flusher = newFlusher(writeRrdpFlag = false)
+    flusher.initFS()
+    waitForRrdpCleanup()
+
+    verifyNoCurrentSession
+
+    val clientId = ClientId("client1")
+
+    val uri1 = new URI(urlPrefix1 + "/path1.roa")
+
+    val (bytes1, _) = TestBinaries.generateObject(1000)
+    val (bytes2, _) = TestBinaries.generateObject(200)
+
+    pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = None, bytes1))), clientId)
+    flusher.updateFS()
+    waitForRrdpCleanup()
+
+    verifyNoCurrentSession
+
+    pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = Some(hashOf(bytes1)), bytes2))), clientId)
+    flusher.updateFS()
+    waitForRrdpCleanup()
+
+    verifyNoCurrentSession
+
+    rrdpRootDir.resolve("notification.xml").toFile.exists() should be(false)
+  }
+
   test("Should update rrdp when DB is modified by `another instance` in the meantime") {
     val clientId = ClientId("client1")
 
@@ -665,6 +693,12 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
   def sessionSerialDir(sessionId: String, serial: Long) =
     rrdpRootDir.resolve(sessionId).resolve(serial.toString)
+
+  private def verifyNoCurrentSession = {
+    pgStore.inRepeatableReadTx { implicit session =>
+      pgStore.getCurrentSessionInfo
+    } should be(None)
+  }
 
   private def verifySessionAndSerial = {
     val version = pgStore.inRepeatableReadTx { implicit session =>
