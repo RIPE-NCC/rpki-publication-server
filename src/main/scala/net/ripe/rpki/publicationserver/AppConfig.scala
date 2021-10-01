@@ -29,19 +29,6 @@ class AppConfig {
   lazy val unpublishedFileRetainPeriod = Duration(getConfig.getDuration("unpublished-file-retain-period", TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS)
   lazy val defaultTimeout = Duration(getConfig.getDuration("default.timeout", TimeUnit.MINUTES), TimeUnit.MINUTES)
   lazy val serverAddress = if(getConfig.hasPath("server.address")) getConfig.getString("server.address") else "::0"
-  lazy val rsyncRepositoryMapping : Map[URI, Path] = {
-    val list : Iterable[ConfigObject] = getConfig.getObjectList("locations.rsync.repository-mapping").asScala
-    (for {
-      item : ConfigObject <- list
-      entry : Entry[String, ConfigValue] <- item.entrySet().asScala
-      uri = URI.create(entry.getKey)
-      path = Paths.get(entry.getValue.unwrapped().toString)
-    } yield (uri, path)).toMap
-  }
-  lazy val rsyncRepositoryStagingDirName = getConfig.getString("locations.rsync.staging-dir-name")
-  lazy val rsyncRepositoryOnlineDirName = getConfig.getString("locations.rsync.online-dir-name")
-  lazy val rsyncDirectoryPermissions = getConfig.getString("locations.rsync.directory-permissions")
-  lazy val rsyncFilePermissions = getConfig.getString("locations.rsync.file-permissions")
 
   lazy val publicationServerSettings = Some(ServerSettings(getConfig.getConfig("publication")
                      .withFallback(ConfigFactory.defaultReference(getClass.getClassLoader))))
@@ -63,7 +50,6 @@ class AppConfig {
   def deltaUrl(deltaInfo: DeltaInfo) =
     s"$rrdpRepositoryUri/${deltaInfo.sessionId}/${deltaInfo.serial}/${deltaInfo.name}"
 
-  lazy val writeRsync = isMode("rsync")
   lazy val writeRrdp = isMode("rrdp")
 
   def isMode(dataType: String) =

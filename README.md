@@ -146,7 +146,7 @@ b) insertion into `object_log` table.
 From time to time we start a transaction that does the following:
 1) "freeze" the version, i.e. generate new serial (with some corner cases with empty tables in the beginning);
 2) read the objects to generate snapshot.xml for the latest frozen serial;
-3) read the object_log to generate the delta and update rsync repository;
+3) read the object_log to generate the delta;
 4) clean up older versions if needed (they are too old, or their overall size is too big);
 5) clean up corresponding entries in object_log;
 6) cleanup files in the file system.

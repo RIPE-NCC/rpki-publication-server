@@ -1,10 +1,8 @@
 package net.ripe.rpki.publicationserver.integration
 
-import java.net.URI
 import java.nio.file._
 
 import net.ripe.rpki.publicationserver.Binaries.Base64
-import net.ripe.rpki.publicationserver.store.postgresql.PgStore
 import net.ripe.rpki.publicationserver.util.SSLHelper
 import net.ripe.rpki.publicationserver._
 import org.slf4j.LoggerFactory
@@ -20,18 +18,12 @@ class PublicationIntegrationTest
 
     val logger = LoggerFactory.getLogger(this.getClass)
 
-    val rsyncRootDir = Files.createTempDirectory( "test_pub_server_rsync_")
     val storeDir = Files.createTempDirectory("test_pub_server_store_")
-    deleteOnExit(rsyncRootDir)
     deleteOnExit(storeDir)
 
     createPgStore.clear()
 
     val conf = new AppConfig {
-      override lazy val rsyncRepositoryMapping = Map(
-        URI.create("rsync://localhost:10873/repository") -> rsyncRootDir
-      )
-
       override lazy val storePath = storeDir.toString()
       override lazy val publicationServerTrustStoreLocation =
         "./src/test/resources/certificates/serverTrustStore.ks"
