@@ -30,10 +30,9 @@
 #
 
 EXECUTION_DIR=$(dirname "${BASH_SOURCE[0]}")
-cd "${EXECUTION_DIR}" || exit 1
 
 APP_NAME="rpki-publication-server"
-PID_FILE=${APP_NAME}.pid
+PID_FILE=${EXECUTION_DIR}/${APP_NAME}.pid
 
 function error_exit {
     echo -e "[ error ] $1"
@@ -55,6 +54,18 @@ Usage: $0 start  [-c /path/to/my-configuration.conf]
    or  $0 stop   [-c /path/to/my-configuration.conf]
    or  $0 status [-c /path/to/my-configuration.conf]
 EOF
+}
+
+function resolve_path {
+    local dir="$1"
+    local path="$2"
+    local resolved_dir
+
+    if ! resolved_dir=$(cd "$dir" && cd "$(dirname "$path")" && pwd); then
+        exit 1
+    fi
+
+    echo "$resolved_dir"/"$(basename "$path")"
 }
 
 #
@@ -127,7 +138,11 @@ case ${FIRST_ARG} in
 
         check_config_location
 
-        parse_config_line "locations.pidfile" PID_FILE
+        parse_config_line "locations.logfile" LOG_FILE
+        LOG_FILE=$(resolve_path "$(dirname "$CONFIG_FILE")" "$LOG_FILE")
+
+        parse_config_line "locations.logfile" GC_LOG_FILE
+        GC_LOG_FILE=$(resolve_path "$(dirname "$CONFIG_FILE")" "$GC_LOG_FILE")
 
         parse_config_line "jvm.memory.initial" JVM_XMS
         parse_config_line "jvm.memory.maximum" JVM_XMX
@@ -135,14 +150,12 @@ case ${FIRST_ARG} in
         info "Starting ${APP_NAME}..."
         info "Publication server is available on port 7788"
 
-        # in the beginning of the script we do "cd <path>/bin",
-        # so "lib" will always be next to it
-        CLASSPATH=:"../lib:../lib/*"
+        CLASSPATH=:"${EXECUTION_DIR}/../lib:${EXECUTION_DIR}/../lib/*"
         MEM_OPTIONS="-Xms$JVM_XMS -Xmx$JVM_XMX -XX:+HeapDumpOnOutOfMemoryError"
-        GC_LOG_OPTIONS="-XX:+PrintGCDetails -XX:+PrintGCDateStamps -verbose:gc -Xloggc:../../log/gc.log -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=2"
+        GC_LOG_OPTIONS="-XX:+PrintGCDetails -XX:+PrintGCDateStamps -verbose:gc -Xloggc:${GC_LOG_FILE} -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=2"
 
         CMDLINE="${JAVA_CMD} ${MEM_OPTIONS} ${GC_LOG_OPTIONS} \
-                 -Dapp.name=${APP_NAME} -Dconfig.file=${CONFIG_FILE} \
+                 -Dapp.name=${APP_NAME} -Dconfig.file=${CONFIG_FILE} -Dlog.file=${LOG_FILE} \
                  -classpath ${CLASSPATH} net.ripe.rpki.publicationserver.Boot"
 
         echo "CMDLINE=${CMDLINE}"
