@@ -32,7 +32,7 @@ build:
   script:
     - docker build -f Dockerfile.artifact_container --tag $CI_REGISTRY_IMAGE/artifacts:$CI_COMMIT_SHA .
     - docker push $CI_REGISTRY_IMAGE/artifacts:$CI_COMMIT_SHA
-    - curl -X POST -F "token=$RPKI_AWS_TOKEN" -F "ref=$BRANCH_TARGET" -F "variables[DEPLOY_TARGET]=$DEPLOY_TARGET" -F "variables[IMAGE_TARGET]=$CI_COMMIT_SHA"  "$AWS_PIPELINE_TRIGGER"
+    - curl -X POST -F "token=$CI_JOB_TOKEN" -F "ref=$BRANCH_TARGET" -F "variables[DEPLOY_TARGET]=$DEPLOY_TARGET" -F "variables[IMAGE_TARGET]=$CI_COMMIT_SHA"  "$AWS_PIPELINE_TRIGGER"
   when:
     manual
 
@@ -50,7 +50,7 @@ deploy_aws_prod:
     DEPLOY_TARGET: "prod"
   <<: *deploy_aws_template
   only:
-    - master
+    - main
 
 .deploy_on_premise_template: &deploy_on_premise_template
   stage: deploy
@@ -58,8 +58,8 @@ deploy_aws_prod:
   script:
     - if [ -z "${SALT_DEPLOY_TARGET}" ]; then echo "set SALT_DEPLOY_TARGET"; exit 2; fi;
     - if [ -z "${DEPLOY_USER_PASS}" ]; then echo "set DEPLOY_USER_PASS"; exit 2; fi;
-    - if [ -z "${SALT_URL}" ]; then echo "set SALT_URL"; exit 2; fi;    
-    - if [ -z "${MONITORING_URL}" ]; then echo "set MONITORING_URL"; exit 2; fi;    
+    - if [ -z "${SALT_URL}" ]; then echo "set SALT_URL"; exit 2; fi;
+    - if [ -z "${MONITORING_URL}" ]; then echo "set MONITORING_URL"; exit 2; fi;
     - echo "Logging into salt-api"
     - >
       curl -ik ${SALT_URL}/login \
@@ -105,7 +105,7 @@ deploy_aws_prod:
     - docker:dind
   script:
     - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
-    - docker build --label "org.label-schema.vcs-ref=$CI_COMMIT_SHORT_SHA" --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA --tag $CI_REGISTRY_IMAGE:$IMAGE_TAG .
+    - docker build --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA --tag $CI_REGISTRY_IMAGE:$IMAGE_TAG .
     - echo "Releasing this image as :$IMAGE_TAG and :${CI_COMMIT_SHORT_SHA}"
     - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
     - docker push $CI_REGISTRY_IMAGE:$IMAGE_TAG
@@ -122,9 +122,9 @@ production_image:
   variables:
     IMAGE_TAG: "production"
   when:
-      manual
+    manual
   only:
-    - master
+    - main
 
 deploy_prepdev_premise:
   <<: *deploy_on_premise_template
@@ -149,4 +149,3 @@ deploy_production_premise:
     - tags@rpki/rpki-publication-server
   when:
     manual
-

@@ -42,7 +42,7 @@ class AppConfig {
                         getConfig.getString("postgresql.url"),
                         getConfig.getString("postgresql.user"),
                         getConfig.getString("postgresql.password")
-                    )      
+                    )
 
   def snapshotUrl(snapshotInfo: SnapshotInfo) =
     s"$rrdpRepositoryUri/${snapshotInfo.sessionId}/${snapshotInfo.serial}/${snapshotInfo.name}"
