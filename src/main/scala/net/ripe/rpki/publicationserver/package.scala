@@ -1,8 +1,8 @@
 package net.ripe.rpki
 
-import java.nio.file.attribute.{FileAttribute, PosixFilePermission, PosixFilePermissions}
-
 import com.softwaremill.macwire._
+
+import java.nio.file.attribute.{FileAttribute, PosixFilePermission}
 
 package object publicationserver {
 
@@ -12,7 +12,4 @@ package object publicationserver {
 
   type FileAttributes = FileAttribute[java.util.Set[PosixFilePermission]]
   type FilePermissions = java.util.Set[PosixFilePermission]
-
-  implicit def into(x: FilePermissions): FileAttributes =
-    PosixFilePermissions.asFileAttribute(x)
 }

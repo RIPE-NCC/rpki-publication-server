@@ -9,7 +9,7 @@ version := "2.0-SNAPSHOT"
 
 scalaVersion := "2.13.6"
 
-scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8")
+scalacOptions := Seq("-unchecked", "-deprecation", "-feature", "-encoding", "utf8")
 
 // packaging:
 // use sbt assembly plugin and create a fat jar with a predictable name.
