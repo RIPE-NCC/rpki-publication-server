@@ -20,6 +20,15 @@ link between reverse proxy and publication server.
 The produced RRDP repository is in accordance with RFC 8182 and is accepted by
 all known Relying Party implementations.
 
+License
+---
+
+Copyright (c) 2015-2021 RIPE NCC All rights reserved.
+
+This software and all its separate source code is licensed under the terms of
+the BSD 3-Clause License. If a copy of the license was not distributed to you,
+you can obtain one at https://github.com/RIPE-NCC/rpki-publication-server/blob/main/LICENSE.txt.
+
 Building the project
 --------------------
 
