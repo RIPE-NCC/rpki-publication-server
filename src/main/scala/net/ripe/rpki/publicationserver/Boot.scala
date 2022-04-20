@@ -44,7 +44,7 @@ object Boot extends App with Logging {
   new PublicationServerApp(conf, https, logger).run()
 }
 
-class PublicationServerApp(conf: AppConfig, https: HttpsConnectionContext, logger: Logger) extends RRDPService {
+class PublicationServerApp(conf: AppConfig, https: HttpsConnectionContext, logger: Logger) extends MonitoringService {
 
   implicit val system = ActorSystem.create(Math.abs(new ju.Random().nextLong()).toString)
   implicit val dispatcher = system.dispatcher
@@ -94,7 +94,7 @@ class PublicationServerApp(conf: AppConfig, https: HttpsConnectionContext, logge
 
     this.httpBinding = Http()
       .newServerAt(conf.serverAddress, conf.rrdpPort)
-      .bindFlow(rrdpAndMonitoringRoutes ~ metricsApi.routes)
+      .bindFlow(monitoringRoutes ~ metricsApi.routes)
 
     httpsBinding.onComplete {
       case Failure(e) =>
