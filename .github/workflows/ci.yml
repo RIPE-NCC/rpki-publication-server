@@ -6,8 +6,6 @@ jobs:
   sbt-build-test:
     # Containers must run in Linux based operating systems
     runs-on: ubuntu-latest
-    # Docker Hub image that `container-job` executes in
-    container: mozilla/sbt
 
     # Service containers to run with `container-job`
     services:
@@ -31,6 +29,10 @@ jobs:
       # Downloads a copy of the code in your repository before running CI tests
       - name: Check out repository code
         uses: actions/checkout@v3
+
+      - uses: olafurpg/setup-scala@v13
+        with:
+          java-version: openjdk@1.11
 
       - name: Cache ivy cache
         id: ivy-cache
