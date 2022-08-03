@@ -1,4 +1,4 @@
-FROM mozilla/sbt as build
+FROM alpine:3.16 as build
 
 ARG PUBLICATION_SERVER_JAR=target/rpki-publication-server.jar
 
