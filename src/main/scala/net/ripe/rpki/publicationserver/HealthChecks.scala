@@ -68,7 +68,7 @@ class HealthChecks(val appConfig: AppConfig) extends Logging {
 
   def snapshotStatus(): SnapshotStatus = {
     val current = snapshotObjectCounts.get()
-    SnapshotStatus(current > appConfig.minimumSnapshotObjectsCount, current)
+    SnapshotStatus(current >= appConfig.minimumSnapshotObjectsCount, current)
   }
 
   def readinessResponse = {
