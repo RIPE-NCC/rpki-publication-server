@@ -60,6 +60,13 @@ libraryDependencies ++= {
   )
 }
 
+// hack: Prevent errors due to multiple references to stax api
+assemblyMergeStrategy in assembly := {
+ case PathList("META-INF", _*) => MergeStrategy.discard
+ case _                        => MergeStrategy.first
+}
+
+
 // Generate the GeneratedBuildInformation object
 import java.util.Date
 import java.text.SimpleDateFormat
