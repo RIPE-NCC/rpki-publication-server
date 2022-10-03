@@ -16,7 +16,17 @@ class StaxParser(reader: XMLStreamReader) {
 
 object StaxParser {
 
-  lazy val xmlif: XMLInputFactory2 = XMLInputFactory.newInstance().asInstanceOf[XMLInputFactory2]
+  val xmlif: XMLInputFactory2 = {
+    val sf = XMLInputFactory.newInstance().asInstanceOf[XMLInputFactory2]
+    // This disables DTDs entirely for that factory
+    sf.setProperty(XMLInputFactory.SUPPORT_DTD, false)
+    // This causes XMLStreamException to be thrown if external DTDs are accessed. (2022-10-03: not available)
+    // sf.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD, "")
+    // disable external entities
+    sf.setProperty("javax.xml.stream.isSupportingExternalEntities", false)
+
+    sf
+  }
 
   def createFor(xmlString: String, rngString: String): StaxParser = createFor(new StringReader(xmlString), rngString)
 
