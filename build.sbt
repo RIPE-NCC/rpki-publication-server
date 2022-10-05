@@ -53,7 +53,7 @@ libraryDependencies ++= {
     "org.apache.commons"        % "commons-io"            % "1.3.2",
     "io.prometheus"             % "simpleclient"          % "0.16.0",
     "io.prometheus"             % "simpleclient_common"   % "0.16.0",
-    "org.scala-lang.modules"   %% "scala-xml"             % "2.0.1",
+    "org.scala-lang.modules"   %% "scala-xml"             % "2.1.0",
     "org.scalikejdbc"          %% "scalikejdbc"           % "3.5.+",
     "org.postgresql"            % "postgresql"            % "42.2.23",
     "org.json4s"               %% "json4s-native"         % "4.0.2",
