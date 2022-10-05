@@ -51,7 +51,6 @@ libraryDependencies ++= {
     "com.softwaremill.macwire" %% "util"                  % macwire % "provided",
     "com.softwaremill.macwire" %% "proxy"                 % macwire % "provided",
     "com.google.guava"          % "guava"                 % "31.1-jre",
-    "org.apache.commons"        % "commons-io"            % "1.3.2",
     "io.prometheus"             % "simpleclient"          % "0.16.0",
     "io.prometheus"             % "simpleclient_common"   % "0.16.0",
     "org.scala-lang.modules"   %% "scala-xml"             % "2.1.0",
