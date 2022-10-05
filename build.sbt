@@ -30,8 +30,8 @@ resolvers += "JCenter" at "https://jcenter.bintray.com/"
 
 libraryDependencies ++= {
 //  val akkaV = "2.4.20"
-  val akkaV = "2.6.5"
-  val akkaHttp = "10.1.12"
+  val akkaV = "2.6.16"
+  val akkaHttp = "10.2.9"
   Seq(
     "com.typesafe.akka"        %% "akka-http"             % akkaHttp,
     "com.typesafe.akka"        %% "akka-http-core"        % akkaHttp,

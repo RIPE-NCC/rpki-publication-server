@@ -1,7 +1,7 @@
 package net.ripe.rpki.publicationserver.util
 
 import java.io.FileInputStream
-import java.security.KeyStore
+import java.security.{KeyStore, SecureRandom}
 
 import akka.http.scaladsl.{ConnectionContext, HttpsConnectionContext}
 import javax.net.ssl._
@@ -11,71 +11,40 @@ import org.slf4j.Logger
 import scala.util.Try
 
 class SSLHelper(conf: AppConfig, logger: Logger) {
+  /**
+   * Initialise a SSLContext using the settings from the config.
+   *
+   * This requires that both the truststore and keystore files are present and have valid passwords.
+   *
+   * @return a Success containing a valid SSL context, a Failure otherwise
+   */
   def connectionContext: Try[HttpsConnectionContext] = {
-    val sslContext = Try(SSLContext.getInstance("TLS"))
-    sslContext.foreach(_.init(getKeyManagers, getTrustManagers, null))
-    sslContext.flatMap(ctx => Try(ConnectionContext.https(ctx)))
+    Try(SSLContext.getInstance("TLS"))
+      .map(ctx => {
+        ctx.init(getKeyManagers.getKeyManagers, getTrustManagers.getTrustManagers, new SecureRandom)
+        ConnectionContext.httpsServer(ctx)
+      })
   }
 
-  private def getTrustManagers: Array[TrustManager] = {
-    if (conf.publicationServerTrustStoreLocation.isEmpty) {
-      logger.info(
-        "publication.server.truststore.location is not set, skipping truststore init"
-      )
-      null
-    } else {
-      val trustStore = KeyStore.getInstance("JKS")
-      val tsPassword: Array[Char] =
-        if (conf.publicationServerTrustStorePassword.isEmpty) {
-          null
-        } else {
-          conf.publicationServerTrustStorePassword.toCharArray
-        }
-      logger.info(
-        s"Loading HTTPS certificate from ${conf.publicationServerTrustStoreLocation}"
-      )
-      trustStore.load(
-        new FileInputStream(conf.publicationServerTrustStoreLocation),
-        tsPassword
-      )
-      val tmf = TrustManagerFactory.getInstance("SunX509")
-      tmf.init(trustStore)
-      tmf.getTrustManagers
-    }
+  private def getTrustManagers: TrustManagerFactory = {
+    require(!conf.publicationServerTrustStorePassword.isEmpty, "server.truststore.password is empty")
+    logger.info(s"Loading HTTPS certificate from ${conf.publicationServerTrustStoreLocation}")
+
+    val trustStore = KeyStore.getInstance("JKS")
+    trustStore.load(new FileInputStream(conf.publicationServerTrustStoreLocation), conf.publicationServerTrustStorePassword.toCharArray)
+    val tmf = TrustManagerFactory.getInstance("SunX509")
+    tmf.init(trustStore)
+    tmf
   }
 
-  private def getKeyManagers: Array[KeyManager] = {
-    if (conf.publicationServerKeyStoreLocation.isEmpty) {
-      if (conf.getConfig.getBoolean(
-        "publication.spray.can.server.ssl-encryption"
-      )) {
-        logger.error(
-          "publication.spray.can.server.ssl-encryption is ON, but publication.server.keystore.location " +
-            "is not defined. THIS WILL NOT WORK!"
-        )
-      } else {
-        logger.info(
-          "publication.server.keystore.location is not set, skipping keystore init"
-        )
-      }
-      null
-    } else {
-      val ksPassword = if (conf.publicationServerKeyStorePassword.isEmpty) {
-        null
-      } else {
-        conf.publicationServerKeyStorePassword.toCharArray
-      }
-      val keyStore = KeyStore.getInstance("JKS")
-      logger.info(
-        s"Loading HTTPS certificate from ${conf.publicationServerKeyStoreLocation}"
-      )
-      keyStore.load(
-        new FileInputStream(conf.publicationServerKeyStoreLocation),
-        ksPassword
-      )
-      val kmf = KeyManagerFactory.getInstance("SunX509")
-      kmf.init(keyStore, ksPassword)
-      kmf.getKeyManagers
-    }
+  private def getKeyManagers: KeyManagerFactory = {
+    require(!conf.publicationServerKeyStorePassword.isEmpty, "server.keystore.password is empty")
+    logger.info(s"Loading HTTPS certificate from ${conf.publicationServerKeyStoreLocation}")
+
+    val keyStore = KeyStore.getInstance("JKS")
+    keyStore.load(new FileInputStream(conf.publicationServerKeyStoreLocation), conf.publicationServerKeyStorePassword.toCharArray)
+    val kmf = KeyManagerFactory.getInstance("SunX509")
+    kmf.init(keyStore, conf.publicationServerKeyStorePassword.toCharArray)
+    kmf
   }
 }

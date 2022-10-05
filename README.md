@@ -46,10 +46,10 @@ Use *bin/rpki-publication-server.sh* script to start and stop the server:
 Configuring HTTPS for publication protocol
 ------------------------------------------
 
-It is possible to use HTTPS for publication protocol, with or without client authentication.
+The publication server **requires** HTTPS for the publication protocol with client authentication. This mitigates the
+risk of publication server from being launched without HTTPS in a production setting by accident (ROS 2.15.3).
 
-To enable HTTPS for publication protocol, set publication.spray.can.server.ssl-encryption parameter to "on", and 
-define publication.server.keystore.\* properties.
+**Keep in mind** that client authentication needs to be setup both on the side of the publisher as well.
 
 To create self-signed server's certificate, use following commands:
 
