@@ -32,6 +32,7 @@ enablePlugins(JavaServerAppPackaging, UniversalDeployPlugin)
 libraryDependencies ++= {
   val akkaV = "2.6.20"
   val akkaHttp = "10.2.10"
+  val macwire = "2.5.8"
   Seq(
     "com.typesafe.akka"        %% "akka-http"             % akkaHttp,
     "com.typesafe.akka"        %% "akka-http-core"        % akkaHttp,
@@ -44,10 +45,10 @@ libraryDependencies ++= {
     "org.mockito"               % "mockito-all"           % "1.10.19" % "test",
     "com.fasterxml.woodstox"    % "woodstox-core"         % "6.3.1",
     "ch.qos.logback"            % "logback-classic"       % "1.2.6",
-    "com.softwaremill.macwire" %% "macros"                % "2.4.1" % "provided",
-    "com.softwaremill.macwire" %% "macrosakka"            % "2.4.1" % "provided",
-    "com.softwaremill.macwire" %% "util"                  % "2.4.1" % "provided",
-    "com.softwaremill.macwire" %% "proxy"                 % "2.4.1" % "provided",
+    "com.softwaremill.macwire" %% "macros"                % macwire % "provided",
+    "com.softwaremill.macwire" %% "macrosakka"            % macwire % "provided",
+    "com.softwaremill.macwire" %% "util"                  % macwire % "provided",
+    "com.softwaremill.macwire" %% "proxy"                 % macwire % "provided",
     "com.google.guava"          % "guava"                 % "23.0",
     "org.apache.commons"        % "commons-io"            % "1.3.2",
     "io.prometheus"             % "simpleclient"          % "0.12.0",
