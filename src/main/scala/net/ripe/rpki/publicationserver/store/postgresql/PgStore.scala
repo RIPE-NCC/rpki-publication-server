@@ -37,9 +37,9 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
   }
 
   def clear(): Unit = DB.localTx { implicit session =>
-    sql"DELETE FROM object_log".update().apply()
-    sql"DELETE FROM objects".update().apply()
-    sql"DELETE FROM versions".update().apply()
+    sql"DELETE FROM object_log".update()
+    sql"DELETE FROM objects".update()
+    sql"DELETE FROM versions".update()
   }
 
   def getState = DB.localTx { implicit session =>
@@ -52,7 +52,6 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
         url -> (content, hash, clientId)
       }
       .list()
-      .apply()
       .toMap
   }
 
@@ -67,7 +66,6 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
         (uri, hash, bytes)
       }
       .list()
-      .apply()
   }
 
   def readState(f: (URI, Hash, Bytes) => Unit)(implicit session: DBSession) = {
@@ -119,7 +117,6 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
         )
       })
       .single()
-      .apply()
   }
 
   def getReasonableDeltas(sessionId: String)(implicit session: DBSession) = {
@@ -130,7 +127,6 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
       .map { rs => DeltaInfo(VersionInfo(rs.string(1), rs.long(2), Bytes(rs.bytes(3))), rs.string(4), Hash(rs.bytes(5)), rs.long(6))
       }
       .list()
-      .apply()
   }
 
   def updateSnapshotInfo(snapshotInfo: SnapshotInfo)(implicit session: DBSession): Unit = {
@@ -141,7 +137,6 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
             snapshot_file_name = $name
           WHERE session_id = $sessionId AND serial = $serial"""
       .execute()
-      .apply()
   }
 
   def updateDeltaInfo(deltaInfo: DeltaInfo)(implicit session: DBSession): Unit = {
@@ -152,7 +147,6 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
             delta_file_name = $name
           WHERE session_id = $sessionId AND serial = $serial"""
       .execute()
-      .apply()
   }
 
   implicit val formats = org.json4s.DefaultFormats
@@ -160,7 +154,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
   def applyChanges(changeSet: QueryMessage, clientId: ClientId)(implicit metrics: Metrics): Unit = {
 
     def executeSql(sql: SQL[Nothing, NoExtractor], onSuccess: => Unit, onFailure: => Unit)(implicit session: DBSession): Unit = {
-      val r = sql.map(_.string(1)).single().apply()
+      val r = sql.map(_.string(1)).single()
       r match {
         case None =>
           onSuccess
@@ -178,7 +172,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
     inRepeatableReadTx { implicit session =>
       // Apply all modification while holding a lock on the client ID
       // (which most often is the CA owning the objects)
-      sql"SELECT acquire_client_id_lock(${clientId.value})".execute().apply()
+      sql"SELECT acquire_client_id_lock(${clientId.value})".execute()
 
       changeSet.pdus.foreach {
         case PublishQ(uri, _, None, _) =>
@@ -222,7 +216,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
   }
 
   def lockVersions(implicit session: DBSession) = {
-    sql"SELECT lock_versions()".execute().apply()
+    sql"SELECT lock_versions()".execute()
   }
 
 
@@ -231,7 +225,6 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
     sql"SELECT session_id, serial, file_name_secret FROM freeze_version($fileNameSecret)"
       .map(rs => VersionInfo(rs.string(1), rs.long(2), Bytes(rs.bytes(3))))
       .single()
-      .apply()
       .get
   }
 
@@ -241,20 +234,18 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
     sql"SELECT session_id, serial FROM delete_old_versions()"
       .map(rs => (rs.string(1), rs.long(2)))
       .list()
-      .apply()
   }
 
   def changesExist()(implicit session: DBSession) = {
     sql"SELECT changes_exist()"
       .map(rs => rs.boolean(1))
       .single()
-      .apply()
       .get
   }
 
   def check() = {
     val z = inRepeatableReadTx { implicit session =>
-      sql"SELECT 1".map(_.int(1)).single().apply()
+      sql"SELECT 1".map(_.int(1)).single()
     }
     z match {
       case None =>
@@ -270,7 +261,6 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
            WHERE client_id = ${clientId.value}"""
       .map(rs => (rs.string(1), Hash(rs.bytes(2))))
       .list()
-      .apply()
   }
 }
 
