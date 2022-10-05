@@ -40,7 +40,7 @@ libraryDependencies ++= {
     "com.typesafe.akka"        %% "akka-stream-testkit"   % akkaV,
     "com.typesafe.akka"        %% "akka-testkit"          % akkaV     % "test",
     "com.typesafe.akka"        %% "akka-slf4j"            % akkaV,
-    "org.scalatest"            %% "scalatest"             % "3.2.9"   % "test",
+    "org.scalatest"            %% "scalatest"             % "3.2.14"   % "test",
     "org.mockito"               % "mockito-all"           % "1.10.19" % "test",
     "com.fasterxml.woodstox"    % "woodstox-core"         % "6.2.6",
     "ch.qos.logback"            % "logback-classic"       % "1.2.6",
