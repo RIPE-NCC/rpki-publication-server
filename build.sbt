@@ -49,7 +49,7 @@ libraryDependencies ++= {
     "com.softwaremill.macwire" %% "macrosakka"            % macwire % "provided",
     "com.softwaremill.macwire" %% "util"                  % macwire % "provided",
     "com.softwaremill.macwire" %% "proxy"                 % macwire % "provided",
-    "com.google.guava"          % "guava"                 % "23.0",
+    "com.google.guava"          % "guava"                 % "31.1-jre",
     "org.apache.commons"        % "commons-io"            % "1.3.2",
     "io.prometheus"             % "simpleclient"          % "0.12.0",
     "io.prometheus"             % "simpleclient_common"   % "0.12.0",
