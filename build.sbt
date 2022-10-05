@@ -31,7 +31,7 @@ enablePlugins(JavaServerAppPackaging, UniversalDeployPlugin)
 
 libraryDependencies ++= {
   val akkaV = "2.6.20"
-  val akkaHttp = "10.2.6"
+  val akkaHttp = "10.2.10"
   Seq(
     "com.typesafe.akka"        %% "akka-http"             % akkaHttp,
     "com.typesafe.akka"        %% "akka-http-core"        % akkaHttp,
