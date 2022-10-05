@@ -58,7 +58,7 @@ libraryDependencies ++= {
     "org.postgresql"            % "postgresql"            % "42.5.0",
     "org.json4s"               %% "json4s-native"         % "4.0.6",
     "org.flywaydb"              % "flyway-core"           % "9.4.0",
-    "org.scala-lang.modules"   %% "scala-parallel-collections" % "1.0.3"
+    "org.scala-lang.modules"   %% "scala-parallel-collections" % "1.0.4"
   )
 }
 
