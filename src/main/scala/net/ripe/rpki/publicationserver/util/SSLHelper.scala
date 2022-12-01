@@ -22,6 +22,8 @@ class SSLHelper(conf: AppConfig, logger: Logger) {
     Try(SSLContext.getInstance("TLS"))
       .map(ctx => {
         ctx.init(getKeyManagers.getKeyManagers, getTrustManagers.getTrustManagers, new SecureRandom)
+        ctx.getDefaultSSLParameters.setProtocols(Array[String]("TLSv1.2", "TLSv1.3"))
+        ctx.getDefaultSSLParameters.setNeedClientAuth(true)
         ConnectionContext.httpsServer(ctx)
       })
   }
