@@ -44,7 +44,7 @@ object Boot extends App with Logging {
   new PublicationServerApp(conf, https, logger).run()
 }
 
-class PublicationServerApp(conf: AppConfig, https: HttpsConnectionContext, logger: Logger) extends RRDPService {
+class PublicationServerApp(val conf: AppConfig, https: HttpsConnectionContext, logger: Logger) extends RRDPService {
 
   implicit val system = ActorSystem.create(Math.abs(new ju.Random().nextLong()).toString)
   implicit val dispatcher = system.dispatcher
