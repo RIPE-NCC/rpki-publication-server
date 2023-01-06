@@ -263,7 +263,7 @@ BEGIN
 
     IF NOT FOUND THEN
         INSERT INTO versions (session_id, serial, file_name_secret)
-        VALUES (uuid_in(md5(random()::TEXT || clock_timestamp()::TEXT)::CSTRING), 1, file_name_secret_)
+        VALUES (uuid_generate_v4(), 1, file_name_secret_)
         RETURNING id INTO STRICT new_version_id_;
     ELSEIF changes_exist() THEN
         INSERT INTO versions (session_id, serial, file_name_secret)

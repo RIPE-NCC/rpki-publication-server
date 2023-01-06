@@ -41,7 +41,8 @@ For running and testing locally one would need to create PostgreSQL databases
 
     createuser -R -S -D pubserver
     createdb -O pubserver pubserver
-    createdb -O pubserver pubserver_test
+    createdb -O pubserver pubserver_test 
+    echo 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp";' | psql pubserver_test 
 
 Running the server
 ------------------
@@ -55,6 +56,7 @@ by the 1.0 publication server. To create the initial database run:
 ```
 createuser -P pubserver
 createdb -O pubserver pubserver
+echo 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp";' | psql pubserver
 ```
 
 The publication server will automatically manage the database schema on startup.
