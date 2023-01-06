@@ -46,9 +46,11 @@ jobs:
           key: ${{ runner.os }}--${{ hashFiles('build.sbt') }}
 
       - name: Setup DB
-        run: echo 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp";' | psql ${POSTGRES_DB}
+        run: psql -h localhost -U ${POSTGRES_USER} ${POSTGRES_DB} -c 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp";'
         env:
           POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: pubserver_test
+          POSTGRES_USER: pubserver
 
       - name: Compile
         run: sbt compile
