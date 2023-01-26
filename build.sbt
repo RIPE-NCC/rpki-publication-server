@@ -55,7 +55,7 @@ libraryDependencies ++= {
     "io.prometheus"             % "simpleclient_common"   % "0.16.0",
     "org.scala-lang.modules"   %% "scala-xml"             % "2.1.0",
     "org.scalikejdbc"          %% "scalikejdbc"           % "4.0.0",
-    "org.postgresql"            % "postgresql"            % "42.5.0",
+    "org.postgresql"            % "postgresql"            % "42.5.1",
     "org.json4s"               %% "json4s-native"         % "4.0.6",
     "org.flywaydb"              % "flyway-core"           % "9.4.0",
     "org.scala-lang.modules"   %% "scala-parallel-collections" % "1.0.4"
