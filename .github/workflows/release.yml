@@ -1,0 +1,19 @@
+name: Release
+on:
+  release:
+    types: [ "published" ]
+
+jobs:
+  sbt-build:
+    uses: ./.github/workflows/sbt-build.yml
+
+  docker:
+    uses: ./.github/workflows/docker.yml
+    needs: sbt-build
+    with:
+      jar-artifact: ${{ needs.sbt-build.outputs.jar-artifact }}
+      push: true
+      tag: ${{ github.event.release.tag_name }}
+    secrets:
+      docker_hub_username: ${{ secrets.DOCKER_HUB_USERNAME }}
+      docker_hub_access_token: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
