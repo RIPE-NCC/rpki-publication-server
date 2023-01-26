@@ -7,7 +7,7 @@ name := "rpki-publication-server"
 
 version := "2.0-SNAPSHOT"
 
-scalaVersion := "2.13.9"
+scalaVersion := "2.13.10"
 
 scalacOptions := Seq("-unchecked", "-deprecation", "-feature", "-encoding", "utf8")
 
@@ -44,7 +44,7 @@ libraryDependencies ++= {
     "com.typesafe"             %% "ssl-config-core"       % "0.6.1",
     "org.scalatest"            %% "scalatest"             % "3.2.14"   % "test",
     "org.mockito"               % "mockito-all"           % "1.10.19" % "test",
-    "com.fasterxml.woodstox"    % "woodstox-core"         % "6.3.1",
+    "com.fasterxml.woodstox"    % "woodstox-core"         % "6.4.0",
     "ch.qos.logback"            % "logback-classic"       % "1.4.3",
     "com.softwaremill.macwire" %% "macros"                % macwire % "provided",
     "com.softwaremill.macwire" %% "macrosakka"            % macwire % "provided",
@@ -55,7 +55,7 @@ libraryDependencies ++= {
     "io.prometheus"             % "simpleclient_common"   % "0.16.0",
     "org.scala-lang.modules"   %% "scala-xml"             % "2.1.0",
     "org.scalikejdbc"          %% "scalikejdbc"           % "4.0.0",
-    "org.postgresql"            % "postgresql"            % "42.5.0",
+    "org.postgresql"            % "postgresql"            % "42.5.1",
     "org.json4s"               %% "json4s-native"         % "4.0.6",
     "org.flywaydb"              % "flyway-core"           % "9.4.0",
     "org.scala-lang.modules"   %% "scala-parallel-collections" % "1.0.4"
