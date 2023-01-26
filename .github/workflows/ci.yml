@@ -6,40 +6,12 @@ jobs:
     uses: ./.github/workflows/sbt-build.yml
 
   docker:
-    runs-on: ubuntu-latest
+    uses: ./.github/workflows/docker.yml
     needs: sbt-build
-    if: ${{ github.ref == 'refs/heads/main' }}
-
-    steps:
-      - name: checkout sources
-        uses: actions/checkout@v3
-
-      - name: Fetch jar
-        uses: actions/download-artifact@v3
-        with:
-          name: ${{ needs.sbt-build.outputs.jar }}
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
-
-      - name: Set up Docker Buildx
-        id: buildx
-        uses: docker/setup-buildx-action@v2
-
-      - name: Build and push
-        id: docker_build_publication_server
-        uses: docker/build-push-action@v3
-        with:
-          context: ./
-          file: ./Dockerfile
-          push: true
-          tags: ripencc/rpki-publication-server:latest
-          labels: "org.label-schema.vcs-ref=${{ github.sha }}"
-          build-args: |
-            PUBLICATION_SERVER_JAR=./rpki-publication-server.jar
-
-      - name: Image digest
-        run: echo ${{ steps.docker_build_publication_server.outputs.digest }}
+    with:
+      jar-artifact: ${{ needs.sbt-build.outputs.jar-artifact }}
+      tag: latest
+      push: ${{ github.ref == 'refs/heads/main' }}
+    secrets:
+      docker_hub_username: ${{ secrets.DOCKER_HUB_USERNAME }}
+      docker_hub_access_token: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}

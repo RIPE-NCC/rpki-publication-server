@@ -2,7 +2,7 @@ name: SBT build and test
 on:
   workflow_call:
     outputs:
-      jar:
+      jar-artifact:
         description: "Name of the executable JAR artifact."
         value: "rpki-publication-server-jar"
       test-reports:
