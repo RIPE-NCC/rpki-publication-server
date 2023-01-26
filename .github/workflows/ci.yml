@@ -1,95 +1,13 @@
-name: Scala build and test
+name: CI workflow
 on: [push, pull_request]
 
 jobs:
-  # Label of the container job
-  sbt-build-test:
-    # Containers must run in Linux based operating systems
-    runs-on: ubuntu-latest
-
-    # Service containers to run with `container-job`
-    services:
-      # Label used to access the service container
-      postgres:
-        # Docker Hub image
-        image: postgres
-        # Provide the password for postgres
-        env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: pubserver_test
-          POSTGRES_USER: pubserver
-        # Set health checks to wait until postgres has started
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-
-    steps:
-      # Downloads a copy of the code in your repository before running CI tests
-      - name: Check out repository code
-        uses: actions/checkout@v3
-
-      - uses: olafurpg/setup-scala@v13
-        with:
-          java-version: openjdk@1.11
-
-      - name: Cache ivy cache
-        id: ivy-cache
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.ivy2
-            ~/.sbt
-          key: ${{ runner.os }}--${{ hashFiles('build.sbt') }}
-
-      - name: Setup DB
-        run: psql -h localhost -U ${POSTGRES_USER} ${POSTGRES_DB} -c 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp";'
-        env:
-          PGPASSWORD: postgres
-          POSTGRES_DB: pubserver_test
-          POSTGRES_USER: pubserver
-
-      - name: Compile
-        run: sbt compile
-        env:
-          POSTGRES_URL: "jdbc:postgresql://localhost:5432/pubserver_test"
-          POSTGRES_PASSWORD: postgres
-          CI_COMMIT_SHA: "${GITHUB_SHA}"
-
-      - name: Test & package
-        run: sbt coverage test coverageReport
-        env:
-          POSTGRES_URL: "jdbc:postgresql://localhost:5432/pubserver_test"
-          POSTGRES_PASSWORD: postgres
-          CI_COMMIT_SHA: "${GITHUB_SHA}"
-
-      - name: Package
-        run: sbt assembly
-        env:
-          POSTGRES_URL: "jdbc:postgresql://localhost:5432/pubserver_test"
-          POSTGRES_PASSWORD: postgres
-          CI_COMMIT_SHA: "${GITHUB_SHA}"
-
-      - name: Upload jar
-        uses: actions/upload-artifact@v3
-        with:
-          name: rpki-publication-server-jar
-          path: target/rpki-publication-server.*
-
-      - name: Upload reports
-        uses: actions/upload-artifact@v3
-        with:
-          name: reports
-          path: |
-            target/scoverage-report/**/*
-            target/test-reports/**/*
+  sbt-build:
+    uses: ./.github/workflows/sbt-build.yml
 
   docker:
     runs-on: ubuntu-latest
-    needs: sbt-build-test
+    needs: sbt-build
     if: ${{ github.ref == 'refs/heads/main' }}
 
     steps:
@@ -99,7 +17,7 @@ jobs:
       - name: Fetch jar
         uses: actions/download-artifact@v3
         with:
-          name: rpki-publication-server-jar
+          name: ${{ needs.sbt-build.outputs.jar }}
 
       - name: Login to Docker Hub
         uses: docker/login-action@v2
