@@ -7,7 +7,7 @@ name := "rpki-publication-server"
 
 version := "2.0-SNAPSHOT"
 
-scalaVersion := "2.13.9"
+scalaVersion := "2.13.10"
 
 scalacOptions := Seq("-unchecked", "-deprecation", "-feature", "-encoding", "utf8")
 
