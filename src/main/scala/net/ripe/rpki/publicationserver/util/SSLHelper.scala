@@ -18,15 +18,19 @@ class SSLHelper(conf: AppConfig, logger: Logger) {
    *
    * @return a Success containing a valid SSL context, a Failure otherwise
    */
-  def connectionContext: Try[HttpsConnectionContext] = {
-    Try(SSLContext.getInstance("TLS"))
-      .map(ctx => {
-        ctx.init(getKeyManagers.getKeyManagers, getTrustManagers.getTrustManagers, new SecureRandom)
-        ConnectionContext.httpsServer(ctx)
-      })
+  def connectionContext: Try[HttpsConnectionContext] = Try {
+    val ctx = SSLContext.getInstance("TLS")
+    ctx.init(loadKeyManagers(), loadTrustManagers(), new SecureRandom)
+    ConnectionContext.httpsServer(() => {
+      val engine = ctx.createSSLEngine()
+      engine.setUseClientMode(false)
+      engine.setNeedClientAuth(true)
+      engine.setEnabledProtocols(Array("TLSv1.2", "TLSv1.3"))
+      engine
+    })
   }
 
-  private def getTrustManagers: TrustManagerFactory = {
+  private def loadTrustManagers(): Array[TrustManager] = {
     require(!conf.publicationServerTrustStorePassword.isEmpty, "server.truststore.password is empty")
     logger.info(s"Loading HTTPS certificate from ${conf.publicationServerTrustStoreLocation}")
 
@@ -34,10 +38,10 @@ class SSLHelper(conf: AppConfig, logger: Logger) {
     trustStore.load(new FileInputStream(conf.publicationServerTrustStoreLocation), conf.publicationServerTrustStorePassword.toCharArray)
     val tmf = TrustManagerFactory.getInstance("SunX509")
     tmf.init(trustStore)
-    tmf
+    tmf.getTrustManagers
   }
 
-  private def getKeyManagers: KeyManagerFactory = {
+  private def loadKeyManagers(): Array[KeyManager] = {
     require(!conf.publicationServerKeyStorePassword.isEmpty, "server.keystore.password is empty")
     logger.info(s"Loading HTTPS certificate from ${conf.publicationServerKeyStoreLocation}")
 
@@ -45,6 +49,6 @@ class SSLHelper(conf: AppConfig, logger: Logger) {
     keyStore.load(new FileInputStream(conf.publicationServerKeyStoreLocation), conf.publicationServerKeyStorePassword.toCharArray)
     val kmf = KeyManagerFactory.getInstance("SunX509")
     kmf.init(keyStore, conf.publicationServerKeyStorePassword.toCharArray)
-    kmf
+    kmf.getKeyManagers
   }
 }
