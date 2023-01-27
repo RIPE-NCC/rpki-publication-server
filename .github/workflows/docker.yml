@@ -11,8 +11,8 @@ on:
         type: boolean
         required: true
         default: false
-      tag:
-        description: "Image tag"
+      tags:
+        description: "Image tags (comma separated) to build and push"
         type: string
         required: true
     secrets:
@@ -51,7 +51,7 @@ jobs:
           context: ./
           file: ./Dockerfile
           push: ${{ inputs.push }}
-          tags: ripencc/rpki-publication-server:${{ inputs.tag }}
+          tags: ${{ inputs.tags }}
           labels: "org.label-schema.vcs-ref=${{ github.sha }}"
           build-args: |
             PUBLICATION_SERVER_JAR=./rpki-publication-server.jar
