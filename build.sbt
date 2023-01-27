@@ -5,8 +5,6 @@ organization := "net.ripe"
 
 name := "rpki-publication-server"
 
-version := "2.0-SNAPSHOT"
-
 scalaVersion := "2.13.9"
 
 scalacOptions := Seq("-unchecked", "-deprecation", "-feature", "-encoding", "utf8")
@@ -27,7 +25,7 @@ fork in run := true
 
 javaOptions in run ++= Seq("-Xmx2G")
 
-enablePlugins(JavaServerAppPackaging, UniversalDeployPlugin)
+enablePlugins(JavaServerAppPackaging, UniversalDeployPlugin, GitVersioning)
 
 libraryDependencies ++= {
   val akkaV = "2.7.0"
@@ -62,6 +60,8 @@ libraryDependencies ++= {
   )
 }
 
+git.useGitDescribe := true
+
 // Generate the GeneratedBuildInformation object
 import java.util.Date
 import java.text.SimpleDateFormat
@@ -70,11 +70,7 @@ import scala.sys.process._
 sourceGenerators in Compile += Def.task {
   val generatedFile = (sourceManaged in Compile).value / "net.ripe.rpki.publicationserver" / "GeneratedBuildInformation.scala"
   val now = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date())
-  val rev = sys.env.get("CI_COMMIT_SHORT_SHA") match {
-        case Some(sha) => sha
-        case None => "git rev-parse --short HEAD".!!.trim()
-  }
-
+  val rev = git.gitHeadCommit.value getOrElse "unversioned"
   val code = s"""package net.ripe.rpki.publicationserver
                 object GeneratedBuildInformation {
                 val buildDate = "$now"
@@ -83,8 +79,6 @@ sourceGenerators in Compile += Def.task {
   IO.write(generatedFile, code.getBytes)
   Seq(generatedFile)
 }.taskValue
-
-//Revolver.settings: Seq[sbt.Setting[_]]
 
 credentials += Credentials("Sonatype Nexus Repository Manager",
   "nexus.ripe.net",
