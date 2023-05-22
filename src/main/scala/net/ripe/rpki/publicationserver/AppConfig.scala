@@ -37,7 +37,6 @@ class AppConfig {
   lazy val publicationServerKeyStorePassword = getConfig.getString("publication.server.keystore.password")
   lazy val publicationServerTrustStoreLocation = getConfig.getString("publication.server.truststore.location")
   lazy val publicationServerTrustStorePassword = getConfig.getString("publication.server.truststore.password")
-  lazy val storePath = getConfig.getString("xodus.path")
   lazy val pgConfig = PgConfig(
                         getConfig.getString("postgresql.url"),
                         getConfig.getString("postgresql.user"),
