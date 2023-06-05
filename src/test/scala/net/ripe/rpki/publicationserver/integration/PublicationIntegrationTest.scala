@@ -25,7 +25,6 @@ class PublicationIntegrationTest
     createPgStore.clear()
 
     val conf = new AppConfig {
-      override lazy val storePath = storeDir.toString()
       override lazy val publicationServerTrustStoreLocation =
         "./src/test/resources/certificates/serverTrustStore.ks"
       override lazy val publicationServerKeyStoreLocation =

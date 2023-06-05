@@ -26,8 +26,6 @@ abstract class PublicationServerBaseTest extends AnyFunSuite with BeforeAndAfter
 
   protected def waitTime: FiniteDuration = 30.seconds
 
-  var tempXodusDir: File = _
-
   val appConfig = new AppConfig()
 
   val pgTestConfig = appConfig.pgConfig
