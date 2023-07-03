@@ -10,8 +10,5 @@ jobs:
     needs: sbt-build
     with:
       jar-artifact: ${{ needs.sbt-build.outputs.jar-artifact }}
-      tags: ripencc/rpki-publication-server:unstable
+      tags: ghcr.io/ripe-ncc/rpki-publication-server:unstable
       push: ${{ github.ref == 'refs/heads/main' }}
-    secrets:
-      docker_hub_username: ${{ secrets.DOCKER_HUB_USERNAME }}
-      docker_hub_access_token: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
