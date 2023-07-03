@@ -15,11 +15,6 @@ on:
         description: "Image tags (comma separated) to build and push"
         type: string
         required: true
-    secrets:
-      docker_hub_username:
-        required: true
-      docker_hub_access_token:
-        required: true
 
 jobs:
   build-image:
