@@ -15,11 +15,6 @@ on:
         description: "Image tags (comma separated) to build and push"
         type: string
         required: true
-    secrets:
-      docker_hub_username:
-        required: true
-      docker_hub_access_token:
-        required: true
 
 jobs:
   build-image:
@@ -34,11 +29,12 @@ jobs:
         with:
           name: ${{ inputs.jar-artifact }}
 
-      - name: Login to Docker Hub
-        uses: docker/login-action@v2
+      - name: Login to GHCR
+        uses: docker/login-action@v1
         with:
-          username: ${{ secrets.docker_hub_username }}
-          password: ${{ secrets.docker_hub_access_token }}
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
         id: buildx

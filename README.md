@@ -117,6 +117,24 @@ Use following commands to generate and install client's certificate into server'
 Running the docker container
 ----------------------------
 
+To run a released version of the container the following command can be used 
+
+```
+docker run -it \
+  -p 7766:7766 \
+  -p 7788:7788 \
+  -v `pwd`/src/test/resources/certificates/:/conf/ssl \
+  -e ENABLE_SSL=on \
+  -e KEYSTORE_PATH=/conf/ssl/serverKeyStore.ks \
+  -e TRUSTSTORE_PATH=/conf/ssl/serverTrustStore.ks \
+  -e KEYSTORE_PASSWORD="123456" \
+  -e TRUSTSTORE_PASSWORD="123456" \
+  -e POSTGRES_URL="jdbc:postgresql://host.docker.internal/pubserver" \
+  ghcr.io/ripe-ncc/rpki-publication-server:latest
+```
+
+To run the container build from the source code the command becomes
+
 ```
 sbt assembly
 docker build . -t rpki-publication-server
