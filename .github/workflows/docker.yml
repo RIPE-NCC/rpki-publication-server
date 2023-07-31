@@ -33,7 +33,7 @@ jobs:
           name: ${{ inputs.jar-artifact }}
 
       - name: Login to GHCR
-        uses: docker/login-action@v1
+        uses: docker/login-action@v2
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
