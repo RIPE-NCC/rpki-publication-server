@@ -5,7 +5,7 @@ organization := "net.ripe"
 
 name := "rpki-publication-server"
 
-scalaVersion := "2.13.10"
+scalaVersion := "2.13.11"
 
 scalacOptions := Seq("-unchecked", "-deprecation", "-feature", "-encoding", "utf8")
 
@@ -28,34 +28,35 @@ javaOptions in run ++= Seq("-Xmx2G")
 enablePlugins(JavaServerAppPackaging, UniversalDeployPlugin, GitVersioning)
 
 libraryDependencies ++= {
-  val akkaV = "2.8.0"
-  val akkaHttp = "10.5.0"
+  val akkaV = "2.8.3"
+  val akkaHttp = "10.5.2"
   val macwire = "2.5.8"
   Seq(
     "com.typesafe.akka"        %% "akka-http"             % akkaHttp,
     "com.typesafe.akka"        %% "akka-http-core"        % akkaHttp,
     "com.typesafe.akka"        %% "akka-http-testkit"     % akkaHttp  % "test",
     "com.typesafe.akka"        %% "akka-http-spray-json"  % akkaHttp,
-    "com.typesafe.akka"        %% "akka-stream-testkit"   % akkaV,
+    "com.typesafe.akka"        %% "akka-stream"           % akkaV,
+    "com.typesafe.akka"        %% "akka-stream-testkit"   % akkaV     % "test",
     "com.typesafe.akka"        %% "akka-testkit"          % akkaV     % "test",
     "com.typesafe.akka"        %% "akka-slf4j"            % akkaV,
     "com.typesafe"             %% "ssl-config-core"       % "0.6.1",
-    "org.scalatest"            %% "scalatest"             % "3.2.14"   % "test",
+    "org.scalatest"            %% "scalatest"             % "3.2.16"   % "test",
     "org.mockito"               % "mockito-all"           % "1.10.19" % "test",
-    "com.fasterxml.woodstox"    % "woodstox-core"         % "6.4.0",
-    "ch.qos.logback"            % "logback-classic"       % "1.4.3",
+    "com.fasterxml.woodstox"    % "woodstox-core"         % "6.5.1",
+    "ch.qos.logback"            % "logback-classic"       % "1.4.8",
     "com.softwaremill.macwire" %% "macros"                % macwire % "provided",
     "com.softwaremill.macwire" %% "macrosakka"            % macwire % "provided",
     "com.softwaremill.macwire" %% "util"                  % macwire % "provided",
     "com.softwaremill.macwire" %% "proxy"                 % macwire % "provided",
-    "com.google.guava"          % "guava"                 % "31.1-jre",
+    "com.google.guava"          % "guava"                 % "32.1.2-jre",
     "io.prometheus"             % "simpleclient"          % "0.16.0",
     "io.prometheus"             % "simpleclient_common"   % "0.16.0",
-    "org.scala-lang.modules"   %% "scala-xml"             % "2.1.0",
+    "org.scala-lang.modules"   %% "scala-xml"             % "2.2.0",
     "org.scalikejdbc"          %% "scalikejdbc"           % "4.0.0",
-    "org.postgresql"            % "postgresql"            % "42.5.1",
+    "org.postgresql"            % "postgresql"            % "42.6.0",
     "org.json4s"               %% "json4s-native"         % "4.0.6",
-    "org.flywaydb"              % "flyway-core"           % "9.4.0",
+    "org.flywaydb"              % "flyway-core"           % "9.21.1",
     "org.scala-lang.modules"   %% "scala-parallel-collections" % "1.0.4"
   )
 }
