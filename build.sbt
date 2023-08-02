@@ -52,7 +52,7 @@ libraryDependencies ++= {
     "com.google.guava"          % "guava"                 % "32.1.2-jre",
     "io.prometheus"             % "simpleclient"          % "0.16.0",
     "io.prometheus"             % "simpleclient_common"   % "0.16.0",
-    "org.scala-lang.modules"   %% "scala-xml"             % "2.1.0",
+    "org.scala-lang.modules"   %% "scala-xml"             % "2.2.0",
     "org.scalikejdbc"          %% "scalikejdbc"           % "4.0.0",
     "org.postgresql"            % "postgresql"            % "42.6.0",
     "org.json4s"               %% "json4s-native"         % "4.0.6",
