@@ -17,9 +17,9 @@ WORKDIR /app
 # but we pick up the artifact instead.
 RUN cp docker/publication-server-docker.conf /staging/conf/
 
-# use gcr.io/distroless/java-debian10:11-debug if you want to be able to run a
+# use gcr.io/distroless/java-debian11:11-debug if you want to be able to run a
 # shell in the container (e.g. `docker run -it --entrypoint sh --rm <image>`)
-FROM gcr.io/distroless/java-debian10:11
+FROM gcr.io/distroless/java-debian11:11
 LABEL org.label-schema.vcs-ref="unknown"
 
 COPY --from=build /staging/conf/ /conf/
