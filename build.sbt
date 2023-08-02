@@ -28,7 +28,7 @@ javaOptions in run ++= Seq("-Xmx2G")
 enablePlugins(JavaServerAppPackaging, UniversalDeployPlugin, GitVersioning)
 
 libraryDependencies ++= {
-  val akkaV = "2.8.0"
+  val akkaV = "2.8.3"
   val akkaHttp = "10.5.0"
   val macwire = "2.5.8"
   Seq(
