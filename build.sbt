@@ -29,7 +29,7 @@ enablePlugins(JavaServerAppPackaging, UniversalDeployPlugin, GitVersioning)
 
 libraryDependencies ++= {
   val akkaV = "2.8.3"
-  val akkaHttp = "10.5.0"
+  val akkaHttp = "10.5.2"
   val macwire = "2.5.8"
   Seq(
     "com.typesafe.akka"        %% "akka-http"             % akkaHttp,
