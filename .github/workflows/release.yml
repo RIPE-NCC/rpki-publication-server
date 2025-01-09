@@ -14,4 +14,4 @@ jobs:
     with:
       jar-artifact: ${{ needs.sbt-build.outputs.jar-artifact }}
       push: true
-      tags: rpki-publication-serverghcr.io/ripe-ncc/:${{ github.event.release.tag_name }}, ghcr.io/ripe-ncc/rpki-publication-server:latest
+      tags: ghcr.io/ripe-ncc/rpki-publication-server:${{ github.event.release.tag_name }}, ghcr.io/ripe-ncc/rpki-publication-server:latest
