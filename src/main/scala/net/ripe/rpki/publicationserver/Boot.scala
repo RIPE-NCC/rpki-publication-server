@@ -2,11 +2,11 @@ package net.ripe.rpki.publicationserver
 
 import java.{util => ju}
 
-import akka.actor.ActorSystem
-import akka.http.scaladsl.Http.ServerBinding
-import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.{Http, HttpsConnectionContext}
-import akka.util.Timeout
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.Http.ServerBinding
+import org.apache.pekko.http.scaladsl.server.Directives._
+import org.apache.pekko.http.scaladsl.{Http, HttpsConnectionContext}
+import org.apache.pekko.util.Timeout
 import com.softwaremill.macwire._
 import io.prometheus.client._
 import net.ripe.rpki.publicationserver.metrics._
@@ -18,7 +18,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.util.{Failure, Success}
 import net.ripe.rpki.publicationserver.repository.DataFlusher
-import akka.actor.Cancellable
+import org.apache.pekko.actor.Cancellable
 
 import scala.util.control.NonFatal
 

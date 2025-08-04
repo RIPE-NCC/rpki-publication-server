@@ -1,6 +1,6 @@
 package net.ripe.rpki.publicationserver.repository
 
-import akka.actor.ActorSystem
+import org.apache.pekko.actor.ActorSystem
 import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.fs.{Rrdp, RrdpRepositoryWriter}

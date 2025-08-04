@@ -1,10 +1,10 @@
 package net.ripe.rpki.publicationserver.integration
 
-import akka.actor.ActorSystem
-import akka.http.scaladsl.model._
-import akka.http.scaladsl.{ConnectionContext, Http, HttpExt}
-import akka.util.ByteString
-import com.typesafe.sslconfig.akka.AkkaSSLConfig
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.model._
+import org.apache.pekko.http.scaladsl.{ConnectionContext, HttpsConnectionContext, Http, HttpExt}
+import org.apache.pekko.util.ByteString
+import com.typesafe.sslconfig.ssl.ConfigSSLContextBuilder
 import net.ripe.rpki.publicationserver.PublicationService
 
 import java.io.FileInputStream
@@ -41,6 +41,8 @@ object PublicationServerClient {
     kmf.getKeyManagers
   }
 }
+
+
 class PublicationServerClient(
   keyManagers: Array[KeyManager] = PublicationServerClient.loadKeyManagers(),
   trustManagers: Array[TrustManager] = PublicationServerClient.loadTrustManagers(),
@@ -53,14 +55,24 @@ class PublicationServerClient(
   private val publicationPort = 7766
   private val rrdpPort = 7788
 
+  private val sslContext: SSLContext = {
+    val ctx = SSLContext.getInstance("TLSv1.2")
+    ctx.init(keyManagers, trustManagers, new java.security.SecureRandom())
+    ctx
+  }
+
   private def https = {
     val httpImpl = Http()
-    // TODO Find a not deprecated way to do it
-    val sslConfig = AkkaSSLConfig().mapSettings(s =>
-      s.withLoose(s.loose.withDisableHostnameVerification(true))
-    )
-    val context = ConnectionContext.https(sslContext(), Some(sslConfig))
-    httpImpl.setDefaultClientHttpsContext(context)
+    val httpsConnectionContext: HttpsConnectionContext = ConnectionContext.httpsClient { (host, port) =>
+      val engine = sslContext.createSSLEngine(host, port)
+      engine.setUseClientMode(true)    
+      val sslParams = engine.getSSLParameters
+      sslParams.setEndpointIdentificationAlgorithm(null)
+      engine.setSSLParameters(sslParams)    
+      
+      engine
+    }
+    httpImpl.setDefaultClientHttpsContext(httpsConnectionContext)
     httpImpl
   }
 
@@ -134,9 +146,9 @@ class PublicationServerClient(
     }
   }
 
-  private def sslContext(): SSLContext = {
-    val sslContext = SSLContext.getInstance("TLS")
-    sslContext.init(keyManagers, trustManagers, null)
-    sslContext
-  }
+  // private def sslContext(): SSLContext = {
+  //   val sslContext = SSLContext.getInstance("TLS")
+  //   sslContext.init(keyManagers, trustManagers, null)
+  //   sslContext
+  // }
 }

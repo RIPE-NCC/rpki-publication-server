@@ -1,10 +1,10 @@
 package net.ripe.rpki.publicationserver
 
-import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.headers.{CacheDirectives, `Cache-Control`}
-import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.server.Route
-import akka.http.scaladsl.server.directives.ContentTypeResolver
+import org.apache.pekko.http.scaladsl.model._
+import org.apache.pekko.http.scaladsl.model.headers.{CacheDirectives, `Cache-Control`}
+import org.apache.pekko.http.scaladsl.server.Directives._
+import org.apache.pekko.http.scaladsl.server.Route
+import org.apache.pekko.http.scaladsl.server.directives.ContentTypeResolver
 
 import java.nio.file.{Files, Paths}
 

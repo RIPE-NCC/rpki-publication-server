@@ -28,34 +28,37 @@ javaOptions in run ++= Seq("-Xmx2G")
 enablePlugins(JavaServerAppPackaging, UniversalDeployPlugin, GitVersioning)
 
 libraryDependencies ++= {
-  val akkaV = "2.8.8"        
-  val akkaHttp = "10.5.3"    
+  val pekkoV = "1.0.3"        
+  val pekkoHttp = "1.0.1"     
   val macwire = "2.5.9"      
   Seq(
-    "com.typesafe.akka"        %% "akka-http"             % akkaHttp,
-    "com.typesafe.akka"        %% "akka-http-core"        % akkaHttp,
-    "com.typesafe.akka"        %% "akka-http-testkit"     % akkaHttp  % "test",
-    "com.typesafe.akka"        %% "akka-http-spray-json"  % akkaHttp,
-    "com.typesafe.akka"        %% "akka-stream-testkit"   % akkaV,
-    "com.typesafe.akka"        %% "akka-testkit"          % akkaV     % "test",
-    "com.typesafe.akka"        %% "akka-slf4j"            % akkaV,
-    "com.typesafe"             %% "ssl-config-core"       % "0.6.1",
-    "org.scalatest"            %% "scalatest"             % "3.2.19"  % "test",
-    "org.mockito"               % "mockito-core"          % "5.12.0"  % "test",
-    "com.fasterxml.woodstox"    % "woodstox-core"         % "7.1.0",     
-    "ch.qos.logback"            % "logback-classic"       % "1.5.6",     
-    "com.softwaremill.macwire" %% "macros"                % macwire % "provided",
-    "com.softwaremill.macwire" %% "macrosakka"            % macwire % "provided",
-    "com.softwaremill.macwire" %% "util"                  % macwire % "provided",
-    "com.softwaremill.macwire" %% "proxy"                 % macwire % "provided",
-    "com.google.guava"          % "guava"                 % "31.1-jre",
-    "io.prometheus"             % "simpleclient"          % "0.16.0",
-    "io.prometheus"             % "simpleclient_common"   % "0.16.0",
-    "org.scala-lang.modules"   %% "scala-xml"             % "2.3.0",     
-    "org.scalikejdbc"          %% "scalikejdbc"           % "4.0.0",
-    "org.postgresql"            % "postgresql"            % "42.7.7",    
-    "org.json4s"               %% "json4s-native"         % "4.0.7",     
-    "org.flywaydb"              % "flyway-core"           % "9.4.0",
+    "org.apache.pekko"         %% "pekko-http"             % pekkoHttp,
+    "org.apache.pekko"         %% "pekko-http-core"        % pekkoHttp,
+    "org.apache.pekko"         %% "pekko-http-testkit"     % pekkoHttp  % "test",
+    "org.apache.pekko"         %% "pekko-http-spray-json"  % pekkoHttp,
+    "org.apache.pekko"         %% "pekko-stream-testkit"   % pekkoV     % "test",
+    "org.apache.pekko"         %% "pekko-testkit"          % pekkoV     % "test",
+    "org.apache.pekko"         %% "pekko-slf4j"            % pekkoV,
+    "org.apache.pekko"         %% "pekko-actor"            % pekkoV,
+    "org.apache.pekko"         %% "pekko-stream"           % pekkoV,
+    // "org.apache.pekko"         %% "pekko-http2-support"    % pekkoHttp,
+    "com.typesafe"             %% "ssl-config-core"        % "0.6.1",    
+    "org.scalatest"            %% "scalatest"              % "3.2.19"  % "test",
+    "org.mockito"               % "mockito-core"           % "5.12.0"  % "test",
+    "com.fasterxml.woodstox"    % "woodstox-core"          % "7.1.0",     
+    "ch.qos.logback"            % "logback-classic"        % "1.5.6",     
+    "com.softwaremill.macwire" %% "macros"                 % macwire % "provided",
+    // "com.softwaremill.macwire" %% "macrosakka"             % macwire % "provided",
+    "com.softwaremill.macwire" %% "util"                   % macwire % "provided",
+    "com.softwaremill.macwire" %% "proxy"                  % macwire % "provided",
+    "com.google.guava"          % "guava"                  % "31.1-jre",
+    "io.prometheus"             % "simpleclient"           % "0.16.0",
+    "io.prometheus"             % "simpleclient_common"    % "0.16.0",
+    "org.scala-lang.modules"   %% "scala-xml"              % "2.3.0",     
+    "org.scalikejdbc"          %% "scalikejdbc"            % "4.0.0",
+    "org.postgresql"            % "postgresql"             % "42.7.7",    
+    "org.json4s"               %% "json4s-native"          % "4.0.7",     
+    "org.flywaydb"              % "flyway-core"            % "9.4.0",
     "org.scala-lang.modules"   %% "scala-parallel-collections" % "1.0.4"
   )
 }

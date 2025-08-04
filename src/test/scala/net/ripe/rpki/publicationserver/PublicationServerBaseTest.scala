@@ -4,10 +4,10 @@ import java.io.File
 import java.nio.file.{Files, Path}
 import java.util.{Comparator, UUID}
 
-import akka.http.scaladsl.model.headers.RawHeader
-import akka.http.scaladsl.model.{HttpMethods, HttpRequest}
-import akka.http.scaladsl.testkit.ScalatestRouteTest
-import akka.testkit.TestKit.awaitCond
+import org.apache.pekko.http.scaladsl.model.headers.RawHeader
+import org.apache.pekko.http.scaladsl.model.{HttpMethods, HttpRequest}
+import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
+import org.apache.pekko.testkit.TestKit.awaitCond
 import io.prometheus.client.CollectorRegistry
 import net.ripe.rpki.publicationserver.Binaries.Bytes
 import net.ripe.rpki.publicationserver.metrics.Metrics

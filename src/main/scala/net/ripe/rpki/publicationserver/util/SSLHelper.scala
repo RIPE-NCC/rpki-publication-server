@@ -3,7 +3,7 @@ package net.ripe.rpki.publicationserver.util
 import java.io.FileInputStream
 import java.security.{KeyStore, SecureRandom}
 
-import akka.http.scaladsl.{ConnectionContext, HttpsConnectionContext}
+import org.apache.pekko.http.scaladsl.{ConnectionContext, HttpsConnectionContext}
 import javax.net.ssl._
 import net.ripe.rpki.publicationserver.AppConfig
 import org.slf4j.Logger
