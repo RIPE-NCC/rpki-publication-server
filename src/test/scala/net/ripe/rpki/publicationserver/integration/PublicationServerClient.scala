@@ -58,6 +58,7 @@ class PublicationServerClient(
     val httpImpl = Http()
     val httpsConnectionContext: HttpsConnectionContext = ConnectionContext.httpsClient { (host, port) =>
       val sslContext = {
+        // Keep it TLSv1.2, changing it to TLSv1.3 or simply TLS breaks integration tests
         val ctx = SSLContext.getInstance("TLSv1.2")
         ctx.init(keyManagers, trustManagers, new java.security.SecureRandom())
         ctx
