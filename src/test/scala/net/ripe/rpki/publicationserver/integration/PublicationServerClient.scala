@@ -42,7 +42,6 @@ object PublicationServerClient {
   }
 }
 
-
 class PublicationServerClient(
   keyManagers: Array[KeyManager] = PublicationServerClient.loadKeyManagers(),
   trustManagers: Array[TrustManager] = PublicationServerClient.loadTrustManagers(),
@@ -55,21 +54,19 @@ class PublicationServerClient(
   private val publicationPort = 7766
   private val rrdpPort = 7788
 
-  private val sslContext: SSLContext = {
-    val ctx = SSLContext.getInstance("TLSv1.2")
-    ctx.init(keyManagers, trustManagers, new java.security.SecureRandom())
-    ctx
-  }
-
   private def https = {
     val httpImpl = Http()
     val httpsConnectionContext: HttpsConnectionContext = ConnectionContext.httpsClient { (host, port) =>
+      val sslContext = {
+        val ctx = SSLContext.getInstance("TLSv1.2")
+        ctx.init(keyManagers, trustManagers, new java.security.SecureRandom())
+        ctx
+      }
       val engine = sslContext.createSSLEngine(host, port)
       engine.setUseClientMode(true)    
       val sslParams = engine.getSSLParameters
       sslParams.setEndpointIdentificationAlgorithm(null)
-      engine.setSSLParameters(sslParams)    
-      
+      engine.setSSLParameters(sslParams)
       engine
     }
     httpImpl.setDefaultClientHttpsContext(httpsConnectionContext)
@@ -145,10 +142,4 @@ class PublicationServerClient(
         HttpRequest(method = HttpMethods.GET, uri = s"http://localhost:$rrdpPort/metrics")
     }
   }
-
-  // private def sslContext(): SSLContext = {
-  //   val sslContext = SSLContext.getInstance("TLS")
-  //   sslContext.init(keyManagers, trustManagers, null)
-  //   sslContext
-  // }
 }
