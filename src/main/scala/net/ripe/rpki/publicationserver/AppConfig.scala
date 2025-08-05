@@ -4,7 +4,7 @@ import java.net.URI
 import java.nio.file.{Path, Paths}
 import java.util.Map.Entry
 import java.util.concurrent.TimeUnit
-import akka.http.scaladsl.settings.ServerSettings
+import org.apache.pekko.http.scaladsl.settings.ServerSettings
 import com.typesafe.config.{Config, ConfigFactory, ConfigObject, ConfigValue}
 import net.ripe.rpki.publicationserver.store.postgresql.{DeltaInfo, SnapshotInfo}
 

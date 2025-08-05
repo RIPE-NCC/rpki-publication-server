@@ -2,7 +2,7 @@ package net.ripe.rpki.publicationserver.metrics
 
 import java.io.StringWriter
 
-import akka.http.scaladsl.server.Directives._
+import org.apache.pekko.http.scaladsl.server.Directives._
 import io.prometheus.client._
 import io.prometheus.client.exporter.common.TextFormat
 

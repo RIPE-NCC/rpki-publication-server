@@ -1,8 +1,8 @@
 package net.ripe.rpki.publicationserver
 
-import akka.http.scaladsl.marshalling.ToResponseMarshallable
-import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.server.Directives.complete
+import org.apache.pekko.http.scaladsl.marshalling.ToResponseMarshallable
+import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.server.Directives.complete
 
 import java.net.InetAddress
 import net.ripe.rpki.publicationserver.store.postgresql.PgStore
