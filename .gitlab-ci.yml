@@ -67,7 +67,7 @@ build:
     paths:
       - build
     reports:
-      scalatest:
+      junit:
         - target/test-reports/*.xml
     expire_in: 4 weeks
 
