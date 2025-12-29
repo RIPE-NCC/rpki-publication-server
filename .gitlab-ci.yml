@@ -64,7 +64,8 @@ build:
   variables:        
     POSTGRES_PASSWORD: postgres
     POSTGRES_USER: pubserver  
-    POSTGRES_DB: pubserver_test                    
+    POSTGRES_DB: pubserver_test
+    POSTGRES_HOST_AUTH_METHOD: trust
   cache:
     <<: *global_cache
   script:
