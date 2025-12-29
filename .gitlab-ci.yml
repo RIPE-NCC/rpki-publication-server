@@ -59,6 +59,12 @@ lockfile:
 
 build:
   stage: build
+  services:
+    - postgres:15
+  variables:        
+    POSTGRES_PASSWORD: postgres
+    POSTGRES_USER: pubserver  
+    POSTGRES_DB: pubserver_test                    
   cache:
     <<: *global_cache
   script:
