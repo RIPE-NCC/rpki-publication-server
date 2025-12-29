@@ -1,60 +1,41 @@
 stages:
   - build
-  - test
   - package
-  - release
   - deploy
   - security
 
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_PIPELINE_SOURCE == "external"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
 include:
-  # Run pipeline on main branch, merge requests, tags.
-  # this is equivalent to `workflow.rules:` that set this up.
-  - template: 'Workflows/MergeRequest-Pipelines.gitlab-ci.yml'
-  # Use gitlab security scanning iff it is available.
-  - template: Dependency-Scanning.gitlab-ci.yml
-  # Mend
-  - project: 'swe/gitlab-ci'
-    file: '/templates/mend-scanning.yml'
-  - project: 'swe/gitlab-ci'
-    file: '/templates/mend-generate-badge.yml'
   - project: swe/gitlab-support
     file: /templates/security.yml
     inputs:
       stage: security
+      needs: ["lockfile"]
   - project: swe/gitlab-support
     file: /templates/container.yml
     inputs:
       stage: security
       name: rpki-publication-server
       image: "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"
-      default_branch_image: "$CI_REGISTRY_IMAGE:latest"
       dockerfile: Dockerfile
-      needs: ["build:image"]
-    rules:
-      - if: $CI_MERGE_REQUEST_IID
-      - if: $CI_COMMIT_TAG
-      - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      needs: ["docker-image"]
   - project: swe/gitlab-support
     file: /templates/approval.yml
     inputs:
       stage: .post
-      label: renovatebot
       access-token: "$APPROVAL_BOT_ACCESS_TOKEN"
 
-# Disable the Gradle daemon for Continuous Integration servers as correctness
-# is usually a priority over speed in CI environments. Using a fresh
-# runtime for each build is more reliable since the runtime is completely
-# isolated from any previous builds.
 variables:
   DEBIAN_FRONTEND: noninteractive
-  GRADLE_USER_HOME: "${CI_PROJECT_DIR}/.gradle/"
-  GRADLE_OPTS: "-Dorg.gradle.caching=true -Dorg.gradle.parallel=true -Dorg.gradle.daemon=false"
   TERM: dumb
 
 default:
-  image: gradle:8.14-jdk21
-  before_script:
-    - apt-get update &&  apt-get install --yes --no-install-recommends docker.io
+  image: sbtscala/scala-sbt:eclipse-temurin-alpine-24.0.1_9_1.11.7_2.13.17
 
 # Cache per repository (not shared between forks?).
 cache: &global_cache
@@ -63,87 +44,63 @@ cache: &global_cache
   # artifacts.
   policy: pull
   paths:
-    - "${CI_PROJECT_DIR}/.gradle/caches"
-    - "${CI_PROJECT_DIR}/.gradle/wrappers"
+    - "${CI_PROJECT_DIR}/.sbt"
+
+lockfile:
+  stage: .pre
+  cache:
+    <<: *global_cache
+    policy: pull-push
+  script:
+    - sbt dependencyLockWrite
+  artifacts:
+    paths:
+      - "build.sbt.lock"
 
 build:
   stage: build
   cache:
     <<: *global_cache
-    policy: pull-push
-  # Diagram of gradle tasks and their dependencies: https://docs.gradle.org/current/userguide/img/javaPluginTasks.png
   script:
-    # build all classes, do not run tests or create jar.
-    - gradle clean testClasses
-  # Cache the build artifacts in specific paths
+    - sbt compile test
   artifacts:
     paths:
-      - "build"
-    expire_in: 4 weeks
-
-test:
-  stage: test
-  dependencies:
-    - build
-  script:
-    - gradle check
-    - cat ./build/reports/tests/test/index.html
-  artifacts:
-    when: on_failure
-    paths:
-      - build/reports/
-    expire_in: 4 days
+      - build
     reports:
-      junit:
-        - build/test-results/test/*.xml
-
-sonarqube:
-  stage: security
-  # Use artifacts of test step, which creates coverage reports
-  dependencies:
-    - test
-  variables:
-    GIT_DEPTH: 0
-  script:
-    - gradle -Dsonar.host.url="${SONAR_HOST_URL}" -Dsonar.login="${SONAR_TOKEN}" -Dsonar.projectKey=rpki-publication-server check sonarqube
-  allow_failure: true
-  rules:
-    - if: '$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^renovate/'
-      when: never
-    - if: $CI_MERGE_REQUEST_IID
-    - if: $CI_COMMIT_TAG
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-
+      scalatest:
+        - target/test-reports/*.xml
+    expire_in: 4 weeks
 
 # All the package stages only require the test job, so whitesource scanning can
 # progress in parallel since this takes up to ten minutes.
-build:image:
+docker-image:
+  image: docker:29.1-cli
+  services:
+    - docker:29.1-dind
   stage: package
-  needs: ["test"]
-  script:
+  needs: ["build"]
+  before_script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    - gradle generateGitProperties
-    - docker build --label org.label-schema.vcs-ref="$CI_COMMIT_SHORT_SHA" --tag "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA" .
+  script:
+    - cp build/libs/rpki-publication-server-*.jar rpki-publication-server.jar
+    - docker build --build-arg JAR_FILE=rpki-publication-server.jar --label org.label-schema.vcs-ref="$CI_COMMIT_SHORT_SHA" --tag "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA" .
     - docker push "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"
-  rules:
-    - if: $CI_MERGE_REQUEST_IID
-    - if: $CI_COMMIT_TAG
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - when: manual
 
 release:latest:
-  stage: release
-  needs: ["build:image"]
-  # optional
-  allow_failure: true
-  script:
+  image: docker:29.1-cli
+  services:
+    - docker:29.1-dind
+  stage: deploy
+  needs: ["docker-image"]
+  before_script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
     - docker pull $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
     - docker tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA $CI_REGISTRY_IMAGE:latest
     - docker push $CI_REGISTRY_IMAGE:latest
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - when: manual
+    - when: never
 
 #
 # Update a Salt-managed container with a new version of an image.
@@ -219,17 +176,21 @@ release:latest:
 
 deploy:prepdev:
   <<: *salt-container-deploy
-  needs: ["build:image"]
-  # TODO Deploy to both nodes
+  needs: ["docker-image"]
   variables:
     IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
     TARGET_CONTAINER: rpki-publication-server
-    READINESS_URL: http://127.0.0.1:7788/monitoring/readiness
-    TARGET_HOST: publish-*.rpki.prepdev.ripe.net
+    READINESS_URL: http://127.0.0.1:8080/monitoring/healthcheck
     TARGET_TAG: prepdev
+  parallel:
+    matrix:
+      - TARGET_HOST: publish-4.rpki.prepdev.ripe.net
+        PUBSERVER_URL: http://publish-4.rpki.prepdev.ripe.net:8080/monitoring/healthcheck
+      - TARGET_HOST: publish-5.rpki.prepdev.ripe.net
+        PUBSERVER_URL: http://publish-5.rpki.prepdev.ripe.net:8080/monitoring/healthcheck
   environment:
     name: prepdev
-    url: http://publish-4.rpki.prepdev.ripe.net:7788/monitoring/healthcheck
+    url: "$PUBSERVER_URL"
   allow_failure: true
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
@@ -237,16 +198,22 @@ deploy:prepdev:
 
 deploy:production:
   <<: *salt-container-deploy
-  needs: ["build:image"]
+  needs: ["docker-image"]
   variables:
     IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
     TARGET_CONTAINER: rpki-publication-server
-    READINESS_URL: http://127.0.0.1:7788/monitoring/readiness
-    TARGET_HOST: publish-*.rpki.ripe.net
+    READINESS_URL: http://127.0.0.1:8080/monitoring/healthcheck
     TARGET_TAG: production
+  parallel:
+    matrix:
+      - TARGET_HOST: publish-4.rpki.ripe.net
+        PUBSERVER_URL: http://publish-4.rpki.ripe.net:8080/monitoring/healthcheck
+      - TARGET_HOST: publish-5.rpki.ripe.net
+        PUBSERVER_URL: http://publish-5.rpki.ripe.net:8080/monitoring/healthcheck
   environment:
     name: production
-    url:  http://publish-4.rpki.ripe.net:7788/monitoring/healthcheck
+    url: "$PUBSERVER_URL"
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - when: never
+
