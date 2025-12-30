@@ -73,10 +73,10 @@ build:
     - apk add --no-cache postgresql-client
     - psql -h postgres -U ${POSTGRES_USER} ${POSTGRES_DB} -c 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp";'    
   script:
-    - sbt compile test
+    - sbt compile test universal:packageZipTarball
   artifacts:
     paths:
-      - build
+      - target/rpki-publication-server-*.jar
     reports:
       junit:
         - target/test-reports/*.xml
@@ -93,7 +93,7 @@ docker-image:
   before_script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
-    - cp build/libs/rpki-publication-server-*.jar rpki-publication-server.jar
+    - cp target/rpki-publication-server-*.jar rpki-publication-server.jar
     - docker build --build-arg JAR_FILE=rpki-publication-server.jar --label org.label-schema.vcs-ref="$CI_COMMIT_SHORT_SHA" --tag "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA" .
     - docker push "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"
 
