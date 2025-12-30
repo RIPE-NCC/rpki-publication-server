@@ -66,6 +66,7 @@ build:
     POSTGRES_USER: pubserver  
     POSTGRES_DB: pubserver_test
     POSTGRES_HOST_AUTH_METHOD: trust
+    POSTGRES_URL: "jdbc:postgresql://postgres:5432/pubserver_test"
   cache:
     <<: *global_cache
   script:
