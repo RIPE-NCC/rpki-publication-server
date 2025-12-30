@@ -1,6 +1,6 @@
 FROM alpine:3.16 as build
 
-ARG PUBLICATION_SERVER_JAR=target/rpki-publication-server.jar
+ARG PUBLICATION_SERVER_JAR=rpki-publication-server.jar
 
 # Use /staging/data, since /app/../data is equal to /data and would be cleared
 # by the tests.
