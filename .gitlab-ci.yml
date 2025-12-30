@@ -15,7 +15,7 @@ include:
     file: /templates/security.yml
     inputs:
       stage: security
-      needs: ["lockfile"]
+      needs: ["dependency-dot"]
   - project: swe/gitlab-support
     file: /templates/container.yml
     inputs:
@@ -46,16 +46,17 @@ cache: &global_cache
   paths:
     - "${CI_PROJECT_DIR}/.sbt"
 
-lockfile:
+dependency-dot:
   stage: .pre
   cache:
     <<: *global_cache
     policy: pull-push
   script:
-    - sbt dependencyLockWrite
+    - sbt dependencyDot
   artifacts:
+    access: developer
     paths:
-      - "build.sbt.lock"
+      - 'target/dependencies-compile.dot'
 
 build:
   stage: build
