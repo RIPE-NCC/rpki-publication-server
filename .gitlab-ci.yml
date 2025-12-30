@@ -74,6 +74,9 @@ build:
     - psql -h postgres -U ${POSTGRES_USER} ${POSTGRES_DB} -c 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp";'    
   script:
     - sbt compile test universal:packageZipTarball
+    # We don't these to be cached
+    - rm target/rpki-publication-server-*-javadoc.jar
+    - rm target/rpki-publication-server-*-sources.jar
   artifacts:
     paths:
       - target/rpki-publication-server-*.jar
