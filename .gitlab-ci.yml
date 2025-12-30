@@ -69,6 +69,9 @@ build:
     POSTGRES_URL: "jdbc:postgresql://postgres:5432/pubserver_test"
   cache:
     <<: *global_cache
+  before_script:
+    - apk add --no-cache postgresql-client
+    - psql -h postgres -U ${POSTGRES_USER} ${POSTGRES_DB} -c 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp";'    
   script:
     - sbt compile test
   artifacts:
