@@ -5,7 +5,7 @@ organization := "net.ripe"
 
 name := "rpki-publication-server"
 
-scalaVersion := "2.13.14"
+scalaVersion := "2.13.17"
 
 scalacOptions := Seq("-unchecked", "-deprecation", "-feature", "-encoding", "utf8")
 

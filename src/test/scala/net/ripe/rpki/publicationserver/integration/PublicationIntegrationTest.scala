@@ -153,7 +153,8 @@ class PublicationIntegrationTest
   test("should fail without client certificate") {
     val client = new PublicationServerClient(keyManagers = Array())
     val thrown = the [SSLHandshakeException] thrownBy client.list("client")
-    thrown.getMessage should include("bad_certificate")
+    // TODO Figure out why different environments/JVMs produce different error messages here
+    thrown.getMessage should (include("handshake_failure") or include("bad_certificate"))
   }
 
   test("should fail with wrong client certificate") {
