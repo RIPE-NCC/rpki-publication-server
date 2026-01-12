@@ -188,8 +188,6 @@ class PgStore(val pgConfig: PgConfig, val minimalObjectCount: Integer) extends H
                 WHERE client_id = ${clientId.value}"""
             .map(_.int(1)).single().get
 
-        // TODO This might be not accurate in there's overlap between
-        //  additions and deletions?
         val resultingObjects = currentSize + additions - deletions
         if (resultingObjects < minimalObjectCount) {
           throw new Exception("Will not apply changes, resulting snapshot would be too small: " +
