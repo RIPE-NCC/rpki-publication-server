@@ -1,15 +1,11 @@
 package net.ripe.rpki.publicationserver
 
-import java.net.URI
-import java.nio.file.{Path, Paths}
-import java.util.Map.Entry
 import java.util.concurrent.TimeUnit
 import org.apache.pekko.http.scaladsl.settings.ServerSettings
-import com.typesafe.config.{Config, ConfigFactory, ConfigObject, ConfigValue}
+import com.typesafe.config.{Config, ConfigFactory}
 import net.ripe.rpki.publicationserver.store.postgresql.{DeltaInfo, SnapshotInfo}
 
 import scala.concurrent.duration.{Duration, FiniteDuration}
-import scala.jdk.CollectionConverters.CollectionHasAsScala
 import scala.util.{Failure, Success, Try}
 
 /**

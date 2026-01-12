@@ -4,6 +4,8 @@ import java.io.{InputStream, OutputStream}
 import java.util.{Arrays, Base64 => B64}
 import com.google.common.io.ByteStreams
 
+import java.util
+
 object Binaries {
 
   private val base64decoder = B64.getDecoder
@@ -13,11 +15,11 @@ object Binaries {
 
   case class Bytes(value: Array[Byte]) {
     override def equals(obj: Any): Boolean = obj match {
-      case that: Bytes => that.canEqual(this) && Arrays.equals(this.value, that.value)
+      case that: Bytes => that.canEqual(this) && util.Arrays.equals(this.value, that.value)
       case _ => false
     }
 
-    override def hashCode(): Int = Arrays.hashCode(value)
+    override def hashCode(): Int = util.Arrays.hashCode(value)
 
     def toHex: String = Hashing.bytesToHex(value)
 
