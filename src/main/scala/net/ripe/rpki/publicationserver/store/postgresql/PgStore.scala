@@ -175,9 +175,9 @@ class PgStore(val pgConfig: PgConfig, val minimalObjectCount: Integer) extends H
       return
     }
 
+    // Apply all modification while holding a lock on the client ID
+    // (which most often is the CA owning the objects)
     inRepeatableReadTx { implicit session =>
-      // Apply all modification while holding a lock on the client ID
-      // (which most often is the CA owning the objects)
       val (additions, deletions) = verifyChanges(session)
 
       if (minimalObjectCount != null) {
