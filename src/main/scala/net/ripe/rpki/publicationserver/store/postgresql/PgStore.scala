@@ -13,20 +13,25 @@ import java.net.URI
 
 case class VersionInfo(sessionId: String, serial: Long, fileNameSecret: Bytes) {
   def isInitialSerial = serial == INITIAL_SERIAL
+
   override def toString = s"${productPrefix}($sessionId, $serial, ********)"
 }
+
 case class SnapshotInfo(version: VersionInfo, name: String, hash: Hash, size: Long) {
   def sessionId = version.sessionId
+
   def serial = version.serial
 }
+
 case class DeltaInfo(version: VersionInfo, name: String, hash: Hash, size: Long) {
   def sessionId = version.sessionId
+
   def serial = version.serial
 }
 
 case class RollbackException(val error: BaseError) extends Exception
 
-class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
+class PgStore(val pgConfig: PgConfig, val minimalObjectCount: Integer) extends Hashing with Logging {
 
   private val secureRandom = new scala.util.Random(new java.security.SecureRandom())
 
@@ -124,7 +129,8 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
           FROM reasonable_deltas
           WHERE session_id = $sessionId
           ORDER BY serial DESC"""
-      .map { rs => DeltaInfo(VersionInfo(rs.string(1), rs.long(2), Bytes(rs.bytes(3))), rs.string(4), Hash(rs.bytes(5)), rs.long(6))
+      .map { rs =>
+        DeltaInfo(VersionInfo(rs.string(1), rs.long(2), Bytes(rs.bytes(3))), rs.string(4), Hash(rs.bytes(5)), rs.long(6))
       }
       .list()
   }
@@ -172,6 +178,31 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
     inRepeatableReadTx { implicit session =>
       // Apply all modification while holding a lock on the client ID
       // (which most often is the CA owning the objects)
+      val (additions, deletions) = verifyChanges(session)
+
+      if (minimalObjectCount != null) {
+        // After verification we can predict the size of the resulting snapshot and reject
+        // the changes if it's too small. It most likely indicates a bug in the client software.
+        val currentSize =
+          sql"""SELECT count(*) FROM current_state
+                WHERE client_id = ${clientId.value}"""
+            .map(rs => rs.int(1)).single() .get
+
+        // TODO This might be not accurate in there's overlap between
+        //  additions and deletions?
+        val resultingObjects = currentSize + additions - deletions
+        if (resultingObjects < minimalObjectCount) {
+          // Complain!
+        }
+      }
+
+      applyThem(session)
+    }
+
+    def verifyChanges(implicit session: DBSession) = {
+      var additions = 0
+      var deletions = 0
+
       sql"SELECT acquire_client_id_lock(${clientId.value})".execute()
 
       changeSet.pdus.foreach {
@@ -180,18 +211,26 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
             sql"SELECT verify_object_is_absent(${uri.toString})",
             {},
             metrics.failedToAdd())
+          additions = additions + 1;
+
         case PublishQ(uri, _, Some(oldHash), _) =>
           executeSql(
             sql"SELECT verify_object_is_present(${uri.toString}, ${oldHash.toBytes}, ${clientId.value})",
             {},
             metrics.failedToReplace())
+        // Nothing to do here for counting additions and deletions, as it's a replacement
+
         case WithdrawQ(uri, _, hash) =>
           executeSql(
             sql"SELECT verify_object_is_present(${uri.toString}, ${hash.toBytes}, ${clientId.value})",
             {},
             metrics.failedToDelete())
+          deletions = deletions + 1;
       }
+      (additions, deletions)
+    }
 
+    def applyThem(implicit session: DBSession): Unit = {
       changeSet.pdus.foreach {
         case PublishQ(uri, _, None, Bytes(bytes)) =>
           executeSql(
@@ -265,7 +304,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
 }
 
 object PgStore extends Logging {
-  var pgStore : PgStore = _
+  var pgStore: PgStore = _
 
   def get(pgConfig: PgConfig): PgStore = synchronized {
     if (pgStore == null) {
@@ -278,7 +317,7 @@ object PgStore extends Logging {
       ConnectionPool.singleton(
         pgConfig.url, pgConfig.user, pgConfig.password, settings)
 
-      pgStore = new PgStore(pgConfig)
+      pgStore = new PgStore(pgConfig, null)
     }
     pgStore
   }
