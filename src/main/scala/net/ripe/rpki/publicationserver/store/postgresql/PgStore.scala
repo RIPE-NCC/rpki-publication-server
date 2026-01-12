@@ -171,32 +171,18 @@ class PgStore(val pgConfig: PgConfig, val minimalObjectCount: Integer) extends H
       }
     }
 
-    if (changeSet.pdus.isEmpty) {
-      return
-    }
+    if (changeSet.pdus.nonEmpty) {
+      // Apply all modification while holding a lock on the client ID
+      // (which most often is the CA owning the objects)
+      inRepeatableReadTx { implicit session =>
+        val (additions, deletions) = verifyChanges(session)
 
-    // Apply all modification while holding a lock on the client ID
-    // (which most often is the CA owning the objects)
-    inRepeatableReadTx { implicit session =>
-      val (additions, deletions) = verifyChanges(session)
-
-      if (minimalObjectCount != null) {
-        // After verification we can predict the size of the resulting snapshot and reject
-        // the changes if it's too small. It most likely indicates a bug in the client software.
-        val currentSize =
-          sql"""SELECT count(*) FROM current_state
-                WHERE client_id = ${clientId.value}"""
-            .map(_.int(1)).single().get
-
-        val resultingObjects = currentSize + additions - deletions
-        if (resultingObjects < minimalObjectCount) {
-          throw new Exception("Will not apply changes, resulting snapshot would be too small: " +
-            s"current size = $currentSize, additions = $additions, deletions = $deletions, " +
-            s"minimal allowed size = $minimalObjectCount")
+        if (minimalObjectCount != null) {
+          checkResultingObjectCount(additions, deletions)
         }
-      }
 
-      applyThem(session)
+        applyThem(session)
+      }
     }
 
     def verifyChanges(implicit session: DBSession) = {
@@ -228,6 +214,22 @@ class PgStore(val pgConfig: PgConfig, val minimalObjectCount: Integer) extends H
           deletions = deletions + 1;
       }
       (additions, deletions)
+    }
+
+    def checkResultingObjectCount(additions: Int, deletions: Int)(implicit session: DBSession): Unit = {
+      // After verification we can predict the size of the resulting snapshot and reject
+      // the changes if it's too small. It most likely indicates a bug in the client software.
+      val currentSize =
+        sql"""SELECT count(*) FROM current_state
+              WHERE client_id = ${clientId.value}"""
+          .map(_.int(1)).single().get
+
+      val resultingObjects = currentSize + additions - deletions
+      if (resultingObjects < minimalObjectCount) {
+        throw new Exception("Will not apply changes, resulting snapshot would be too small: " +
+          s"current size = $currentSize, additions = $additions, deletions = $deletions, " +
+          s"minimal allowed size = $minimalObjectCount")
+      }
     }
 
     def applyThem(implicit session: DBSession): Unit = {
