@@ -186,13 +186,15 @@ class PgStore(val pgConfig: PgConfig, val minimalObjectCount: Integer) extends H
         val currentSize =
           sql"""SELECT count(*) FROM current_state
                 WHERE client_id = ${clientId.value}"""
-            .map(rs => rs.int(1)).single() .get
+            .map(_.int(1)).single().get
 
         // TODO This might be not accurate in there's overlap between
         //  additions and deletions?
         val resultingObjects = currentSize + additions - deletions
         if (resultingObjects < minimalObjectCount) {
-          // Complain!
+          throw new Exception("Will not apply changes, resulting snapshot would be too small: " +
+            s"current size = $currentSize, additions = $additions, deletions = $deletions, " +
+            s"minimal allowed size = $minimalObjectCount")
         }
       }
 
