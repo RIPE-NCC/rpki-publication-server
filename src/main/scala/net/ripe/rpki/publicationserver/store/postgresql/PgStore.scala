@@ -29,9 +29,9 @@ case class DeltaInfo(version: VersionInfo, name: String, hash: Hash, size: Long)
   def serial = version.serial
 }
 
-case class RollbackException(val error: BaseError) extends Exception
+case class RollbackException(error: BaseError) extends Exception
 
-class PgStore(val pgConfig: PgConfig, val minimalObjectCount: Integer) extends Hashing with Logging {
+class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
 
   private val secureRandom = new scala.util.Random(new java.security.SecureRandom())
 
@@ -42,9 +42,9 @@ class PgStore(val pgConfig: PgConfig, val minimalObjectCount: Integer) extends H
   }
 
   def clear(): Unit = DB.localTx { implicit session =>
-    sql"DELETE FROM object_log".update()
-    sql"DELETE FROM objects".update()
-    sql"DELETE FROM versions".update()
+    sql"TRUNCATE TABLE object_log CASCADE".update()
+    sql"TRUNCATE TABLE objects CASCADE".update()
+    sql"TRUNCATE TABLE versions CASCADE".update()
   }
 
   def getState = DB.localTx { implicit session =>
@@ -157,7 +157,7 @@ class PgStore(val pgConfig: PgConfig, val minimalObjectCount: Integer) extends H
 
   implicit val formats = org.json4s.DefaultFormats
 
-  def applyChanges(changeSet: QueryMessage, clientId: ClientId)(implicit metrics: Metrics): Unit = {
+  def applyChanges(changeSet: QueryMessage, clientId: ClientId, minimalObjectCount: Option[Int] = None)(implicit metrics: Metrics): Unit = {
 
     def executeSql(sql: SQL[Nothing, NoExtractor], onSuccess: => Unit, onFailure: => Unit)(implicit session: DBSession): Unit = {
       val r = sql.map(_.string(1)).single()
@@ -179,9 +179,9 @@ class PgStore(val pgConfig: PgConfig, val minimalObjectCount: Integer) extends H
 
         val (additions, deletions) = verifyChanges(session)
 
-        if (minimalObjectCount != null) {
-          checkResultingObjectCount(additions, deletions)
-        }
+        minimalObjectCount.foreach(count =>
+          checkResultingObjectCount(additions, deletions, count)(session)
+        )
 
         applyThem(session)
       }
@@ -216,7 +216,7 @@ class PgStore(val pgConfig: PgConfig, val minimalObjectCount: Integer) extends H
       (additions, deletions)
     }
 
-    def checkResultingObjectCount(additions: Int, deletions: Int)(implicit session: DBSession): Unit = {
+    def checkResultingObjectCount(additions: Int, deletions: Int, minimalCount: Int)(implicit session: DBSession): Unit = {
       // After verification we can predict the size of the resulting snapshot and reject
       // the changes if it's too small. It most likely indicates a bug in the client software.
       val currentSize =
@@ -225,11 +225,11 @@ class PgStore(val pgConfig: PgConfig, val minimalObjectCount: Integer) extends H
           .map(_.int(1)).single().get
 
       val resultingCount = currentSize + additions - deletions
-      if (resultingCount < minimalObjectCount) {
+      if (resultingCount < minimalCount) {
         throw new Exception("Will not apply changes, resulting snapshot would be too small: " +
           s"current size = $currentSize, additions = $additions, deletions = $deletions, " +
           s"estimated projected size $resultingCount, " +
-          s"minimal allowed size = $minimalObjectCount")
+          s"minimal allowed size = $minimalCount")
       }
     }
 
@@ -320,7 +320,7 @@ object PgStore extends Logging {
       ConnectionPool.singleton(
         pgConfig.url, pgConfig.user, pgConfig.password, settings)
 
-      pgStore = new PgStore(pgConfig, null)
+      pgStore = new PgStore(pgConfig)
     }
     pgStore
   }

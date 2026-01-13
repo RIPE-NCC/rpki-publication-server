@@ -1,10 +1,9 @@
 package net.ripe.rpki.publicationserver.store.postgresql
 
-import java.net.URI
-
 import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.model._
-import net.ripe.rpki.publicationserver.store.postgresql.RollbackException
+
+import java.net.URI
 
 class PgStoreTest extends PublicationServerBaseTest with Hashing {
 
@@ -46,6 +45,7 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
     val uri1 = new URI(urlPrefix1 + "/path1")
     val (bytes1, _) = TestBinaries.generateObject(1000)
     val (bytes2, _) = TestBinaries.generateObject(500)
+
     pgStore.applyChanges(QueryMessage(Seq(
       PublishQ(uri1, tag = None, hash = None, bytes1)
     )), clientId)
@@ -57,8 +57,8 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
       fail()
     } catch {
       case RollbackException(e) =>
-        e.code should be ("object_already_present")
-        e.message should be (s"An object is already present at this URI [$uri1].")
+        e.code should be("object_already_present")
+        e.message should be(s"An object is already present at this URI [$uri1].")
     }
 
     pgStore.getState should be(Map(
@@ -138,7 +138,7 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
     ), clientId)
     pgStore.applyChanges(QueryMessage(Seq(
       PublishQ(uri1, tag = None, hash = Some(hashOf(bytes3)), bytes1), // Place back previous object
-      WithdrawQ(uri2, tag = None, hash = hashOf(bytes2)),              // Withdraw object not yet published in delta
+      WithdrawQ(uri2, tag = None, hash = hashOf(bytes2)), // Withdraw object not yet published in delta
     )), clientId)
 
     val VersionInfo(_, unchangedSerial, _) = freezeVersion
@@ -155,12 +155,13 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
     val (bytes2, _) = TestBinaries.generateObject(500)
 
     val hash1 = hashOf(bytes1)
-    val RollbackException(error) = the [RollbackException] thrownBy pgStore.applyChanges(QueryMessage(Seq(
+    val RollbackException(error) = the[RollbackException] thrownBy pgStore.applyChanges(QueryMessage(Seq(
       PublishQ(uri1, tag = None, hash = None, bytes1),
       PublishQ(uri1, tag = None, Some(hash1), bytes2)
     )), clientId)
-    error.code should be ("no_object_present")
-    error.message should be (s"There is no object present at this URI [$uri1].")
+    error.code should be("no_object_present")
+    error.message should be(s"There is no object present at this URI [$uri1].")
+
 
     pgStore.getState should be(empty)
     pgStore.getLog should be(empty)
@@ -181,8 +182,8 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
       fail()
     } catch {
       case RollbackException(e) =>
-        e.code should be ("permission_failure")
-        e.message should be (s"Not allowed to replace or withdraw an object of another client: [$uri1].")
+        e.code should be("permission_failure")
+        e.message should be(s"Not allowed to replace or withdraw an object of another client: [$uri1].")
     }
 
     pgStore.getState should be(Map(
@@ -211,8 +212,8 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
       fail()
     } catch {
       case RollbackException(e) =>
-        e.code should be ("no_object_present")
-        e.message should be (s"There is no object present at this URI [$uri2].")
+        e.code should be("no_object_present")
+        e.message should be(s"There is no object present at this URI [$uri2].")
     }
 
     pgStore.getState should be(Map(
@@ -239,9 +240,9 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
       fail()
     } catch {
       case RollbackException(e) =>
-        e.code should be ("no_object_matching_hash")
-        e.message should be (s"Cannot replace or withdraw the object [$uri1], hash does not match, " +
-            s"passed ${wrongHash.toHex}, but existing one is ${hashOf(bytes1).toHex}.")
+        e.code should be("no_object_matching_hash")
+        e.message should be(s"Cannot replace or withdraw the object [$uri1], hash does not match, " +
+          s"passed ${wrongHash.toHex}, but existing one is ${hashOf(bytes1).toHex}.")
     }
 
     pgStore.getState should be(Map(
@@ -280,7 +281,7 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
     val (bytes1, _) = TestBinaries.generateObject(1000)
 
     val hash1 = hashOf(bytes1)
-    val RollbackException(error) = the [RollbackException] thrownBy pgStore.applyChanges(QueryMessage(Seq(
+    val RollbackException(error) = the[RollbackException] thrownBy pgStore.applyChanges(QueryMessage(Seq(
       PublishQ(uri1, tag = None, hash = None, bytes1),
       WithdrawQ(uri1, tag = None, hash1)
     )), clientId)
@@ -297,7 +298,7 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
     val uri1 = new URI(urlPrefix1 + "/path1")
     val (bytes1, _) = TestBinaries.generateObject(100)
 
-    val RollbackException(error) = the [RollbackException] thrownBy pgStore.applyChanges(QueryMessage(Seq(
+    val RollbackException(error) = the[RollbackException] thrownBy pgStore.applyChanges(QueryMessage(Seq(
       PublishQ(uri1, tag = None, hash = None, bytes1),
       PublishQ(uri1, tag = None, hash = None, bytes1),
     )), clientId)
@@ -315,7 +316,7 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
       PublishQ(uri1, tag = None, hash = None, bytes1)
     )), clientId)
 
-    val RollbackException(error) = the [RollbackException] thrownBy pgStore.applyChanges(QueryMessage(Seq(
+    val RollbackException(error) = the[RollbackException] thrownBy pgStore.applyChanges(QueryMessage(Seq(
       WithdrawQ(uri1, tag = None, hash = hashOf(bytes1)),
       WithdrawQ(uri1, tag = None, hash = hashOf(bytes1)),
     )), clientId)
@@ -338,8 +339,8 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
       fail()
     } catch {
       case RollbackException(e) =>
-          e.code should be ("permission_failure")
-          e.message should be (s"Not allowed to replace or withdraw an object of another client: [$uri1].")
+        e.code should be("permission_failure")
+        e.message should be(s"Not allowed to replace or withdraw an object of another client: [$uri1].")
     }
 
     pgStore.getState should be(Map(
@@ -367,8 +368,8 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
       fail()
     } catch {
       case RollbackException(e) =>
-        e.code should be ("no_object_present")
-        e.message should be (s"There is no object present at this URI [$uri2].")
+        e.code should be("no_object_present")
+        e.message should be(s"There is no object present at this URI [$uri2].")
     }
 
     pgStore.getState should be(Map(
@@ -396,9 +397,9 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
       fail()
     } catch {
       case RollbackException(e) =>
-        e.code should be ("no_object_matching_hash")
-        e.message should be (s"Cannot replace or withdraw the object [$uri1], hash does not match, " +
-            s"passed ${wrongHash.toHex}, but existing one is ${hashOf(bytes1).toHex}.")
+        e.code should be("no_object_matching_hash")
+        e.message should be(s"Cannot replace or withdraw the object [$uri1], hash does not match, " +
+          s"passed ${wrongHash.toHex}, but existing one is ${hashOf(bytes1).toHex}.")
     }
 
     pgStore.getState should be(Map(
@@ -484,7 +485,29 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
     ))
   }
 
-  private def freezeVersion = {
-    pgStore.inRepeatableReadTx { implicit session => pgStore.freezeVersion }
+  test("should reject updates that make snapshot too small") {
+    val clientId1 = ClientId("client1")
+
+    val publishes = (1 to 10).map(i => {
+      val uri = new URI(urlPrefix1 + "/path" + i)
+      val (b, _) = TestBinaries.generateObject(20 * i)
+      PublishQ(uri, tag = None, hash = None, b)
+    })
+
+    pgStore.applyChanges(QueryMessage(publishes), clientId1, Some(3))
+    freezeVersion
+
+    val withdrawals = publishes.take(8).map {
+      case PublishQ(uri, tag, _, b) =>
+        WithdrawQ(uri, tag, hashOf(b))
+    }
+
+    assertThrows[Exception] {
+      pgStore.applyChanges(QueryMessage(withdrawals), clientId1, Some(3))
+    }
+  }
+
+  private def freezeVersion() = {
+    pgStore.inRepeatableReadTx { session => pgStore.freezeVersion(session) }
   }
 }
