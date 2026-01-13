@@ -21,7 +21,7 @@ class HealthChecksTest extends PublicationServerBaseTest {
 
   test("should throw exception with error message for database connectivity") {
     val healthChecks = new HealthChecks(null) {
-      override lazy val objectStore = new PgStore(pgTestConfig, null) {
+      override lazy val objectStore = new PgStore(pgTestConfig) {
         override def check() = throw new RuntimeException("Cannot connect!")
       }
     }
