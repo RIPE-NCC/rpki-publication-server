@@ -224,6 +224,9 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
               WHERE client_id = ${clientId.value}"""
           .map(_.int(1)).single().get
 
+      logger.info("Current snapshot size is {}, additions {}, deletions {}, minimal allowed size {}",
+                  currentSize, additions, deletions, minimalCount);
+
       val resultingCount = currentSize + additions - deletions
       if (resultingCount < minimalCount) {
         throw new Exception("Will not apply changes, resulting snapshot would be too small: " +
