@@ -16,7 +16,7 @@ import java.net.URI
 import javax.xml.stream.XMLStreamException
 import scala.concurrent.Future
 import scala.io.{BufferedSource, Source}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 object PublicationService {
     val MediaTypeString = "application/rpki-publication"
@@ -120,7 +120,8 @@ class PublicationService(conf: AppConfig, metrics: Metrics)
   private def processQueryMessage(queryMessage: QueryMessage, clientId: ClientId) = {
     try {
       implicit val m = metrics
-      objectStore.applyChanges(queryMessage, clientId)
+      val minimumSnapshotSize = Try(conf.minimumSnapshotObjectsCount).map(Some).getOrElse(None)
+      objectStore.applyChanges(queryMessage, clientId, minimumSnapshotSize)
       ReplyMsg {
         queryMessage.pdus.map {
           case PublishQ(uri, tag, _, _) => PublishR(uri, tag)
