@@ -197,9 +197,9 @@ deploy:prepdev:
   parallel:
     matrix:
       - TARGET_HOST: publish-4.rpki.prepdev.ripe.net
-        PUBSERVER_URL: http://publish-4.rpki.prepdev.ripe.net:7788/monitoring/healthcheck
+        PUBSERVER_URL: http://publish-4.rpki.prepdev.ripe.net/monitoring/healthcheck
       - TARGET_HOST: publish-5.rpki.prepdev.ripe.net
-        PUBSERVER_URL: http://publish-5.rpki.prepdev.ripe.net:7788/monitoring/healthcheck
+        PUBSERVER_URL: http://publish-5.rpki.prepdev.ripe.net/monitoring/healthcheck
   environment:
     name: prepdev
     url: "$PUBSERVER_URL"
@@ -219,9 +219,9 @@ deploy:production:
   parallel:
     matrix:
       - TARGET_HOST: publish-4.rpki.ripe.net
-        PUBSERVER_URL: http://publish-4.rpki.ripe.net:7788/monitoring/healthcheck
+        PUBSERVER_URL: http://publish-4.rpki.ripe.net/monitoring/healthcheck
       - TARGET_HOST: publish-5.rpki.ripe.net
-        PUBSERVER_URL: http://publish-5.rpki.ripe.net:7788/monitoring/healthcheck
+        PUBSERVER_URL: http://publish-5.rpki.ripe.net/monitoring/healthcheck
   environment:
     name: production
     url: "$PUBSERVER_URL"
