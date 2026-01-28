@@ -120,7 +120,7 @@ class PublicationService(conf: AppConfig, metrics: Metrics)
   private def processQueryMessage(queryMessage: QueryMessage, clientId: ClientId) = {
     try {
       implicit val m = metrics
-      val minimumSnapshotSize = Try(conf.minimumSnapshotObjectsCount).map(Some).getOrElse(None)
+      val minimumSnapshotSize = conf.minimalObjectCount()
       objectStore.applyChanges(queryMessage, clientId, minimumSnapshotSize)
       ReplyMsg {
         queryMessage.pdus.map {

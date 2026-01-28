@@ -24,7 +24,7 @@ import scala.util.control.NonFatal
 
 
 object Boot extends App with Logging {
-  lazy val conf = wire[AppConfig]
+  lazy val conf = AppConfig.validate(wire[AppConfig])
 
   logger.info("Starting up the publication server ...")
 

@@ -7,7 +7,7 @@ import java.nio.file.attribute.{FileAttribute, PosixFilePermission}
 package object publicationserver {
 
   trait RepositoryPath {
-    val repositoryPath = wire[AppConfig].rrdpRepositoryPath
+    val repositoryPath = AppConfig.validate(wire[AppConfig]).rrdpRepositoryPath
   }
 
   type FileAttributes = FileAttribute[java.util.Set[PosixFilePermission]]
