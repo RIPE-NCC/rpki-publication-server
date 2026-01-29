@@ -15,7 +15,7 @@ class AppConfig {
   def getConfig = AppConfig.config
 
   private lazy val minimumSnapshotObjectsCount = getConfig.getInt("minimum.snapshot.objects.count")
-  private lazy val minimumSnapshotObjectsCountEnabled = getConfig.getBoolean("minimum.snapshot.objects.count.enabled")
+  private lazy val minimumSnapshotObjectsCountEnabled = getConfig.getBoolean("minimum.snapshot.objects.enabled")
   lazy val publicationPort = getConfig.getInt("publication.port")
   lazy val rrdpPort = getConfig.getInt("rrdp.port")
   lazy val rrdpRepositoryPath = getConfig.getString("locations.rrdp.repository.path")
@@ -72,16 +72,18 @@ case class PgConfig(url: String, user: String, password: String)
 object AppConfig {
   lazy val config: Config = ConfigFactory.systemEnvironmentOverrides().withFallback(ConfigFactory.load())
 
-  def validate(c: AppConfig) = {
-    val minCountEnabled = Try(c.minimumSnapshotObjectsCountEnabled).getOrElse(false)
+  def validate(appConfig: AppConfig) = {
+    val minCountEnabled = Try(appConfig.minimumSnapshotObjectsCountEnabled).getOrElse(false)
     if (minCountEnabled) {
-      Try(c.minimumSnapshotObjectsCount) match {
+      Try(appConfig.minimumSnapshotObjectsCount) match {
         case Failure(_) =>
           throw new IllegalArgumentException("minimum.snapshot.objects.count must be set when minimum.snapshot.objects.count.enabled is true")
-        case Success(v) if v <= 0 =>
-          throw new IllegalArgumentException("minimum.snapshot.objects.count must be greater than 0")
+        case Success(v) =>
+          if (v <= 0) {
+            throw new IllegalArgumentException("minimum.snapshot.objects.count must be greater than 0")
+          }
       }
     }
-    c
+    appConfig
   }
 }
