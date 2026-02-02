@@ -15,10 +15,10 @@ class PublicationServiceTest extends PublicationServerBaseTest with Hashing with
 
   def publicationService = new PublicationService(conf, testMetrics)
 
-  private val objectStore = createPgStore
+  private val pgStore = createPgStore
 
   before {
-    objectStore.clear()
+    pgStore.clear()
   }
 
   override def afterAll(): Unit = {

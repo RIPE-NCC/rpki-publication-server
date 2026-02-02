@@ -13,18 +13,23 @@ import java.net.URI
 
 case class VersionInfo(sessionId: String, serial: Long, fileNameSecret: Bytes) {
   def isInitialSerial = serial == INITIAL_SERIAL
+
   override def toString = s"${productPrefix}($sessionId, $serial, ********)"
 }
+
 case class SnapshotInfo(version: VersionInfo, name: String, hash: Hash, size: Long) {
   def sessionId = version.sessionId
-  def serial = version.serial
-}
-case class DeltaInfo(version: VersionInfo, name: String, hash: Hash, size: Long) {
-  def sessionId = version.sessionId
+
   def serial = version.serial
 }
 
-case class RollbackException(val error: BaseError) extends Exception
+case class DeltaInfo(version: VersionInfo, name: String, hash: Hash, size: Long) {
+  def sessionId = version.sessionId
+
+  def serial = version.serial
+}
+
+case class RollbackException(error: BaseError) extends Exception
 
 class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
 
@@ -37,9 +42,9 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
   }
 
   def clear(): Unit = DB.localTx { implicit session =>
-    sql"DELETE FROM object_log".update()
-    sql"DELETE FROM objects".update()
-    sql"DELETE FROM versions".update()
+    sql"TRUNCATE TABLE object_log CASCADE".update()
+    sql"TRUNCATE TABLE objects CASCADE".update()
+    sql"TRUNCATE TABLE versions CASCADE".update()
   }
 
   def getState = DB.localTx { implicit session =>
@@ -124,7 +129,8 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
           FROM reasonable_deltas
           WHERE session_id = $sessionId
           ORDER BY serial DESC"""
-      .map { rs => DeltaInfo(VersionInfo(rs.string(1), rs.long(2), Bytes(rs.bytes(3))), rs.string(4), Hash(rs.bytes(5)), rs.long(6))
+      .map { rs =>
+        DeltaInfo(VersionInfo(rs.string(1), rs.long(2), Bytes(rs.bytes(3))), rs.string(4), Hash(rs.bytes(5)), rs.long(6))
       }
       .list()
   }
@@ -151,7 +157,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
 
   implicit val formats = org.json4s.DefaultFormats
 
-  def applyChanges(changeSet: QueryMessage, clientId: ClientId)(implicit metrics: Metrics): Unit = {
+  def applyChanges(changeSet: QueryMessage, clientId: ClientId, minimalObjectCount: Option[Int] = None)(implicit metrics: Metrics): Unit = {
 
     def executeSql(sql: SQL[Nothing, NoExtractor], onSuccess: => Unit, onFailure: => Unit)(implicit session: DBSession): Unit = {
       val r = sql.map(_.string(1)).single()
@@ -165,14 +171,25 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
       }
     }
 
-    if (changeSet.pdus.isEmpty) {
-      return
+    if (changeSet.pdus.nonEmpty) {
+      inRepeatableReadTx { implicit session =>
+        // Apply all modification while holding a lock on the client ID
+        // (which most often is the CA owning the objects)
+        sql"SELECT acquire_client_id_lock(${clientId.value})".execute()
+
+        val (additions, deletions) = verifyChanges(session)
+
+        minimalObjectCount.foreach(count =>
+          checkResultingObjectCount(additions, deletions, count)(session)
+        )
+
+        applyThem(session)
+      }
     }
 
-    inRepeatableReadTx { implicit session =>
-      // Apply all modification while holding a lock on the client ID
-      // (which most often is the CA owning the objects)
-      sql"SELECT acquire_client_id_lock(${clientId.value})".execute()
+    def verifyChanges(implicit session: DBSession) = {
+      var additions = 0
+      var deletions = 0
 
       changeSet.pdus.foreach {
         case PublishQ(uri, _, None, _) =>
@@ -180,18 +197,46 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
             sql"SELECT verify_object_is_absent(${uri.toString})",
             {},
             metrics.failedToAdd())
+          additions = additions + 1;
+
         case PublishQ(uri, _, Some(oldHash), _) =>
           executeSql(
             sql"SELECT verify_object_is_present(${uri.toString}, ${oldHash.toBytes}, ${clientId.value})",
             {},
             metrics.failedToReplace())
+        // Nothing to do here for counting additions and deletions, as it's a replacement
+
         case WithdrawQ(uri, _, hash) =>
           executeSql(
             sql"SELECT verify_object_is_present(${uri.toString}, ${hash.toBytes}, ${clientId.value})",
             {},
             metrics.failedToDelete())
+          deletions = deletions + 1;
       }
+      (additions, deletions)
+    }
 
+    def checkResultingObjectCount(additions: Int, deletions: Int, minimalCount: Int)(implicit session: DBSession): Unit = {
+      // After verification we can predict the size of the resulting snapshot and reject
+      // the changes if it's too small. It most likely indicates a bug in the client software.
+      val currentSize =
+        sql"""SELECT count(*) FROM live_objects
+              WHERE client_id = ${clientId.value}"""
+          .map(_.int(1)).single().get
+
+      logger.info("Current snapshot size is {}, additions {}, deletions {}, minimal allowed size {}",
+                  currentSize, additions, deletions, minimalCount);
+
+      val resultingCount = currentSize + additions - deletions
+      if (resultingCount < minimalCount) {
+        throw new Exception("Will not apply changes, resulting snapshot would be too small: " +
+          s"current size = $currentSize, additions = $additions, deletions = $deletions, " +
+          s"estimated projected size $resultingCount, " +
+          s"minimal allowed size = $minimalCount")
+      }
+    }
+
+    def applyThem(implicit session: DBSession): Unit = {
       changeSet.pdus.foreach {
         case PublishQ(uri, _, None, Bytes(bytes)) =>
           executeSql(
@@ -265,7 +310,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
 }
 
 object PgStore extends Logging {
-  var pgStore : PgStore = _
+  var pgStore: PgStore = _
 
   def get(pgConfig: PgConfig): PgStore = synchronized {
     if (pgStore == null) {

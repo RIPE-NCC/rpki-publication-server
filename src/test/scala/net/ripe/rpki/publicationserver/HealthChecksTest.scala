@@ -39,9 +39,10 @@ class HealthChecksTest extends PublicationServerBaseTest {
   }
 
   test("snapshot status should be ready when we don't yet have reasonable sized snapshot"){
-    val healthChecks = new HealthChecks(appConfig)
-    healthChecks.updateSnapshot(49999)
+    val healthChecks = new HealthChecks(new AppConfig {
+      override def minimalObjectCount() = Some(10)
+    })
+    healthChecks.updateSnapshot(5)
     healthChecks.snapshotStatus().ready should be (false)
   }
-
 }
