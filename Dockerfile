@@ -20,7 +20,7 @@ RUN cp docker/publication-server-docker.conf /staging/conf/
 # use gcr.io/distroless/java-debian10:11-debug if you want to be able to run a
 # shell in the container (e.g. `docker run -it --entrypoint sh --rm <image>`)
 #FROM gcr.io/distroless/java25-debian13:25fcf485de03d350b92bfa9c05310b515a7c9723
-FROM azul/zulu-openjdk-alpine:25.0.0-25.28
+FROM alpine/java:22-jdk
 LABEL org.label-schema.vcs-ref="unknown"
 
 COPY --from=build /staging/conf/ /conf/
