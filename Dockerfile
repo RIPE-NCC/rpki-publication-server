@@ -1,4 +1,4 @@
-FROM alpine:3.16 as build
+FROM alpine:3.23.3 as build
 
 ARG PUBLICATION_SERVER_JAR=target/rpki-publication-server.jar
 
