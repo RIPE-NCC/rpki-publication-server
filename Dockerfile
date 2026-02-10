@@ -1,10 +1,10 @@
-FROM alpine:3.16 as build
+FROM alpine:3.23.3 as build
 
 ARG PUBLICATION_SERVER_JAR=target/rpki-publication-server.jar
 
 # Use /staging/data, since /app/../data is equal to /data and would be cleared
 # by the tests.
-RUN mkdir -p /staging/conf /staging/conf/ssl /staging/data/db /staging/data/logs /staging/data/rrdp
+RUN mkdir -p /staging/conf /staging/conf/ssl /staging/data/db /staging/data/logs /staging/data/rrdp && apk update && apk del expat
 
 ADD . /app
 COPY ${PUBLICATION_SERVER_JAR} /app/rpki-publication-server.jar
@@ -19,7 +19,8 @@ RUN cp docker/publication-server-docker.conf /staging/conf/
 
 # use gcr.io/distroless/java-debian10:11-debug if you want to be able to run a
 # shell in the container (e.g. `docker run -it --entrypoint sh --rm <image>`)
-FROM gcr.io/distroless/java21-debian12:latest
+#FROM gcr.io/distroless/java25-debian13:25fcf485de03d350b92bfa9c05310b515a7c9723
+FROM gcr.io/distroless/java25-debian13:25fcf485de03d350b92bfa9c05310b515a7c9723
 LABEL org.label-schema.vcs-ref="unknown"
 
 COPY --from=build /staging/conf/ /conf/
