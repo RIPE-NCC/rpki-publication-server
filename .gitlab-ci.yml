@@ -86,9 +86,9 @@ build:
 # All the package stages only require the test job, so whitesource scanning can
 # progress in parallel since this takes up to ten minutes.
 docker-image:
-  image: docker:29.1-cli
+  image: docker:29.3-cli
   services:
-    - docker:29.1-dind
+    - docker:29.3-dind
   stage: package
   needs: ["build"]
   before_script:
@@ -99,9 +99,9 @@ docker-image:
     - docker push "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"
 
 release:latest:
-  image: docker:29.2-cli
+  image: docker:29.3-cli
   services:
-    - docker:29.1-dind
+    - docker:29.3-dind
   stage: deploy
   needs: ["docker-image"]
   before_script:
