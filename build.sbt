@@ -28,7 +28,7 @@ javaOptions in run ++= Seq("-Xmx2G")
 enablePlugins(JavaServerAppPackaging, UniversalDeployPlugin, GitVersioning)
 
 libraryDependencies ++= {
-  val pekkoV = "1.0.3"        
+  val pekkoV = "1.4.0"        
   val pekkoHttp = "1.0.1"     
   val macwire = "2.5.9"      
   Seq(
