@@ -14,7 +14,7 @@ scalacOptions := Seq("-unchecked", "-deprecation", "-feature", "-encoding", "utf
 mainClass in assembly := Some("net.ripe.rpki.publicationserver.Boot")
 assemblyJarName in assembly := "rpki-publication-server.jar"
 assemblyMergeStrategy in assembly := {
-  case "module-info.class" => MergeStrategy.discard
+  case x if x.endsWith("module-info.class") => MergeStrategy.discard
   case x => (assemblyMergeStrategy in assembly).value (x)
 }
 test in assembly := {}
@@ -51,7 +51,7 @@ libraryDependencies ++= {
     // "com.softwaremill.macwire" %% "macrosakka"             % macwire % "provided",
     "com.softwaremill.macwire" %% "util"                   % macwire % "provided",
     "com.softwaremill.macwire" %% "proxy"                  % macwire % "provided",
-    "com.google.guava"          % "guava"                  % "31.1-jre",
+    "com.google.guava"          % "guava"                  % "33.5.0-jre",
     "io.prometheus"             % "simpleclient"           % "0.16.0",
     "io.prometheus"             % "simpleclient_common"    % "0.16.0",
     "org.scala-lang.modules"   %% "scala-xml"              % "2.4.0",     
