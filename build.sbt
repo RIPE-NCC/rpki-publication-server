@@ -30,7 +30,7 @@ enablePlugins(JavaServerAppPackaging, UniversalDeployPlugin, GitVersioning)
 libraryDependencies ++= {
   val pekkoV = "1.0.3"        
   val pekkoHttp = "1.0.1"     
-  val macwire = "2.5.9"      
+  val macwire = "2.6.7"      
   Seq(
     "org.apache.pekko"         %% "pekko-http"             % pekkoHttp,
     "org.apache.pekko"         %% "pekko-http-core"        % pekkoHttp,
