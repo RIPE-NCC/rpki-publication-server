@@ -21,6 +21,7 @@ import net.ripe.rpki.publicationserver.repository.DataFlusher
 import org.apache.pekko.actor.Cancellable
 
 import scala.util.control.NonFatal
+import scala.compiletime.uninitialized
 
 
 object Boot extends App with Logging {
@@ -46,18 +47,18 @@ object Boot extends App with Logging {
 
 class PublicationServerApp(val conf: AppConfig, https: HttpsConnectionContext, logger: Logger) extends RRDPService {
 
-  implicit val system = ActorSystem.create(Math.abs(new ju.Random().nextLong()).toString)
-  implicit val dispatcher = system.dispatcher
+  implicit val system: ActorSystem = ActorSystem.create(Math.abs(new ju.Random().nextLong()).toString)
+  implicit val dispatcher: scala.concurrent.ExecutionContext = system.dispatcher
 
-  var httpBinding: Future[ServerBinding] = _
-  var httpsBinding: Future[ServerBinding] = _
-  var repositoryWriter: Future[Cancellable] = _
+  var httpBinding: Future[ServerBinding] = uninitialized
+  var httpsBinding: Future[ServerBinding] = uninitialized
+  var repositoryWriter: Future[Cancellable] = uninitialized
 
-  implicit val healthChecks = new HealthChecks(conf)
+  implicit val healthChecks: HealthChecks = new HealthChecks(conf)
 
   def run(): Unit = {
 
-    implicit val timeout = Timeout(5.seconds)
+    implicit val timeout: Timeout = Timeout(5.seconds)
 
     val registry = CollectorRegistry.defaultRegistry
     val metrics = Metrics.get(registry)
@@ -74,7 +75,7 @@ class PublicationServerApp(val conf: AppConfig, https: HttpsConnectionContext, l
       system.scheduler.scheduleAtFixedRate(
         interval,
         interval
-      ) (dataFlusher.updateFS _)
+      ) (() => dataFlusher.updateFS())
     }.recover {
       case NonFatal(e) =>
         logger.error("Failed to start repository writer", e)

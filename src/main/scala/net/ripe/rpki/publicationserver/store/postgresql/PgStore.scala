@@ -155,7 +155,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
       .execute()
   }
 
-  implicit val formats = org.json4s.DefaultFormats
+  implicit val formats: org.json4s.Formats = org.json4s.DefaultFormats
 
   def applyChanges(changeSet: QueryMessage, clientId: ClientId, minimalObjectCount: Option[Int] = None)(implicit metrics: Metrics): Unit = {
 
@@ -310,7 +310,7 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
 }
 
 object PgStore extends Logging {
-  var pgStore: PgStore = _
+  var pgStore: PgStore = scala.compiletime.uninitialized
 
   def get(pgConfig: PgConfig): PgStore = synchronized {
     if (pgStore == null) {

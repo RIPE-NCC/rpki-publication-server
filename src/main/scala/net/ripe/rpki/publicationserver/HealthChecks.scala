@@ -26,10 +26,10 @@ class HealthChecks(val appConfig: AppConfig) extends Logging {
   object SnapshotStatus
 
   object HealthChecksJsonProtocol extends DefaultJsonProtocol {
-    implicit val memoryFormat = jsonFormat3(Memory.apply)
-    implicit val buildInformationFormat = jsonFormat4(BuildInformation.apply)
-    implicit val snapshotFormat = jsonFormat2(SnapshotStatus.apply)
-    implicit val healthFormat = jsonFormat2(Health.apply)
+    implicit val memoryFormat: RootJsonFormat[Memory] = jsonFormat3(Memory.apply)
+    implicit val buildInformationFormat: RootJsonFormat[BuildInformation] = jsonFormat4(BuildInformation.apply)
+    implicit val snapshotFormat: RootJsonFormat[SnapshotStatus] = jsonFormat2(SnapshotStatus.apply)
+    implicit val healthFormat: RootJsonFormat[Health] = jsonFormat2(Health.apply)
   }
 
   lazy val objectStore = PgStore.get(appConfig.pgConfig)

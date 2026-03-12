@@ -21,7 +21,7 @@ import scala.util.control.NonFatal
 class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem,  val healthChecks: HealthChecks)
   extends Hashing with Formatting with Logging {
 
-  implicit val executionContext = system.dispatcher
+  implicit val executionContext: scala.concurrent.ExecutionContext = system.dispatcher
 
   protected lazy val rrdpWriter = new RrdpRepositoryWriter
 
