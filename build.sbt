@@ -14,7 +14,7 @@ scalacOptions := Seq("-unchecked", "-deprecation", "-feature", "-encoding", "utf
 mainClass in assembly := Some("net.ripe.rpki.publicationserver.Boot")
 assemblyJarName in assembly := "rpki-publication-server.jar"
 assemblyMergeStrategy in assembly := {
-  case "module-info.class" => MergeStrategy.discard
+  case x if x.endsWith("module-info.class") => MergeStrategy.discard
   case x => (assemblyMergeStrategy in assembly).value (x)
 }
 test in assembly := {}
