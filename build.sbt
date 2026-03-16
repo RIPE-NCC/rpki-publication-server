@@ -44,7 +44,7 @@ libraryDependencies ++= {
     // "org.apache.pekko"         %% "pekko-http2-support"    % pekkoHttp,
     "com.typesafe"             %% "ssl-config-core"        % "0.7.1",    
     "org.scalatest"            %% "scalatest"              % "3.2.19"  % "test",
-    "org.mockito"               % "mockito-core"           % "5.22.0"  % "test",
+    "org.mockito"               % "mockito-core"           % "5.23.0"  % "test",
     "com.fasterxml.woodstox"    % "woodstox-core"          % "7.1.1",     
     "ch.qos.logback"            % "logback-classic"        % "1.5.32",     
     "com.softwaremill.macwire" %% "macros"                 % macwire % "provided",
