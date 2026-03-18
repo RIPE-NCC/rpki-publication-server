@@ -25,7 +25,7 @@ class DataFlusherStressTest extends PublicationServerBaseTest with Hashing {
     override lazy val rrdpRepositoryPath = rrdpRootDfir.toAbsolutePath.toString
   }
 
-  implicit val healthChecks = new HealthChecks(conf)
+  implicit val healthChecks: HealthChecks = new HealthChecks(conf)
   val flusher = new DataFlusher(conf)
 
   before {

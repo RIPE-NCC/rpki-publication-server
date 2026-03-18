@@ -14,14 +14,14 @@ import scala.xml.XML
 
 class DataFlusherTest extends PublicationServerBaseTest with Hashing {
 
-  private var rrdpRootDir: Path = _
+  private var rrdpRootDir: Path = scala.compiletime.uninitialized
 
   private val pgStore = createPgStore
 
   private val urlPrefix1 = "rsync://host1.com"
   private val urlPrefix2 = "rsync://host2.com"
 
-  private var conf: AppConfig = _
+  private var conf: AppConfig = scala.compiletime.uninitialized
 
   before {
     pgStore.clear()
@@ -35,7 +35,7 @@ class DataFlusherTest extends PublicationServerBaseTest with Hashing {
       override lazy val unpublishedFileRetainPeriod = Duration(20, MILLISECONDS)
       override lazy val writeRrdp = writeRrdpFlag
     }
-    implicit val healthChecks = new HealthChecks(conf)
+    implicit val healthChecks: HealthChecks = new HealthChecks(conf)
     new DataFlusher(conf)
   }
 

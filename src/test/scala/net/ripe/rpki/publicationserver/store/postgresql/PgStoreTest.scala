@@ -78,7 +78,7 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
     val (bytes2, _) = TestBinaries.generateObject(500)
 
     pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = None, bytes1))), clientId)
-    freezeVersion
+    freezeVersion()
 
     val hash1 = hashOf(bytes1)
     pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, Some(hash1), bytes2))), clientId)
@@ -124,7 +124,7 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
     val (bytes3, _) = TestBinaries.generateObject(10)
 
     pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = None, bytes1))), clientId)
-    val VersionInfo(_, initialSerial, _) = freezeVersion
+    val VersionInfo(_, initialSerial, _) = freezeVersion()
     val initialState = Map(uri1 -> (bytes1, hashOf(bytes1), clientId))
     val initialLog = Seq((uri1, None, Some(bytes1)))
 
@@ -141,7 +141,7 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
       WithdrawQ(uri2, tag = None, hash = hashOf(bytes2)), // Withdraw object not yet published in delta
     )), clientId)
 
-    val VersionInfo(_, unchangedSerial, _) = freezeVersion
+    val VersionInfo(_, unchangedSerial, _) = freezeVersion()
     unchangedSerial should be(initialSerial)
     pgStore.getState should be(initialState)
     pgStore.getLog should be(initialLog)
@@ -261,7 +261,7 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
     val (bytes1, _) = TestBinaries.generateObject(1000)
 
     pgStore.applyChanges(QueryMessage(Seq(PublishQ(uri1, tag = None, hash = None, bytes1))), clientId)
-    freezeVersion
+    freezeVersion()
 
     val hash1 = hashOf(bytes1)
     pgStore.applyChanges(QueryMessage(Seq(WithdrawQ(uri1, tag = None, hash1))), clientId)
@@ -422,7 +422,7 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
       PublishQ(uri1, tag = None, hash = None, bytes1),
       PublishQ(uri2, tag = None, hash = None, bytes1),
     )), clientId)
-    freezeVersion
+    freezeVersion()
 
     pgStore.getState should be(Map(
       uri1 -> (bytes1, hashOf(bytes1), clientId),
@@ -437,7 +437,7 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
     pgStore.applyChanges(QueryMessage(Seq(
       WithdrawQ(uri1, tag = None, hash = hashOf(bytes1))
     )), clientId)
-    freezeVersion
+    freezeVersion()
 
     pgStore.getState should be(Map(
       uri2 -> (bytes1, hashOf(bytes1), clientId)
@@ -461,12 +461,12 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
     pgStore.applyChanges(QueryMessage(Seq(
       PublishQ(uri1, tag = None, hash = None, bytes1),
     )), clientId1)
-    freezeVersion
+    freezeVersion()
 
     pgStore.applyChanges(QueryMessage(Seq(
       WithdrawQ(uri1, tag = None, hash = hashOf(bytes1)),
     )), clientId1)
-    freezeVersion
+    freezeVersion()
 
     pgStore.getState should be(empty)
 
@@ -495,7 +495,7 @@ class PgStoreTest extends PublicationServerBaseTest with Hashing {
     })
 
     pgStore.applyChanges(QueryMessage(publishes), clientId1, Some(3))
-    freezeVersion
+    freezeVersion()
 
     val withdrawals = publishes.take(8).map {
       case PublishQ(uri, tag, _, b) =>

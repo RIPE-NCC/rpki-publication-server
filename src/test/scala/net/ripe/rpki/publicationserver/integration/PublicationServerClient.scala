@@ -48,8 +48,8 @@ class PublicationServerClient(
 ) {
   import PublicationServerClient._
 
-  implicit val system = ActorSystem()
-  implicit val executionContext = system.dispatcher
+  implicit val system: ActorSystem = ActorSystem()
+  implicit val executionContext: scala.concurrent.ExecutionContext = system.dispatcher
 
   private val publicationPort = 7766
   private val rrdpPort = 7788

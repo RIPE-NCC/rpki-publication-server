@@ -35,7 +35,7 @@ abstract class PublicationServerBaseTest extends AnyFunSuite with BeforeAndAfter
     PgStore.get(pgTestConfig)
   }
 
-  implicit lazy val testMetrics = Metrics.get(new CollectorRegistry(true));
+  implicit lazy val testMetrics: Metrics = Metrics.get(new CollectorRegistry(true));
 
   def cleanDir(path: Path) = {
     Try {

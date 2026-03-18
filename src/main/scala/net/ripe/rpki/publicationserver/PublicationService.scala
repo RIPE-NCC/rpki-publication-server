@@ -26,7 +26,7 @@ object PublicationService {
 class PublicationService(conf: AppConfig, metrics: Metrics)
     (implicit val system: ActorSystem) extends Logging {
 
-  implicit val executionContext = system.dispatcher
+  implicit val executionContext: scala.concurrent.ExecutionContext = system.dispatcher
 
   val msgParser = new PublicationMessageParser
 
