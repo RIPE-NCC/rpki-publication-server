@@ -65,15 +65,16 @@ class RrdpRepositoryWriter extends Logging {
   def deleteAllButSerials(rootDir: String, sessionId: UUID, serials: Set[Long]): Unit = {
     val names = serials.map(_.toString)
     val sessionDir = Paths.get(rootDir, sessionId.toString)
+    logger.info(s"Will clean up ${sessionDir}.")
     Files.list(sessionDir)
       .filter(f => !names.contains(f.getFileName.toString))
       .forEach { f =>
         val unknownFile = sessionDir.resolve(f)
         if (Files.isDirectory(unknownFile)) {
-          logger.debug(s"Deleting directory ${unknownFile}.")
+          logger.info(s"Deleting directory ${unknownFile}.")
           Files.walkFileTree(unknownFile, new RemovingFileVisitor(_ => true))
         } else {
-          logger.debug(s"Deleting file ${unknownFile}.")
+          logger.info(s"Deleting file ${unknownFile}.")
           Files.deleteIfExists(unknownFile)
         }
       }
