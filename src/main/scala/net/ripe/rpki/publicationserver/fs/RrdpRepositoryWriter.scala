@@ -61,6 +61,24 @@ class RrdpRepositoryWriter extends Logging {
 
   def deleteDeltas(rootDir: String, sessionId: UUID, serials: Set[Long]): Unit =
     serials.par.foreach(s => deleteDelta(rootDir, sessionId, s))
+
+  def deleteAllButSerials(rootDir: String, sessionId: UUID, serials: Set[Long]): Unit = {
+    val names = serials.map(_.toString)
+    val sessionDir = Paths.get(rootDir, sessionId.toString)
+    Files.list(sessionDir)
+      .filter(f => !names.contains(f.getFileName.toString))
+      .forEach { f =>
+        val unknownFile = sessionDir.resolve(f)
+        if (Files.isDirectory(unknownFile)) {
+          logger.debug(s"Deleting directory ${unknownFile}.")
+          Files.walkFileTree(unknownFile, new RemovingFileVisitor(_ => true))
+        } else {
+          logger.debug(s"Deleting file ${unknownFile}.")
+          Files.deleteIfExists(unknownFile)
+        }
+      }
+  }
+
 }
 
 object RrdpRepositoryWriter {

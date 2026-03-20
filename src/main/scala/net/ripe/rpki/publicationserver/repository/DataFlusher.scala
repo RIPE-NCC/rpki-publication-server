@@ -317,6 +317,18 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem,  val health
           rrdpWriter.deleteEmptyDirectories(conf.rrdpRepositoryPath)
         }
     }
+
+    // Delete files that are not related to any version in the database,
+    // i.e. files that are left from some previously existing sessions
+    pgStore.versions.groupBy(_._1).foreach {
+      case (sessionId, ss) =>
+        val serials = ss.map(_._2).toSet
+        system.scheduler.scheduleOnce(conf.unpublishedFileRetainPeriod) {
+          logger.info(s"Removing everything in ${conf.rrdpRepositoryPath}/${sessionId} that is not a valid serial.")
+          rrdpWriter.deleteAllButSerials(conf.rrdpRepositoryPath, UUID.fromString(sessionId), serials)
+        }
+    }
+
   }
 
 }
