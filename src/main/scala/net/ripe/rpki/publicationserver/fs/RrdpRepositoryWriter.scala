@@ -62,19 +62,32 @@ class RrdpRepositoryWriter extends Logging {
   def deleteDeltas(rootDir: String, sessionId: UUID, serials: Set[Long]): Unit =
     serials.par.foreach(s => deleteDelta(rootDir, sessionId, s))
 
-  def deleteAllButSerials(rootDir: String, sessionId: UUID, serials: Set[Long]): Unit = {
-    val names = serials.map(_.toString)
+  def deleteTooOldSerials(rootDir: String, sessionId: UUID, oldestSerial: Long): Unit = {
     val sessionDir = Paths.get(rootDir, sessionId.toString)
-    logger.info(s"Will clean up ${sessionDir}.")
+    logger.info(s"Will clean up $sessionDir.")
+    val deleteIt = true
     Files.list(sessionDir)
-      .filter(f => !names.contains(f.getFileName.toString))
+      .filter { f =>
+        val name = f.getFileName.toString
+        Try(name.toLong).toOption match {
+          case Some(serial) =>
+            if (serial <= oldestSerial) {
+              logger.info(s"$name is older than the oldest relevant version, will be deleted.")
+              deleteIt
+            }
+            else false
+          case _ =>
+            logger.info(s"$name doesn't look like a valid serial number, will be deleted.")
+            deleteIt
+        }
+      }
       .forEach { f =>
         val unknownFile = sessionDir.resolve(f)
         if (Files.isDirectory(unknownFile)) {
-          logger.info(s"Deleting directory ${unknownFile}.")
+          logger.info(s"Deleting directory $unknownFile.")
           Files.walkFileTree(unknownFile, new RemovingFileVisitor(_ => true))
         } else {
-          logger.info(s"Deleting file ${unknownFile}.")
+          logger.info(s"Deleting file $unknownFile.")
           Files.deleteIfExists(unknownFile)
         }
       }
