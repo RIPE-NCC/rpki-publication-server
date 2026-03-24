@@ -311,12 +311,12 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem, val healthC
     // Delete old versions in the database
     val oldVersions = pgStore.deleteOldVersions
     oldVersions.map(_._2).minOption.foreach { oldestSerial =>
-      pgStore.getCurrentSessionInfo.foreach { case (version, _, _) =>
+      pgStore.getCurrentSessionInfo.foreach { case (VersionInfo(sessionId, _, _), _, _) =>
         system.scheduler.scheduleOnce(conf.unpublishedFileRetainPeriod) {
           // We want to clean up stuff that
           // - Serial directories that are older than the oldest relevant serial
           // - Files or directories that don't look like valid serial numbers at all
-          rrdpWriter.deleteTooOldSerials(conf.rrdpRepositoryPath, UUID.fromString(version.sessionId), oldestSerial)
+          rrdpWriter.deleteTooOldSerials(conf.rrdpRepositoryPath, UUID.fromString(sessionId), oldestSerial)
           rrdpWriter.deleteEmptyDirectories(conf.rrdpRepositoryPath)
         }
       }
