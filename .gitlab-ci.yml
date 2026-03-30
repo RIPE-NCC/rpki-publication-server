@@ -114,6 +114,20 @@ release:latest:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - when: never
 
+sonarqube-analysis:
+  stage: build
+  needs: ["build"]
+  script:
+    - mvn -Dsonar.projectKey="${SONAR_PROJECT_KEY}" test sonar:sonar
+  rules:
+    - if: $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^renovate/
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      allow_failure: true
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      allow_failure: true
+    - when: on_success
+
 #
 # Update a Salt-managed container with a new version of an image.
 #
