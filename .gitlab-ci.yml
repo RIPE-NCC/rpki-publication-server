@@ -127,14 +127,20 @@ sonarqube-analysis:
     paths:
       - .sonar/cache
   script:
-    - >
-      sonar-scanner
-      -Dsonar.projectKey="${SONAR_PROJECT_KEY}"
-      -Dsonar.projectName="${CI_PROJECT_NAME}"
-      -Dsonar.sources=src/main/scala
-      -Dsonar.tests=src/test/scala
-      -Dsonar.sourceEncoding=UTF-8
-      -Dsonar.scala.coverage.reportPaths=target/scala-*/scoverage-report/scoverage.xml
+    - |
+      PROJECT_KEY="${SONAR_PROJECT_KEY:-$CI_PROJECT_PATH_SLUG}"
+      if [ -z "$PROJECT_KEY" ]; then
+        echo "ERROR: SONAR_PROJECT_KEY is not set and no fallback available"
+        exit 1
+      fi
+      echo "Using SonarQube project key: $PROJECT_KEY"
+      sonar-scanner \
+        -Dsonar.projectKey="$PROJECT_KEY" \
+        -Dsonar.projectName="${CI_PROJECT_NAME}" \
+        -Dsonar.sources=src/main/scala \
+        -Dsonar.tests=src/test/scala \
+        -Dsonar.sourceEncoding=UTF-8 \
+        -Dsonar.scala.coverage.reportPaths=target/scala-*/scoverage-report/scoverage.xml
   rules:
     - if: $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^renovate/
       when: never
