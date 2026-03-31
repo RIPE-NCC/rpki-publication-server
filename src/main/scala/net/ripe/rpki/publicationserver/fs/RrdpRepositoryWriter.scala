@@ -1,13 +1,13 @@
 package net.ripe.rpki.publicationserver.fs
 
-import net.ripe.rpki.publicationserver._
+import net.ripe.rpki.publicationserver.*
 
 import java.io.{FileOutputStream, OutputStream}
-import java.nio.file._
+import java.nio.file.*
 import java.nio.file.attribute.{FileTime, PosixFilePermissions}
 import java.util.UUID
-import scala.collection.parallel.CollectionConverters._
-import scala.util.Try
+import scala.collection.parallel.CollectionConverters.*
+import scala.util.{Failure, Success, Try}
 
 class RrdpRepositoryWriter extends Logging {
 
@@ -69,26 +69,19 @@ class RrdpRepositoryWriter extends Logging {
     Files.list(sessionDir)
       .filter { f =>
         val name = f.getFileName.toString
-        Try(name.toLong).toOption match {
-          case Some(serial) =>
-            if (serial <= oldestSerial) {
-              logger.info(s"$name is older than the oldest relevant version, will be deleted.")
-              deleteIt
-            }
-            else false
-          case _ =>
-            logger.info(s"$name doesn't look like a valid serial number, will be deleted.")
-            deleteIt
+        Try(name.toLong) match {
+          case Success(serial) => serial <= oldestSerial
+          case _ => false
         }
       }
       .forEach { f =>
-        val unknownFile = sessionDir.resolve(f)
-        if (Files.isDirectory(unknownFile)) {
-          logger.info(s"Deleting directory $unknownFile.")
-          Files.walkFileTree(unknownFile, new RemovingFileVisitor(_ => true))
+        val path = sessionDir.resolve(f)
+        if (Files.isDirectory(path)) {
+          logger.info(s"Deleting directory $path.")
+          Files.walkFileTree(path, new RemovingFileVisitor(_ => true))
         } else {
-          logger.info(s"Deleting file $unknownFile.")
-          Files.deleteIfExists(unknownFile)
+          logger.info(s"Deleting file $path.")
+          Files.deleteIfExists(path)
         }
       }
   }
