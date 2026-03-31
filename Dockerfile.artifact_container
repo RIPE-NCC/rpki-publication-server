@@ -1,4 +1,4 @@
-FROM docker-registry.ripe.net/swe/gitlab-ci/awsebcli:3.18.2
+FROM docker-registry.ripe.net/swe/gitlab-ci/awsebcli:3.18.2@sha256:8be01a63f6cc1bcd25ff6498a5c7b518e6a7bfe503d5c620c8d4d1a81093c394
 
 COPY target/universal/*.tgz . 
 
