@@ -62,7 +62,7 @@ class RrdpRepositoryWriter extends Logging {
   def deleteDeltas(rootDir: String, sessionId: UUID, serials: Set[Long]): Unit =
     serials.par.foreach(s => deleteDelta(rootDir, sessionId, s))
 
-  def deleteTooOldSerials(rootDir: String, sessionId: UUID, oldestSerial: Long): Unit = {
+  def deleteTooOldSerials(rootDir: String, sessionId: UUID, cutOffSerial: Long): Unit = {
     val sessionDir = Paths.get(rootDir, sessionId.toString)
     logger.info(s"Will clean up $sessionDir.")
     val deleteIt = true
@@ -70,7 +70,7 @@ class RrdpRepositoryWriter extends Logging {
       .filter { f =>
         val name = f.getFileName.toString
         Try(name.toLong) match {
-          case Success(serial) => serial <= oldestSerial
+          case Success(serial) => serial <= cutOffSerial
           case _ => false
         }
       }
