@@ -104,11 +104,4 @@ mappings in Universal += file("src/main/scripts/rpki-publication-server.sh") -> 
 mappings in Universal += file("src/main/resources/reference.conf") -> "conf/rpki-publication-server.default.conf"
 mappings in Universal += file("src/main/resources/logback.xml") -> "lib/logback.xml"
 
-// SonarQube configuration
-/*sonarProperties := Map(
-  "sonar.sources" -> "src/main/scala",
-  "sonar.tests" -> "src/test/scala",
-  "sonar.sourceEncoding" -> "UTF-8",
-  "sonar.scala.coverage.reportPaths" -> "target/scala-3.8.2/scoverage-report/scoverage.xml"
-)*/
 
