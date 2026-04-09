@@ -246,3 +246,19 @@ deploy:pilot:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - when: never
 
+deploy:qa:
+  <<: *salt-container-deploy
+  needs: ["docker-image"]
+  variables:
+    IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+    TARGET_CONTAINER: rpki-publication-server
+    READINESS_URL: http://127.0.0.1:7788/monitoring/healthcheck
+    TARGET_TAG: qa
+    TARGET_HOST: qa-01.rpki.prepdev.ripe.net
+    PUBSERVER_URL: http://qa-01.rpki.prepdev.ripe.net:7788/monitoring/healthcheck
+  environment:
+    name: qa
+    url: "$PUBSERVER_URL"
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - when: never
