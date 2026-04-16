@@ -261,4 +261,4 @@ deploy:qa:
     url: "$PUBSERVER_URL"
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - when: never
+    - when: manual
