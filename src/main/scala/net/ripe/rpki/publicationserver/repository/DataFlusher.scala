@@ -283,16 +283,16 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem, val healthC
     //
     // First remove the ones that are more than `oldEnough`
     logger.info(s"Removing all the sessions in RRDP repository except for $sessionId")
-    rrdpWriter.deleteSessionsOlderThanExceptForOne(conf.rrdpRepositoryPath, oldEnough, sessionId)
+    rrdpWriter.deleteSessionsOlderThanExceptForOne(Paths.get(conf.rrdpRepositoryPath), oldEnough, sessionId)
     logger.info(s"Removing empty directories in ${conf.rrdpRepositoryPath}")
-    rrdpWriter.deleteEmptyDirectories(conf.rrdpRepositoryPath)
+    rrdpWriter.deleteEmptyDirectories(Paths.get(conf.rrdpRepositoryPath))
 
     // Wait for the time T and delete those which are older than `now`
     system.scheduler.scheduleOnce(conf.unpublishedFileRetainPeriod) {
       logger.info(s"Removing all the older sessions in RRDP repository except for $sessionId")
-      rrdpWriter.deleteSessionsOlderThanExceptForOne(conf.rrdpRepositoryPath, FileTime.from(now), sessionId)
+      rrdpWriter.deleteSessionsOlderThanExceptForOne(Paths.get(conf.rrdpRepositoryPath), FileTime.from(now), sessionId)
       logger.info(s"Removing empty directories in ${conf.rrdpRepositoryPath}")
-      rrdpWriter.deleteEmptyDirectories(conf.rrdpRepositoryPath)
+      rrdpWriter.deleteEmptyDirectories(Paths.get(conf.rrdpRepositoryPath))
     }
   }
 
@@ -305,7 +305,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem, val healthC
     // cleanup current session
     pgStore.getCurrentSessionInfo.foreach { case (version, _, _) =>
       logger.info(s"Removing snapshots from the session ${version.sessionId} older than $oldEnough and having serial number older than ${version.serial}")
-      rrdpWriter.deleteSnapshotsOlderThan(conf.rrdpRepositoryPath, oldEnough, version.serial)
+      rrdpWriter.deleteSnapshotsOlderThan(Paths.get(conf.rrdpRepositoryPath), oldEnough, version.serial)
     }
 
     // Delete old versions in the database
@@ -316,8 +316,8 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem, val healthC
           // We want to clean up stuff that
           // - Serial directories that are older than the oldest relevant serial
           // - Files or directories that don't look like valid serial numbers at all
-          rrdpWriter.deleteTooOldSerials(conf.rrdpRepositoryPath, UUID.fromString(sessionId), oldestSerial)
-          rrdpWriter.deleteEmptyDirectories(conf.rrdpRepositoryPath)
+          rrdpWriter.deleteTooOldSerials(Paths.get(conf.rrdpRepositoryPath), UUID.fromString(sessionId), oldestSerial)
+          rrdpWriter.deleteEmptyDirectories(Paths.get(conf.rrdpRepositoryPath))
         }
       }
     }

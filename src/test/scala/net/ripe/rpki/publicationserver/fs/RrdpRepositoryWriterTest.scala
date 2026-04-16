@@ -28,7 +28,7 @@ class RrdpRepositoryWriterTest extends PublicationServerBaseTest {
     assume(toDelete.nonEmpty)
     assume(toKeep.nonEmpty)
 
-    subject.deleteSnapshotsOlderThan(rootDir.toString, FileTime.fromMillis(deleteTimestamp), 0)
+    subject.deleteSnapshotsOlderThan(rootDir, FileTime.fromMillis(deleteTimestamp), 0)
 
     toDelete.filter(Files.exists(_)) shouldBe empty
     toKeep.filter(Files.notExists(_)) shouldBe empty
@@ -36,10 +36,10 @@ class RrdpRepositoryWriterTest extends PublicationServerBaseTest {
 
   test("should delete deltas") {
     val (sessionId, serials) = setupDeltas()
-    subject.deleteDeltas(rootDir.toString, sessionId, serials.toSet)
+    subject.deleteDeltas(rootDir, sessionId, serials.toSet)
 
     serials.filter(serial =>
-      Files.exists(Paths.get(rootDir.toString, sessionId.toString, serial.toString, "delta-1.xml"))
+      Files.exists(rootDir.resolve(sessionId.toString).resolve(serial.toString).resolve("delta-1.xml"))
     ) shouldBe empty
   }
 
