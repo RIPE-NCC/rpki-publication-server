@@ -257,7 +257,7 @@ deploy:qa:
     TARGET_HOST: qa-01.rpki.prepdev.ripe.net
     PUBSERVER_URL: http://qa-01.rpki.prepdev.ripe.net:7788/monitoring/healthcheck
   environment:
-    name: prepdev
+    name: qa
     url: "$PUBSERVER_URL"
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
