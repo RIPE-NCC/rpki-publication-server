@@ -1,11 +1,11 @@
 package net.ripe.rpki.publicationserver.repository
 
-import org.apache.pekko.actor.ActorSystem
+import net.ripe.rpki.publicationserver.*
 import net.ripe.rpki.publicationserver.Binaries.Bytes
-import net.ripe.rpki.publicationserver._
 import net.ripe.rpki.publicationserver.fs.{Rrdp, RrdpRepositoryWriter}
 import net.ripe.rpki.publicationserver.store.postgresql.{DeltaInfo, PgStore, SnapshotInfo, VersionInfo}
 import net.ripe.rpki.publicationserver.util.Time
+import org.apache.pekko.actor.ActorSystem
 import scalikejdbc.DBSession
 
 import java.io.{FileOutputStream, OutputStream}
@@ -18,7 +18,7 @@ import java.util.{Date, UUID}
 import scala.util.control.NonFatal
 
 
-class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem,  val healthChecks: HealthChecks)
+class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem, val healthChecks: HealthChecks)
   extends Hashing with Formatting with Logging {
 
   implicit val executionContext: scala.concurrent.ExecutionContext = system.dispatcher
@@ -28,7 +28,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem,  val health
   lazy val pgStore = PgStore.get(conf.pgConfig)
 
   // The latest serial for which version freeze was initiated by this server instance.
-  private var latestFrozenSerial : Option[Long] = None
+  private var latestFrozenSerial: Option[Long] = None
 
   // Write initial state of the database into the RRDP repository
   // Do not change anything in the DB here.
@@ -85,12 +85,13 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem,  val health
   }
 
   private def updateSnapshot(version: VersionInfo)(implicit session: DBSession) = {
-    import version._
+    import version.*
     val snapshotPath = rrdpFilePath(sessionId, serial)
 
-    val (snapshotFileName, snapshotHash, snapshotSize, objectCounts) = withAtomicStream(snapshotPath, fileNameSecret, snapshotFileNameFromHmac, rrdpWriter.fileAttributes) {
-      writeRrdpSnapshot(sessionId, serial, _)
-    }
+    val (snapshotFileName, snapshotHash, snapshotSize, objectCounts) =
+      withAtomicStream(snapshotPath, fileNameSecret, snapshotFileNameFromHmac, rrdpWriter.fileAttributes) {
+        writeRrdpSnapshot(sessionId, serial, _)
+      }
 
     val info = SnapshotInfo(version, snapshotFileName, snapshotHash, snapshotSize)
     pgStore.updateSnapshotInfo(info)
@@ -99,7 +100,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem,  val health
 
 
   private def updateDelta(version: VersionInfo)(implicit session: DBSession) = {
-    import version._
+    import version.*
     val deltaPath = rrdpFilePath(sessionId, serial)
 
     val (deltaFileName, deltaHash, deltaSize, deltaCount) = withAtomicStream(deltaPath, fileNameSecret, deltaFileNameFromHmac, rrdpWriter.fileAttributes) {
@@ -112,7 +113,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem,  val health
   }
 
   private def updateRrdpFS(version: VersionInfo, latestFrozenPreviously: Option[Long])(implicit session: DBSession) = {
-    import version._
+    import version.*
 
     // Generate snapshot for the latest serial, we are only able to generate the latest snapshot
     val (snapshotInfo, objectsCount) = updateSnapshot(version)
@@ -127,7 +128,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem,  val health
 
     latestFrozenPreviously match {
       case None =>
-        // Generate only the latest delta, it's the first time
+      // Generate only the latest delta, it's the first time
 
       case Some(previous) =>
         // Catch up on deltas, i.e. generate deltas from `latestFrozenPreviously` to `serial`.
@@ -186,7 +187,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem,  val health
     objectCounts
   }
 
-  def writeRrdpDelta(sessionId: String, serial: Long, deltaOs: OutputStream)(implicit session: DBSession):Int = {
+  def writeRrdpDelta(sessionId: String, serial: Long, deltaOs: OutputStream)(implicit session: DBSession): Int = {
     var objectCounts = 0
     val (_, duration) = Time.timed {
       IOStream.string(s"""<delta version="1" session_id="$sessionId" serial="$serial" xmlns="http://www.ripe.net/rpki/rrdp">\n""", deltaOs)
@@ -252,7 +253,7 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem,  val health
     IOStream.string("</publish>\n", stream)
   }
 
-  def withAtomicStream(targetDirectory: Path, secret: Bytes, filenameFromMac: Bytes => String, attrs: FileAttributes)(f : OutputStream => Int) = {
+  def withAtomicStream(targetDirectory: Path, secret: Bytes, filenameFromMac: Bytes => String, attrs: FileAttributes)(f: OutputStream => Int) = {
     val tmpFile = Files.createTempFile(targetDirectory, "", ".xml", attrs)
     val tmpStream = new HashingSizedStream(secret, new FileOutputStream(tmpFile.toFile))
     try {
@@ -282,16 +283,16 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem,  val health
     //
     // First remove the ones that are more than `oldEnough`
     logger.info(s"Removing all the sessions in RRDP repository except for $sessionId")
-    rrdpWriter.deleteSessionsOlderThanExceptForOne(conf.rrdpRepositoryPath, oldEnough, sessionId)
+    rrdpWriter.deleteSessionsOlderThanExceptForOne(Paths.get(conf.rrdpRepositoryPath), oldEnough, sessionId)
     logger.info(s"Removing empty directories in ${conf.rrdpRepositoryPath}")
-    rrdpWriter.deleteEmptyDirectories(conf.rrdpRepositoryPath)
+    rrdpWriter.deleteEmptyDirectories(Paths.get(conf.rrdpRepositoryPath))
 
     // Wait for the time T and delete those which are older than `now`
     system.scheduler.scheduleOnce(conf.unpublishedFileRetainPeriod) {
       logger.info(s"Removing all the older sessions in RRDP repository except for $sessionId")
-      rrdpWriter.deleteSessionsOlderThanExceptForOne(conf.rrdpRepositoryPath, FileTime.from(now), sessionId)
+      rrdpWriter.deleteSessionsOlderThanExceptForOne(Paths.get(conf.rrdpRepositoryPath), FileTime.from(now), sessionId)
       logger.info(s"Removing empty directories in ${conf.rrdpRepositoryPath}")
-      rrdpWriter.deleteEmptyDirectories(conf.rrdpRepositoryPath)
+      rrdpWriter.deleteEmptyDirectories(Paths.get(conf.rrdpRepositoryPath))
     }
   }
 
@@ -304,18 +305,21 @@ class DataFlusher(conf: AppConfig)(implicit val system: ActorSystem,  val health
     // cleanup current session
     pgStore.getCurrentSessionInfo.foreach { case (version, _, _) =>
       logger.info(s"Removing snapshots from the session ${version.sessionId} older than $oldEnough and having serial number older than ${version.serial}")
-      rrdpWriter.deleteSnapshotsOlderThan(conf.rrdpRepositoryPath, oldEnough, version.serial)
+      rrdpWriter.deleteSnapshotsOlderThan(Paths.get(conf.rrdpRepositoryPath), oldEnough, version.serial)
     }
 
-    // Delete version that are removed from the database
-    pgStore.deleteOldVersions.groupBy(_._1).foreach {
-      case (sessionId, ss) =>
-        val serials = ss.map(_._2).toSet
+    // Delete old versions in the database
+    val oldVersions = pgStore.deleteOldVersions
+    oldVersions.map(_._2).minOption.foreach { oldestSerial =>
+      pgStore.getCurrentSessionInfo.foreach { case (VersionInfo(sessionId, _, _), _, _) =>
         system.scheduler.scheduleOnce(conf.unpublishedFileRetainPeriod) {
-          rrdpWriter.deleteDeltas(conf.rrdpRepositoryPath, UUID.fromString(sessionId), serials)
-          logger.info(s"Removing empty directories in ${conf.rrdpRepositoryPath}")
-          rrdpWriter.deleteEmptyDirectories(conf.rrdpRepositoryPath)
+          // We want to clean up stuff that
+          // - Serial directories that are older than the oldest relevant serial
+          // - Files or directories that don't look like valid serial numbers at all
+          rrdpWriter.deleteTooOldSerials(Paths.get(conf.rrdpRepositoryPath), UUID.fromString(sessionId), oldestSerial)
+          rrdpWriter.deleteEmptyDirectories(Paths.get(conf.rrdpRepositoryPath))
         }
+      }
     }
   }
 

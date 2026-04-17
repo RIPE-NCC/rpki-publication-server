@@ -1,13 +1,13 @@
 package net.ripe.rpki.publicationserver.fs
 
-import net.ripe.rpki.publicationserver._
+import net.ripe.rpki.publicationserver.*
 
 import java.io.{FileOutputStream, OutputStream}
-import java.nio.file._
+import java.nio.file.*
 import java.nio.file.attribute.{FileTime, PosixFilePermissions}
 import java.util.UUID
-import scala.collection.parallel.CollectionConverters._
-import scala.util.Try
+import scala.collection.parallel.CollectionConverters.*
+import scala.util.{Failure, Success, Try}
 
 class RrdpRepositoryWriter extends Logging {
 
@@ -35,18 +35,18 @@ class RrdpRepositoryWriter extends Logging {
   private def getRootFolder(rootDir: String): Path = Files.createDirectories(Paths.get(rootDir))
 
 
-  def deleteSnapshotsOlderThan(rootDir: String, timestamp: FileTime, latestSerial: Long): Unit = {
-    Files.walkFileTree(Paths.get(rootDir), new RemovingFileVisitor(RrdpRepositoryWriter.snapshotToDelete(timestamp, latestSerial)))
+  def deleteSnapshotsOlderThan(rootDir: Path, timestamp: FileTime, latestSerial: Long): Unit = {
+    Files.walkFileTree(rootDir, new RemovingFileVisitor(RrdpRepositoryWriter.snapshotToDelete(timestamp, latestSerial)))
   }
 
-  def deleteSessionsOlderThanExceptForOne(rootDir: String, timestamp: FileTime, sessionId: UUID): Path =
-    Files.walkFileTree(Paths.get(rootDir), new RemoveAllVisitorExceptOneSession(sessionId.toString, timestamp))
+  def deleteSessionsOlderThanExceptForOne(rootDir: Path, timestamp: FileTime, sessionId: UUID): Path =
+    Files.walkFileTree(rootDir, new RemoveAllVisitorExceptOneSession(sessionId.toString, timestamp))
 
-  def deleteEmptyDirectories(rootDir: String): Unit =
-    Files.walkFileTree(Paths.get(rootDir), new RemoveEmptyDirectoriesVisitor())
+  def deleteEmptyDirectories(rootDir: Path): Unit =
+    Files.walkFileTree(rootDir, new RemoveEmptyDirectoriesVisitor())
 
-  def deleteDelta(rootDir: String, sessionId: UUID, serial: Long): AnyVal = {
-    val sessionSerialDir = Paths.get(rootDir, sessionId.toString, serial.toString)
+  def deleteDelta(rootDir: Path, sessionId: UUID, serial: Long): AnyVal = {
+    val sessionSerialDir = rootDir.resolve(sessionId.toString).resolve(serial.toString)
     Files.list(sessionSerialDir).
       filter(Rrdp.isDelta).
       forEach(f => {
@@ -59,8 +59,33 @@ class RrdpRepositoryWriter extends Logging {
     }
   }
 
-  def deleteDeltas(rootDir: String, sessionId: UUID, serials: Set[Long]): Unit =
+  def deleteDeltas(rootDir: Path, sessionId: UUID, serials: Set[Long]): Unit =
     serials.par.foreach(s => deleteDelta(rootDir, sessionId, s))
+
+  def deleteTooOldSerials(rootDir: Path, sessionId: UUID, cutOffSerial: Long): Unit = {
+    val sessionDir = rootDir.resolve(sessionId.toString)
+    logger.info(s"Will clean up $sessionDir.")
+    val deleteIt = true
+    Files.list(sessionDir)
+      .filter { f =>
+        val name = f.getFileName.toString
+        Try(name.toLong) match {
+          case Success(serial) => serial <= cutOffSerial
+          case _ => false
+        }
+      }
+      .forEach { f =>
+        val path = sessionDir.resolve(f)
+        if (Files.isDirectory(path)) {
+          logger.info(s"Deleting directory $path.")
+          Files.walkFileTree(path, new RemovingFileVisitor(_ => true))
+        } else {
+          logger.info(s"Deleting file $path.")
+          Files.deleteIfExists(path)
+        }
+      }
+  }
+
 }
 
 object RrdpRepositoryWriter {

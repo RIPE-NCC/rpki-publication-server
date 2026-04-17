@@ -281,6 +281,12 @@ class PgStore(val pgConfig: PgConfig) extends Hashing with Logging {
       .list()
   }
 
+  def versions(implicit session: DBSession) = {
+    sql"SELECT session_id, serial FROM versions"
+      .map(rs => (rs.string(1), rs.long(2)))
+      .list()
+  }
+
   def changesExist()(implicit session: DBSession) = {
     sql"SELECT changes_exist()"
       .map(rs => rs.boolean(1))
