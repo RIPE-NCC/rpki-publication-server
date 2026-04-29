@@ -103,7 +103,7 @@ Use following commands to generate and install client's certificate into server'
 
 * Generate client's key pair and certificate:
 
-> $ keytool -genkey -alias pub-client -keystore clientKeyStore.ks
+> $ keytool -genkey -alias pub-client -keystore clientKeyStore.ks -keyalg RSA -keysize 4096 -sigalg SHA384withRSA
 
 * Export client's certficate:
 
