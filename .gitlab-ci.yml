@@ -99,6 +99,7 @@ build:
       fi
     - 'COVERAGE=$(awk -v rate="$LINE_RATE" ''BEGIN { printf "%.2f", rate * 100 }'')'
     - 'echo "Coverage: ${COVERAGE}%"'
+    - 'echo "CI_COVERAGE ${COVERAGE}"'
     - |
       awk -v coverage="$COVERAGE" -v threshold="$COVERAGE_THRESHOLD" 'BEGIN {
         if (coverage + 0 < threshold + 0) {
@@ -106,7 +107,7 @@ build:
           exit 1
         }
       }'
-  coverage: '/Coverage:\s+(\d+(\.\d+)?)%/'
+  coverage: '/CI_COVERAGE\s+(\d+(?:\.\d+)?)/'
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
