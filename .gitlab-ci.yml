@@ -90,7 +90,7 @@ build:
         exit 1
       fi
     - cp "$JACOCO_XML" coverage/jacoco.xml
-    - echo "Using JaCoCo report: $JACOCO_XML"
+    - 'echo "Using JaCoCo report: $JACOCO_XML"'
     - |
       python3 - <<'PY'
       import os
@@ -129,7 +129,7 @@ build:
       junit:
         - target/test-reports/*.xml
       coverage_report:
-        coverage_format: jacoco
+        coverage_format: cobertura
         path: coverage/jacoco.xml
     expire_in: 4 weeks
 
