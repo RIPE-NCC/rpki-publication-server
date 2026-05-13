@@ -79,34 +79,31 @@ build:
     - apk add --no-cache postgresql-client python3
     - psql -h postgres -U ${POSTGRES_USER} ${POSTGRES_DB} -c 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp";'
   script:
-    - sbt clean test jacocoReport assembly | tee sbt-coverage.log
+    - sbt clean coverage test coverageReport assembly | tee sbt-coverage.log
     - mkdir -p coverage
-    - JACOCO_XML="$(find . -type f -path '*target/scala-*/jacoco/report/jacoco.xml' | head -n1)"
+    - COBERTURA_XML="$(find . -type f -path '*coverage-report/cobertura.xml' | head -n1)"
     - |
-      if [ -z "$JACOCO_XML" ]; then
-        echo "jacoco.xml not found. Searched from $(pwd)"
+      if [ -z "$COBERTURA_XML" ]; then
+        echo "cobertura.xml not found. Searched from $(pwd)"
         echo "Candidate report files:"
-        find . -maxdepth 6 -type f | grep -Ei 'jacoco|coverage|report' || true
+        find . -maxdepth 8 -type f | grep -Ei 'cobertura|scoverage|coverage|report' || true
         exit 1
       fi
-    - cp "$JACOCO_XML" coverage/jacoco.xml
-    - 'echo "Using JaCoCo report: $JACOCO_XML"'
+    - cp "$COBERTURA_XML" coverage/cobertura.xml
+    - 'echo "Using Cobertura report: $COBERTURA_XML"'
     - |
       python3 - <<'PY'
       import os
       import xml.etree.ElementTree as ET
 
-      tree = ET.parse("coverage/jacoco.xml")
+      tree = ET.parse("coverage/cobertura.xml")
       root = tree.getroot()
 
-      counter = root.find("./counter[@type='LINE']") or root.find(".//counter[@type='LINE']")
-      if counter is None:
-          raise SystemExit("No LINE counter found in jacoco.xml")
+      line_rate = root.attrib.get("line-rate")
+      if line_rate is None:
+          raise SystemExit("No line-rate attribute found in cobertura.xml")
 
-      missed = int(counter.attrib.get("missed", 0))
-      covered = int(counter.attrib.get("covered", 0))
-      total = missed + covered
-      pct = (covered / total * 100.0) if total else 0.0
+      pct = float(line_rate) * 100.0
       threshold = float(os.environ.get("COVERAGE_THRESHOLD", "80.00"))
 
       print(f"Coverage: {pct:.2f}%")
@@ -123,14 +120,15 @@ build:
   artifacts:
     paths:
       - target/rpki-publication-server.jar
-      - coverage/jacoco.xml
-      - target/scala-*/jacoco/report/
+      - coverage/cobertura.xml
+      - target/coverage-report/
+      - target/scoverage-report/
     reports:
       junit:
         - target/test-reports/*.xml
       coverage_report:
         coverage_format: cobertura
-        path: coverage/jacoco.xml
+        path: coverage/cobertura.xml
     expire_in: 4 weeks
 
 # All the package stages only require the test job, so whitesource scanning can
