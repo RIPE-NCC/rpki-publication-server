@@ -91,7 +91,7 @@ build:
       fi
     - cp "$COBERTURA_XML" coverage/cobertura.xml
     - 'echo "Using Cobertura report: $COBERTURA_XML"'
-    - 'LINE_RATE=$(grep -Eo ''line-rate="[0-9.]+"'' coverage/cobertura.xml | head -n1 | sed -E ''s/line-rate="([0-9.]+)"/\1/'')'
+    - 'LINE_RATE=$(grep -m1 -Eo ''line-rate="[0-9.]+"'' coverage/cobertura.xml | sed -E ''s/line-rate="([0-9.]+)"/\1/'')'
     - |
       if [ -z "$LINE_RATE" ]; then
         echo "line-rate attribute not found in coverage/cobertura.xml"
