@@ -103,5 +103,3 @@ crossPaths := false
 mappings in Universal += file("src/main/scripts/rpki-publication-server.sh") -> "bin/rpki-publication-server.sh"
 mappings in Universal += file("src/main/resources/reference.conf") -> "conf/rpki-publication-server.default.conf"
 mappings in Universal += file("src/main/resources/logback.xml") -> "lib/logback.xml"
-
-
