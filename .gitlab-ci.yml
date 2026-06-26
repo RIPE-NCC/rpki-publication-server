@@ -33,6 +33,8 @@ include:
 variables:
   DEBIAN_FRONTEND: noninteractive
   TERM: dumb
+  SBT_OPTS: "-Dsbt.ivy.home=${CI_PROJECT_DIR}/.ivy2"
+  COURSIER_CACHE: "${CI_PROJECT_DIR}/.cache/coursier"
 
 default:
   image: sbtscala/scala-sbt:eclipse-temurin-alpine-24.0.1_9_1.11.7_2.13.17@sha256:553bd3636dc0828d590b447fa9dbf2c7b7b0f3c47f13de6032e4e95a8858abef
@@ -45,6 +47,8 @@ cache: &global_cache
   policy: pull
   paths:
     - "${CI_PROJECT_DIR}/.sbt"
+    - "${CI_PROJECT_DIR}/.ivy2"
+    - "${CI_PROJECT_DIR}/.cache/coursier"
 
 dependency-dot:
   stage: .pre
@@ -62,9 +66,10 @@ build:
   stage: build
   services:
     - postgres:18@sha256:059fa0289cc5a184034e05a1f4f6d6fd79f69dc718b8b04ab60b6b469eed411e
-  variables:        
+  variables:
+    COVERAGE_THRESHOLD: "80.00"
     POSTGRES_PASSWORD: postgres
-    POSTGRES_USER: pubserver  
+    POSTGRES_USER: pubserver
     POSTGRES_DB: pubserver_test
     POSTGRES_HOST_AUTH_METHOD: trust
     POSTGRES_URL: "jdbc:postgresql://postgres:5432/pubserver_test"
@@ -72,15 +77,53 @@ build:
     <<: *global_cache
   before_script:
     - apk add --no-cache postgresql-client
-    - psql -h postgres -U ${POSTGRES_USER} ${POSTGRES_DB} -c 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp";'    
+    - psql -h postgres -U ${POSTGRES_USER} ${POSTGRES_DB} -c 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp";'
   script:
-    - sbt compile test assembly    
+    - sbt clean coverage test coverageReport assembly | tee sbt-coverage.log
+    - mkdir -p coverage
+    - COBERTURA_XML="$(find . -type f -path '*coverage-report/cobertura.xml' | head -n1)"
+    - |
+      if [ -z "$COBERTURA_XML" ]; then
+        echo "cobertura.xml not found. Searched from $(pwd)"
+        echo "Candidate report files:"
+        find . -maxdepth 8 -type f | grep -Ei 'cobertura|scoverage|coverage|report' || true
+        exit 1
+      fi
+    - cp "$COBERTURA_XML" coverage/cobertura.xml
+    - 'echo "Using Cobertura report: $COBERTURA_XML"'
+    - 'LINE_RATE=$(grep -m1 -Eo ''line-rate="[0-9.]+"'' coverage/cobertura.xml | sed -E ''s/line-rate="([0-9.]+)"/\1/'')'
+    - |
+      if [ -z "$LINE_RATE" ]; then
+        echo "line-rate attribute not found in coverage/cobertura.xml"
+        exit 1
+      fi
+    - 'COVERAGE=$(awk -v rate="$LINE_RATE" ''BEGIN { printf "%.2f", rate * 100 }'')'
+    - 'echo "Coverage: ${COVERAGE}%"'
+    - 'echo "CI_COVERAGE ${COVERAGE}"'
+    - |
+      awk -v coverage="$COVERAGE" -v threshold="$COVERAGE_THRESHOLD" 'BEGIN {
+        if (coverage + 0 < threshold + 0) {
+          printf "Coverage %s%% is below threshold %s%%\n", coverage, threshold
+          exit 1
+        }
+      }'
+  coverage: '/CI_COVERAGE\s+(\d+(?:\.\d+)?)/'
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - when: never
   artifacts:
     paths:
       - target/rpki-publication-server.jar
+      - coverage/cobertura.xml
+      - target/coverage-report/
+      - target/scoverage-report/
     reports:
       junit:
         - target/test-reports/*.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage/cobertura.xml
     expire_in: 4 weeks
 
 # All the package stages only require the test job, so whitesource scanning can
@@ -113,6 +156,47 @@ release:latest:
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - when: never
+
+sonarqube-analysis:
+  stage: build
+  needs: ["build"]
+  variables:
+    SONAR_SCANNER_OPTS: "-Xmx2G"
+  cache:
+    <<: *global_cache
+  script:
+    - |
+      sbt -Dsonar.host.url="${SONAR_HOST_URL}" \
+          -Dsonar.login="${SONAR_TOKEN}" \
+          -Dsonar.projectKey="${SONAR_PROJECT_KEY}" \
+          -Dsonar.projectName="${CI_PROJECT_NAME}" \
+          sonarScan
+  rules:
+    - if: $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^renovate/
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      allow_failure: true
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      allow_failure: true
+    - when: on_success
+
+sonarqube-vulnerability-report:
+  image: alpine:3.23.3
+  stage: security
+  needs: ["sonarqube-analysis"]
+  before_script:
+    - apk add curl
+  script:
+    - 'curl -f -u "${SONAR_TOKEN}:" "${SONAR_HOST_URL}/api/issues/gitlab_sast_export?projectKey=${SONAR_PROJECT_KEY}&branch=${CI_COMMIT_BRANCH}&pullRequest=${CI_MERGE_REQUEST_IID}" -o gl-sast-sonar-report.json'
+  rules:
+    - if: $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^renovate/
+      when: never
+    - when: on_success
+  artifacts:
+    access: developer
+    expire_in: 1 day
+    reports:
+      sast: gl-sast-sonar-report.json
 
 #
 # Update a Salt-managed container with a new version of an image.
