@@ -259,6 +259,7 @@ deploy:qa:
   environment:
     name: qa
     url: "$PUBSERVER_URL"
+  allow_failure: true
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - when: manual
