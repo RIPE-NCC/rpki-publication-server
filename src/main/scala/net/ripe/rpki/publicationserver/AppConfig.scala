@@ -54,9 +54,8 @@ class AppConfig {
       case Success(data) => data
     }
 
-  def minimalObjectCount() = {
-    Try(getConfig.getInt("minimum.snapshot.objects.count")).map(Some(_)).getOrElse(None)
-  }
+  def minimalObjectCount(): Option[Int] =
+    if minimumSnapshotObjectsCountEnabled then Some(minimumSnapshotObjectsCount) else None;
 
   lazy val repositoryFlushInterval = FiniteDuration(
     getConfig.getDuration(
