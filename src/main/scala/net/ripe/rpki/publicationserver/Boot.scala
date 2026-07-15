@@ -64,6 +64,8 @@ class PublicationServerApp(val conf: AppConfig, https: HttpsConnectionContext, l
     val metrics = Metrics.get(registry)
     val metricsApi = new MetricsApi(registry)
 
+    logger.info(s"Minimum snapshot object threshold: ${conf.minimalObjectCount().map(String.valueOf).getOrElse("disabled")}")
+
     // Initialize repositories on FS and setup writing at a fixed interval.
     // Run it asynchronously as it can be quite long, but we want
     // to start accepting HTTP(S) connections ASAP.
