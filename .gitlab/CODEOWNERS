@@ -2,3 +2,4 @@
 .gitlab-ci.yml @bbakker @elakyte @mpuzanov @project_150_bot_fbf69f5fd5c59eeb6e2b9f18c871bbba
 Dockerfile @bbakker @elakyte @mpuzanov @project_150_bot_fbf69f5fd5c59eeb6e2b9f18c871bbba
 build.sbt @bbakker @elakyte @mpuzanov @project_150_bot_fbf69f5fd5c59eeb6e2b9f18c871bbba
+project/plugins.sbt @bbakker @elakyte @mpuzanov @project_150_bot_fbf69f5fd5c59eeb6e2b9f18c871bbba
