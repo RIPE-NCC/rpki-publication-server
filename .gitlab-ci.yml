@@ -35,7 +35,7 @@ variables:
   TERM: dumb
 
 default:
-  image: sbtscala/scala-sbt:eclipse-temurin-alpine-24.0.1_9_1.11.7_2.13.17@sha256:553bd3636dc0828d590b447fa9dbf2c7b7b0f3c47f13de6032e4e95a8858abef
+  image: sbtscala/scala-sbt:eclipse-temurin-25.0.3_9_1.12.14_2.13.18@sha256:1b56f90e451c849ed5c3605f9d8e69173bedc7188da189fe3ce17402cdfdf340
 
 # Cache per repository (not shared between forks?).
 cache: &global_cache
