@@ -137,7 +137,7 @@ release:latest:
 # - TARGET_TAG: tag used on the target host
 #
 .salt-container-deploy: &salt-container-deploy
-  image: docker-registry.ripe.net/swe/gitlab-ci/debian-deployenv@sha256:fd6791abdf1dbab45f3e59a59218eec68e9697d867e5eb47ed3e8e0595ac6643
+  image: docker-registry.ripe.net/swe/gitlab-ci/debian-deployenv@sha256:522803e8bc8744badff7a16a77c3bfdf82e21fb39054d074fcb182a42cca1286
   stage: deploy
   script:
     - if [ -z "${TARGET_CONTAINER}" ]; then echo "set TARGET_CONTAINER"; exit 2; fi
