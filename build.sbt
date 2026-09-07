@@ -114,5 +114,7 @@ sonarProperties := Map(
   "sonar.sources" -> "src/main/scala",
   "sonar.tests" -> "src/test/scala",
   "sonar.sourceEncoding" -> "UTF-8",
-  "sonar.junit.reportPaths" -> "target/test-reports"
+  "sonar.junit.reportPaths" -> "target/test-reports",
+  "sonar.scala.coverage.reportPaths" -> s"target/scala-${scalaBinaryVersion.value}/scoverage-report/scoverage.xml",
+  "sonar.scala.scoverage.reportPath" -> s"target/scala-${scalaBinaryVersion.value}/scoverage-report/scoverage.xml"
 )

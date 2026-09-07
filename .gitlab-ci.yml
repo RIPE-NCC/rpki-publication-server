@@ -74,13 +74,21 @@ build:
     - apk add --no-cache postgresql-client
     - psql -h postgres -U ${POSTGRES_USER} ${POSTGRES_DB} -c 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp";'    
   script:
-    - sbt compile test assembly    
+    # Run the instrumented tests once and reuse the results for both the
+    # junit/coverage reports and the sonarqube job, then recompile without
+    # scoverage instrumentation before assembling the shipped jar.
+    - sbt coverage test coverageReport coverageOff compile assembly
+  coverage: '/Statement coverage[A-Za-z\.*]\s*:\s*([^%]+)/'
   artifacts:
     paths:
       - target/rpki-publication-server.jar
+      - target/scala-3/scoverage-report/scoverage.xml
     reports:
       junit:
         - target/test-reports/*.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: target/scala-3/coverage-report/cobertura.xml
     expire_in: 4 weeks
 
 # All the package stages only require the test job, so whitesource scanning can
