@@ -114,6 +114,27 @@ release:latest:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - when: never
 
+sonarqube:
+  stage: security
+  needs: ["build"]
+  dependencies: ["build"]
+  variables:
+    GIT_DEPTH: 0
+  cache:
+    <<: *global_cache
+  script:
+    - sbt -Dsonar.projectKey=rpki-publication-server sonarScan
+  allow_failure: true
+  rules:
+    - if: $CI_MERGE_REQUEST_EVENT_TYPE == "merge_train"
+      when: never
+    - if: '$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^renovate/'
+      when: never
+    - if: $CI_MERGE_REQUEST_IID
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_REF_NAME == "main"
+    - if: $CI_COMMIT_REF_NAME == "next"
+
 #
 # Update a Salt-managed container with a new version of an image.
 #
