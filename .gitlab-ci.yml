@@ -122,7 +122,7 @@ release:latest:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - when: never
 
-sonarqube:
+sonarqube-analysis:
   stage: security
   needs: ["build"]
   dependencies: ["build"]
