@@ -9,7 +9,7 @@ scalaVersion := "3.9.0"
 
 scalacOptions := Seq("-unchecked", "-deprecation", "-feature", "-encoding", "utf8")
 
-resolvers += "RIPE Nexus third-party mirror" at "https://maven.nexus.ripe.net/repository/maven-third-party/"
+resolvers += "RIPE Nexus third-party mirror" at "https://maven.nexus.ripe.net/repository/maven-public/"
 
 // packaging:
 // use sbt assembly plugin and create a fat jar with a predictable name.
