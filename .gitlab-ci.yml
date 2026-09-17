@@ -131,7 +131,7 @@ sonarqube-analysis:
   cache:
     <<: *global_cache
   script:
-    - sbt -Dsonar.projectKey=rpki-publication-server sonarScan
+    - sbt -Dsonar.projectKey=${SONAR_PROJECT_KEY} sonarScan
   allow_failure: true
   rules:
     - if: $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^renovate/
