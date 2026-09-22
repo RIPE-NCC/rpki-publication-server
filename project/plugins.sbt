@@ -1,3 +1,4 @@
+
 resolvers += "RIPE Nexus third-party mirror" at "https://maven.nexus.ripe.net/repository/maven-public/"
 
 addSbtPlugin("ch.epfl.scala" % "sbt-scalafix" % "0.14.7")
