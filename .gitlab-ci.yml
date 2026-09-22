@@ -74,13 +74,21 @@ build:
     - apk add --no-cache postgresql-client
     - psql -h postgres -U ${POSTGRES_USER} ${POSTGRES_DB} -c 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp";'    
   script:
-    - sbt compile test assembly    
+    # Run the instrumented tests once and reuse the results for both the
+    # junit/coverage reports and the sonarqube job, then recompile without
+    # scoverage instrumentation before assembling the shipped jar.
+    - sbt coverage test coverageReport coverageOff compile assembly
+  coverage: '/Statement coverage[A-Za-z\.*]\s*:\s*([^%]+)/'
   artifacts:
     paths:
       - target/rpki-publication-server.jar
+      - target/scala-3/scoverage-report/scoverage.xml
     reports:
       junit:
         - target/test-reports/*.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: target/scala-3/coverage-report/cobertura.xml
     expire_in: 4 weeks
 
 # All the package stages only require the test job, so whitesource scanning can
@@ -113,6 +121,44 @@ release:latest:
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - when: never
+
+sonarqube-analysis:
+  stage: security
+  needs: ["build"]
+  dependencies: ["build"]
+  variables:
+    GIT_DEPTH: 0
+  cache:
+    <<: *global_cache
+  script:
+    - sbt -Dsonar.projectKey=${SONAR_PROJECT_KEY} sonarScan
+  allow_failure: true
+  rules:
+    - if: $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^renovate/
+      when: never
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      allow_failure: true
+    - when: on_success
+
+sonarqube-vulnerability-report:
+  image: alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
+  stage: security
+  needs: ["sonarqube-analysis"]
+  before_script:
+    - apk add curl
+  script:
+    - 'curl -f -u "${SONAR_TOKEN}:" "${SONAR_HOST_URL}/api/issues/gitlab_sast_export?projectKey=${SONAR_PROJECT_KEY}&branch=${CI_COMMIT_BRANCH}&pullRequest=${CI_MERGE_REQUEST_IID}" -o gl-sast-sonar-report.json'
+  rules:
+    - if: $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^renovate/
+      when: never
+    - when: on_success
+  artifacts:
+    access: developer
+    expire_in: 1 day
+    reports:
+      sast: gl-sast-sonar-report.json
+
+
 
 #
 # Update a Salt-managed container with a new version of an image.

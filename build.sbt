@@ -9,6 +9,8 @@ scalaVersion := "3.9.0"
 
 scalacOptions := Seq("-unchecked", "-deprecation", "-feature", "-encoding", "utf8")
 
+resolvers += "RIPE Nexus third-party mirror" at "https://maven.nexus.ripe.net/repository/maven-public/"
+
 // packaging:
 // use sbt assembly plugin and create a fat jar with a predictable name.
 mainClass in assembly := Some("net.ripe.rpki.publicationserver.Boot")
@@ -103,3 +105,18 @@ crossPaths := false
 mappings in Universal += file("src/main/scripts/rpki-publication-server.sh") -> "bin/rpki-publication-server.sh"
 mappings in Universal += file("src/main/resources/reference.conf") -> "conf/rpki-publication-server.default.conf"
 mappings in Universal += file("src/main/resources/logback.xml") -> "lib/logback.xml"
+
+import sbtsonar.SonarPlugin.autoImport.sonarProperties
+
+sonarProperties := Map(
+  "sonar.host.url" -> sys.env.getOrElse("SONAR_HOST_URL", ""),
+  "sonar.token" -> sys.env.getOrElse("SONAR_TOKEN", ""),
+  "sonar.projectKey" -> sys.props.getOrElse("sonar.projectKey", "rpki-publication-server"),
+  "sonar.projectName" -> "RPKI Publication Server",
+  "sonar.sources" -> "src/main/scala",
+  "sonar.tests" -> "src/test/scala",
+  "sonar.sourceEncoding" -> "UTF-8",
+  "sonar.junit.reportPaths" -> "target/test-reports",
+  "sonar.scala.coverage.reportPaths" -> s"target/scala-${scalaBinaryVersion.value}/scoverage-report/scoverage.xml",
+  "sonar.scala.scoverage.reportPath" -> s"target/scala-${scalaBinaryVersion.value}/scoverage-report/scoverage.xml"
+)
