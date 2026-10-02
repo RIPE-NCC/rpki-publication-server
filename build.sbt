@@ -47,7 +47,7 @@ libraryDependencies ++= {
     "com.typesafe"             %% "ssl-config-core"        % "0.7.1",    
     "org.scalatest"            %% "scalatest"              % "3.2.20"  % "test",
     "org.mockito"               % "mockito-core"           % "5.24.0"  % "test",
-    "com.fasterxml.woodstox"    % "woodstox-core"          % "7.2.2",     
+    "com.fasterxml.woodstox"    % "woodstox-core"          % "7.3.0",     
     "ch.qos.logback"            % "logback-classic"        % "1.6.4",     
     "com.softwaremill.macwire" %% "macros"                 % macwire % "provided",
     // "com.softwaremill.macwire" %% "macrosakka"             % macwire % "provided",
