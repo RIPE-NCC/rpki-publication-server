@@ -48,7 +48,7 @@ libraryDependencies ++= {
     "org.scalatest"            %% "scalatest"              % "3.2.20"  % "test",
     "org.mockito"               % "mockito-core"           % "5.24.0"  % "test",
     "com.fasterxml.woodstox"    % "woodstox-core"          % "7.3.0",     
-    "ch.qos.logback"            % "logback-classic"        % "1.6.4",     
+    "ch.qos.logback"            % "logback-classic"        % "1.6.5",     
     "com.softwaremill.macwire" %% "macros"                 % macwire % "provided",
     // "com.softwaremill.macwire" %% "macrosakka"             % macwire % "provided",
     "com.softwaremill.macwire" %% "util"                   % macwire % "provided",
