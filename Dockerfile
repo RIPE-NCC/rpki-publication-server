@@ -19,7 +19,7 @@ RUN cp docker/publication-server-docker.conf /staging/conf/
 
 # use gcr.io/distroless/java-debian10:11-debug if you want to be able to run a
 # shell in the container (e.g. `docker run -it --entrypoint sh --rm <image>`)
-FROM gcr.io/distroless/java25:bab6ba66e024be53e68c52b33d80692b39f27f8c@sha256:1382fd71a969441dd90c33f5815963810ff79846d85120760195f23fc7e220f5
+FROM gcr.io/distroless/java25-debian13:31292d2b390cefc97718f8afae60f2868edc8981@sha256:817363ac3b3efab113afa288fe4d4d0fba6daaf02e59ae8813e7573dbc556212
 LABEL org.label-schema.vcs-ref="unknown"
 
 COPY --from=build /staging/conf/ /conf/
