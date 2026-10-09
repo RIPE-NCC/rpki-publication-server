@@ -44,7 +44,7 @@ libraryDependencies ++= {
     "org.apache.pekko"         %% "pekko-actor"            % pekkoV,
     "org.apache.pekko"         %% "pekko-stream"           % pekkoV,
     // "org.apache.pekko"         %% "pekko-http2-support"    % pekkoHttp,
-    "com.typesafe"             %% "ssl-config-core"        % "0.7.1",    
+    "com.typesafe"             %% "ssl-config-core"        % "0.7.2",    
     "org.scalatest"            %% "scalatest"              % "3.2.20"  % "test",
     "org.mockito"               % "mockito-core"           % "5.24.0"  % "test",
     "com.fasterxml.woodstox"    % "woodstox-core"          % "7.3.0",     
