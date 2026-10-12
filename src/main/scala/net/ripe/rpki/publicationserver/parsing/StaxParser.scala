@@ -16,7 +16,13 @@ class StaxParser(reader: XMLStreamReader) {
 
 object StaxParser {
 
-  lazy val xmlif: XMLInputFactory2 = XMLInputFactory.newInstance().asInstanceOf[XMLInputFactory2]
+  lazy val xmlif: XMLInputFactory2 = {
+    val factory = XMLInputFactory.newInstance().asInstanceOf[XMLInputFactory2]
+    // Messages come from untrusted clients: do not process DTDs or resolve entities (XXE, entity expansion).
+    factory.setProperty(XMLInputFactory.SUPPORT_DTD, false)
+    factory.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, false)
+    factory
+  }
 
   def createFor(xmlString: String, rngString: String): StaxParser = createFor(new StringReader(xmlString), rngString)
 

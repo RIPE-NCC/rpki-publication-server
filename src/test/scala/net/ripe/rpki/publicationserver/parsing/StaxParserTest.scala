@@ -1,6 +1,7 @@
 package net.ripe.rpki.publicationserver.parsing
 
 import com.ctc.wstx.exc.WstxValidationException
+import javax.xml.stream.XMLStreamException
 import net.ripe.rpki.publicationserver.PublicationServerBaseTest
 
 class StaxParserTest extends PublicationServerBaseTest {
@@ -74,5 +75,16 @@ class StaxParserTest extends PublicationServerBaseTest {
     }
 
     thrown.getMessage should include("tag name \"foo\" is not allowed")
+  }
+
+  test("should not expand entities declared in a DOCTYPE") {
+    val xml = "<?xml version=\"1.0\"?><!DOCTYPE msg [<!ENTITY e \"expanded\">]>" +
+      "<msg xmlns=\"http://www.ripe.net/rpki/rrdp\">&e;</msg>"
+
+    val parser = StaxParser.createFor(xml, null)
+
+    intercept[XMLStreamException] {
+      while (parser.hasNext) parser.next
+    }
   }
 }
