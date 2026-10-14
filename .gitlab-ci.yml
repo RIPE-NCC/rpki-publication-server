@@ -183,7 +183,7 @@ sonarqube-vulnerability-report:
 # - TARGET_TAG: tag used on the target host
 #
 .salt-container-deploy: &salt-container-deploy
-  image: docker-registry.ripe.net/swe/gitlab-ci/debian-deployenv@sha256:313de29e7b7b9e3dd876d4e26100049d5753d887382246950f1a370bcd85c899
+  image: docker-registry.ripe.net/swe/gitlab-ci/debian-deployenv@sha256:ad7dd8e2bdb8ab2eedff93f7f69ddfac0aa58f7a3343c440fa11d5c16192bc5f
   stage: deploy
   script:
     - if [ -z "${TARGET_CONTAINER}" ]; then echo "set TARGET_CONTAINER"; exit 2; fi
