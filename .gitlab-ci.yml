@@ -96,7 +96,7 @@ build:
 docker-image:
   image: docker:29.9-cli@sha256:5e6baf67325a79f64ed3bed6863954d5e05d0f3d4e57cbdb14809346814bbfdb
   services:
-    - docker:29.9-dind@sha256:3e5756e2b6dad6a5f1f5deacf0a19f9eaa2581b76ae092b2d4a118162e1d4d4e
+    - docker:29.9-dind@sha256:9e79b879b177fbd72c34376a3dd3d91747da5db49e1f560f76aea59561471977
   stage: package
   needs: ["build"]
   before_script:
@@ -109,7 +109,7 @@ docker-image:
 release:latest:
   image: docker:29.9-cli@sha256:5e6baf67325a79f64ed3bed6863954d5e05d0f3d4e57cbdb14809346814bbfdb
   services:
-    - docker:29.9-dind@sha256:3e5756e2b6dad6a5f1f5deacf0a19f9eaa2581b76ae092b2d4a118162e1d4d4e
+    - docker:29.9-dind@sha256:9e79b879b177fbd72c34376a3dd3d91747da5db49e1f560f76aea59561471977
   stage: deploy
   needs: ["docker-image"]
   before_script:
