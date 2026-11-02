@@ -60,8 +60,8 @@ libraryDependencies ++= {
     "org.scalikejdbc"          %% "scalikejdbc"            % "4.3.5",
     "org.postgresql"            % "postgresql"             % "42.7.14",    
     "org.json4s"               %% "json4s-native"          % "4.0.7",     
-    "org.flywaydb"              % "flyway-core"            % "13.11.1",
-    "org.flywaydb"              % "flyway-database-postgresql" % "13.11.1",
+    "org.flywaydb"              % "flyway-core"            % "13.12.0",
+    "org.flywaydb"              % "flyway-database-postgresql" % "13.12.0",
     "org.scala-lang.modules"   %% "scala-parallel-collections" % "1.3.0"
   )
 }
