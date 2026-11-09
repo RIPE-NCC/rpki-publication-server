@@ -61,7 +61,7 @@ dependency-dot:
 build:
   stage: build
   services:
-    - postgres:18@sha256:6d732ddbc9cca651c7cbda3f2b84bc515c6d09de796204176c9e312ce8069c6c
+    - postgres:18@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
   variables:        
     POSTGRES_PASSWORD: postgres
     POSTGRES_USER: pubserver  
